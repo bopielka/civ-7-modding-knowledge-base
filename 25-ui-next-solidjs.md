@@ -523,3 +523,55 @@ wielokropka wiersz się rozepnie albo zawinie.
 
 Uzupełnienie: `coh-font-fit-mode` przyjmuje `fit`, `shrink` i `none` — to inny mechanizm
 (skalowanie czcionki do pudełka), nie skracanie.
+
+
+---
+
+## ⚠️ CSS grid: gra go NIE UŻYWA ANI RAZU — nie stawiaj na nim layoutu ✅
+
+```bash
+grep -rho "display:\s*grid\|grid-template-columns" --include=*.css --include=*.js Base/
+# zero trafień w całej grze
+```
+
+Nic nie mówi, że ten renderer implementuje grid. Skoro Firaxis nie użył go nigdzie —
+a w wielu miejscach grid byłby oczywistym wyborem — zakładamy, że go nie ma. Wszystko
+robimy flexboxem.
+
+### Wyrównanie kolumn liczb bez grida: rząd KOLUMN, nie kolumna rzędów
+
+Problem: dwa wiersze liczb, w każdym kilka pozycji, mają mieć plusy jeden pod drugim.
+
+```
+Jeden:      +18 🪙  +18 🌿
+Wszystkie:  +144 🪙 +144 🌿      ← druga pozycja startuje tam, gdzie skończyła pierwsza
+```
+
+Ułożone **wierszami** nie da się tego wyrównać: szerokość drugiej pozycji zależy od tego,
+ile miejsca zajęła pierwsza, więc `+18` nad `+144` rozjeżdża wszystko dalej. Ani
+`justify-content`, ani `text-align` tego nie ruszą.
+
+**Rozwiązanie: odwrócić zagnieżdżenie.** Zamiast dwóch wierszy po N pozycji — **N+1 kolumn
+po 2 komórki**:
+
+```
+[etykiety]   [pozycja 1]   [pozycja 2]
+ Jeden:       +18 🪙        +18 🌿
+ Wszystkie:   +144 🪙       +144 🌿
+```
+
+```css
+.figures      { display: flex; flex-direction: row; align-self: center; }
+.figures-col  { display: flex; flex-direction: column; flex: 0 0 auto; }
+.figures-col + .figures-col { margin-left: 0.9rem; }
+```
+
+Każda kolumna jest szeroka na swoją najszerszą komórkę, obie komórki startują przy jej
+lewej krawędzi — **wyrównanie wychodzi z konstrukcji**, bez mierzenia i bez zgadywanych
+szerokości. Nie trzeba tego stroić, gdy premia urośnie do czterech cyfr.
+
+`align-self: center` na kontenerze daje przy okazji „blok wyśrodkowany, tekst w środku do
+lewej" — w kolumnowym kontenerze flex to zwęża element do zawartości i centruje.
+
+⚠️ Klasy modyfikujące wygląd („ten wiersz jest przygaszony", „ten jest pogrubiony")
+przenoszą się z wiersza na **każdą komórkę** — wiersz przestaje istnieć jako element.

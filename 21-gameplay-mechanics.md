@@ -132,3 +132,48 @@ Miasta mają HP i siłę murów, modyfikowalne przez cechy i budynki
 4. **Bonusy przyległości podpinaj do budynków**, nie do dystryktów
 5. **Rozważ Ageless** dla unikalnej infrastruktury, która ma przetrwać epokę
 6. Unikalna dzielnica to ciekawy, tani projektowo pomysł — para budynków + modyfikator
+
+
+---
+
+## Nie ma zdarzenia „gracz zdobył zasób" ❗✅
+
+Sprawdzone po nazwach zdarzeń w `Base/modules/`. Wszystko, co istnieje z „Resource"
+w nazwie:
+
+```
+ResourceAddedToMap      zasób pojawił się NA MAPIE (nie w twoich rękach)
+ResourceRemovedFromMap
+ResourceAssigned        przypisanie — leci dla KAŻDEGO gracza
+ResourceUnassigned
+ResourceCapChanged
+```
+
+Żadne z nich nie znaczy „lokalny gracz właśnie zdobył zasób". Trzeba nasłuchiwać tanich
+zdarzeń pośrednich (`ConstructibleBuildCompleted`, `TradeRouteAddedToMap`,
+`TradeRouteChanged`, `ResourceCapChanged`, `LocalPlayerTurnBegin`) i za każdym razem
+porównywać zbiór `player.Resources.getResources()` z poprzednim.
+
+### ⚠️ Zdarzenie leci ZANIM zasób jest w rękach gracza
+
+`ConstructibleBuildCompleted` mówi „ulepszenie skończone", a zasób pojawia się
+w `getResources()` chwilę później. Pojedyncze sprawdzenie z debounce 400 ms **nie
+łapie go**. Objaw u gracza: ulepszył pole, wszedł od razu na ekran, nic się nie stało —
+bo następne zdarzenie to dopiero `LocalPlayerTurnBegin`, czyli następna tura.
+
+Lekarstwo: po sprawdzeniu, które nic nie znalazło, dorzucić kilka opóźnionych powtórek
+(600 / 1500 / 3000 ms). **Powtórka nie może zbroić kolejnych powtórek** — trzy zrobiłyby
+się dziewięć, a dziewięć dwadzieścia siedem.
+
+### ⚠️ Nie aktualizuj „co już znam" przed wykonaniem pracy
+
+```js
+known = current;              // ŹLE, jeśli praca poniżej może się nie udać
+if (fresh.size === 0) return;
+await placeResources(...);
+```
+
+Pass, który nic nie przypisał, i tak połknął przybycie zasobu — następne zdarzenie
+zobaczy, że nic nowego nie ma, i nic nie zrobi. Jedno źle wstrzelone zdarzenie kosztuje
+gracza całą funkcję do następnego zdobycia zasobu. Aktualizować **po** i tylko gdy coś
+faktycznie wylądowało.

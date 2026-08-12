@@ -1055,6 +1055,32 @@ zasobów występują cztery:
 Policzone jak `ALL_CITIES` dają wynik przemnożony przez wielkość imperium.
 Kolumna to `GameInfo.Modifiers[].CollectionType`.
 
+### ⚠️ `Locale.stylize` WYCINA HTML — tooltip to tekst, nie markup HTML ❗✅
+
+Kuszące jest wstawienie do tooltipa własnych elementów, bo renderer robi dosłownie:
+
+```js
+this.textElement.innerHTML = Locale.stylize(content);   // tooltip-controller.js
+```
+
+**Nie działa.** `Locale.stylize` to translator znaczników GRY, nie przepustka — `<div>`
+i `<span>` **znikają razem ze swoimi łamaniami linii**, a cała lista zlewa się w jeden
+akapit. Sprawdzone na żywo: „Pochodzenie:Yi Sun-sin: 72x Abalasa1x Gongju1x Komarewski…".
+
+Co działa:
+
+| chcesz | użyj |
+|---|---|
+| pogrubienie | `[B]…[/B]` (gra używa go ~950 razy) |
+| nowa linia | zwykłe `
+` **plus** `white-space: pre-wrap` na `#tooltip-root-content > div` |
+| ikona | `[icon:YIELD_GOLD]`, `[icon:ECONOMIC_VP]` |
+| wcięcie | spacje albo `	` |
+
+Czyli „karta na lidera" w tooltipie robi się tak: `[B]Nazwa: suma[/B]`, pod spodem wcięte
+wiersze, pusta linia między blokami. Ramki, tła i zaokrągleń **nie da się** — do tego
+trzeba by własnego komponentu tooltipa zamiast `data-tooltip-content`.
+
 ### Tekst tooltipa ląduje w `#tooltip-root-content` ❗✅
 
 `tooltip-manager.js` przekazuje kontrolerowi dwa elementy z `root-game.html`:
