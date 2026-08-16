@@ -91,6 +91,19 @@ Wzorzec skryptu (działający przykład: `mod-projects/najane-common-specialists
   faktycznie istnieje w celu. Wyłapuje literówki w ścieżkach, zanim zrobi to gra.
 - **dodaj `--dry`** — pokazuje, co zostanie skopiowane, bez zmian.
 
+⚠️ **Pliki generowane przez deploy + drugi skrypt na inną platformę = cicha awaria.**
+Jeśli deploy generuje plik, którego nie ma w git (np. `ui/support/build-stamp.js` w
+`better-commerce-screen-ui`, ignorowany w `.gitignore`), a moduł wejściowy moda go
+importuje, to **każdy** skrypt deploy musi go zapisywać. Wystarczy dodać krok tylko do
+`deploy-on-mac.sh` i zapomnieć o `deploy.sh` — po `git pull` na drugim komputerze deploy
+kończy się sukcesem, a mod nie ładuje się w ogóle, bo `import` wskazuje na nieistniejący
+plik. Nic tego nie wyłapie: weryfikacja `.modinfo` sprawdza tylko pliki wymienione w
+`.modinfo`, a ten się tam nie pojawia. Skrypty na różne platformy powinny różnić się
+**wyłącznie ścieżką docelową** — resztę trzymaj identyczną i sprawdzaj `diff`.
+
+ℹ️ CRLF w `.sh` nie jest problemem — mimo `core.autocrlf=true` Git Bash na Windows
+uruchamia skrypty z CRLF bez błędu (sprawdzone: pełny deploy, exit 0).
+
 ## Pętla pracy
 
 ```
