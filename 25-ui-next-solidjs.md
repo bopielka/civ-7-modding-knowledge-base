@@ -575,3 +575,115 @@ lewej" — w kolumnowym kontenerze flex to zwęża element do zawartości i cent
 
 ⚠️ Klasy modyfikujące wygląd („ten wiersz jest przygaszony", „ten jest pogrubiony")
 przenoszą się z wiersza na **każdą komórkę** — wiersz przestaje istnieć jako element.
+
+---
+
+## ✅ Budowanie ładnych tooltipów — klocki gry zamiast gołego boksu
+
+`data-tooltip-content` daje **surowy prostokąt z tekstem**. To, co gra pokazuje przy zasobach
+(nagłówek klasy z ikoną, zasób w ramce, nazwa, opis) to **komponent Solid**, nie atrybut —
+`base-standard/ui-next/tooltips/resource-tooltip.jsx`. Owija swój wyzwalacz w `<Tooltip.Trigger>`,
+więc **nie da się o niego poprosić z poziomu DOM-u**: trzeba mu oddać element i wstawić w jego
+miejsce to, co zwróci.
+
+### ⭐ Skrót, który oszczędza godziny
+
+**Znajdź ekran gry, który rysuje to, czego chcesz, i przeczytaj, po jakie komponenty sięga.**
+Cały zestaw poniżej wyszedł z jednego pliku — `commerce-screen-empire-tab.jsx` — bo tam gra
+rysuje dokładnie te dane (zasoby + twarze liderów), których potrzebowałem.
+
+### Klocki i ich propsy ✅
+
+| Komponent | Import | Propsy |
+|---|---|---|
+| `Tooltip` + `.Trigger` `.Content` `.Frame` `.Text` | `#core/ui-next/components/tooltip.jsx` | `showFiligrees` — `false` daje prosty styl narożników |
+| `CardFrame` | `#core/ui-next/components/card-frame.jsx` | dokłada klasę `card-frame-bg` |
+| `PortraitIcon` | `#core/ui-next/components/portrait-icon.jsx` | `{ playerId, size }` — twarz lidera w jego barwach |
+| `FramedResource` | `#base/ui-next/components/framed-resource.jsx` | `{ size, ...resourceProps }` |
+| `Icon` | `#core/ui-next/components/icon.jsx` | `{ name, isUrl }` — `name` to `url(blp:…)`, gdy `isUrl` |
+| `Divider.Vertical` / `.Horizontal` | `#core/ui-next/components/divider.jsx` | `{ margin }`, `{ useGradient }` |
+| `L10n.Compose` | `#core/ui-next/components/l10n.jsx` | `{ text, args }` — lokalizuje klucz |
+| `L10n.Stylize` | to samo | lokalizuje **i** interpretuje `[B]`, `[N]`, `[STYLE:…]` |
+| `OrnateCard`, `FiligreeTitle.Plain`, `Activatable`, `ScrollArea` | `#core/ui-next/components/…` | reszta „ozdobnego" zestawu |
+
+### ⚠️ Pułapki
+
+1. **`resourceType` w propsach zasobu to KLUCZ LOKALIZACYJNY**, nie typ zasobu. Tooltip składa go
+   przez `LOC_RESOURCECLASS_TOOLTIP_NAME`. Buduje się to jako `LOC_${ResourceClassType}_NAME`.
+2. **Ikony to napisy `url(blp:…)`**, nie ścieżki: `url(blp:${UI.getIconBLP(type)})`.
+3. **`getResourcePropsFromDefinition` nie jest eksportowane** — trzeba je przepisać z
+   `commerce-screen-model.ts`.
+4. **Komponent trzeba tworzyć pod właścicielem Solid** (np. w `onMount` komponentu). Wywołany poza
+   nim wycieka swój zakres reaktywny.
+5. **Bez kroku budowania nie ma JSX** — pisz w postaci skompilowanej: `createComponent(Comp, {...,
+   get children() { return … } })`. Getter jest istotny: zwykła wartość zostanie odczytana raz.
+6. ⚠️⚠️ **Zagnieżdżony komponent twórz WEWNĄTRZ gettera `children` rodzica, nigdy wcześniej do
+   zmiennej.** To nie jest kosmetyka — dokładnie to robi JSX:
+
+   ```js
+   // ŹLE — Frame powstaje POZA kontekstem Tooltipa
+   const frame = createComponent(Tooltip.Frame, {...});
+   createComponent(Tooltip.Content, { get children() { return frame; } });
+
+   // DOBRZE — tak kompiluje się <Tooltip.Content><Tooltip.Frame/></Tooltip.Content>
+   createComponent(Tooltip.Content, {
+       get children() { return createComponent(Tooltip.Frame, {...}); },
+   });
+   ```
+
+   Objaw pierwszej wersji: **tooltip rysuje się dwa razy** i dwie kopie jadą za kursorem —
+   ramka montuje się samodzielnie *oraz* przez `Content`. Nic nie loguje błędu, więc bez tej
+   wiedzy szuka się przyczyny w CSS albo w starym `data-tooltip-content`.
+7. ⚠️⚠️ **Mieszając z gołym DOM-em używaj `insert()`, NIE `appendChild()`.** Komponent Solid nie
+   zwraca węzła — zwraca **reaktywny getter** (albo tablicę, albo tekst). `appendChild` wywala się
+   na tym:
+
+   ```
+   TypeError: Arguments[0] expect type : Node
+   ```
+
+   ```js
+   import { insert } from '/core/vendor/solid-js/web/dist/web.js';
+
+   const box = document.createElement('div');
+   insert(box, createComponent(L10n.Stylize, { text: '…' }));   // dobrze
+   box.appendChild(createComponent(L10n.Stylize, { text: '…' })); // wywali się
+   ```
+
+   `insert` to dokładnie to, czego JSX używa pod spodem dla `{wyrażenia}` — obsługuje węzły,
+   tablice, funkcje i prymitywy, i podłącza reaktywność. Zwykłe `element.appendChild(innyElement)`
+   dla gołego DOM-u nadal jest w porządku.
+8. ⚠️ **Zawsze zostaw awaryjny tooltip tekstowy.** Sięgasz po komponent, którego gra nie pisała pod
+   użycie z zewnątrz; patch, który go przeniesie, zostawi element **bez żadnego tooltipa** — gorzej
+   niż goły boks, od którego się zaczęło.
+
+Działający przykład (nagłówek klasy + karta zasobu + karta na lidera z jego twarzą i osadami):
+`better-commerce-screen-ui/ui/screen/resource-tooltip.js`.
+
+
+## ⚠️ DOM gry to Coherent, nie przeglądarka — brakuje wygodnych metod ✅
+
+Silnik UI Civ VII to **Coherent GT**, nie Chromium. Wygląda jak DOM i w większości działa jak
+DOM, ale **nie ma metod z interfejsu `ChildNode`/`ParentNode`**, do których człowiek sięga
+odruchowo:
+
+```js
+node.replaceWith(other);   // TypeError: replaceWith is not a function
+node.remove();             // ⚠️ akurat to działa — mod używa go od dawna
+node.isConnected           // nie polegaj; sprawdzaj node.parentNode
+```
+
+Zamiast tego klasyka sprzed lat:
+
+```js
+node.parentNode.replaceChild(other, node);
+node.parentNode.insertBefore(other, node);
+```
+
+Objaw jest podstępny, bo **kod się ładuje i nic nie krzyczy** — wyjątek leci dopiero przy
+wywołaniu, więc funkcja po prostu „nic nie robi". U mnie licznik PKB nie odświeżał się przy
+każdym przypisaniu i wyglądało to na błąd w nasłuchu zdarzeń; dopiero `warn` w bloku `catch`
+pokazał `replaceWith is not a function`.
+
+**Wniosek:** owijaj takie operacje w `try/catch` z `warn` od razu, a nie dopiero gdy coś nie
+działa — inaczej szukasz przyczyny w zupełnie innym miejscu.

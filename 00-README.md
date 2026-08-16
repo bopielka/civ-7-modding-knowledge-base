@@ -55,6 +55,7 @@ nie traktowały domysłów jak faktów:
 - [04-ages-and-civilizations.md](04-ages-and-civilizations.md) — epoki, cywilizacje, tradycje, drzewa rozwoju
 - [05-ui-javascript.md](05-ui-javascript.md) — architektura UI (**stary** framework `ui/`), Controls, dekoratory, zdarzenia
 - [25-ui-next-solidjs.md](25-ui-next-solidjs.md) — ⚠️ **drugi framework UI: `ui-next` na Solid.js**;
+  zawiera też ✅ **jak budować ładne tooltipy** z komponentów gry zamiast gołego `data-tooltip-content`;
   nowe ekrany są tam i `Controls.decorate` ich nie dotyka
 
 **Cookbooki (przepisy krok po kroku)**
@@ -80,6 +81,9 @@ nie traktowały domysłów jak faktów:
   czyli `screen-resource-allocation` napisany w `ui-next`
 
 **Materiał referencyjny**
+- [27-resources.md](27-resources.md) — ⚠️ **co daje który zasób i pod jakim warunkiem**, per epoka;
+  wzorzec „bonus rozgałęziony" (ryby z portem 8 / bez portu 4) i dlaczego łamie naiwne
+  pytanie „czy warunek jest spełniony"
 - [15-schema-reference.md](15-schema-reference.md) — kolumny najważniejszych tabel
 - [16-ui-source-reference.md](16-ui-source-reference.md) — jak czytać źródła UI gry (TypeScript!)
 - [17-advanced-and-undocumented.md](17-advanced-and-undocumented.md) — rzeczy nieudokumentowane
