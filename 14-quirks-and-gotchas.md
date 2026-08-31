@@ -735,7 +735,7 @@ function seedWithRetries(attemptsLeft) {
 Zostaw też ścieżkę awaryjną w obsłudze zdarzenia (gdyby ponowienia się wyczerpały), ale
 **zaloguj ją jako ostrzeżenie** — to znaczy, że założenie o starcie nie wyszło.
 
-## 50. Trwały stan moda: `UI.setOption` z LICZBĄ, nie `localStorage` ✅
+## 50. Trwały stan moda: `UI.setOption` z LICZBĄ, nie `localStorage` ✅ ❗ **PATRZ KOREKTA NA KOŃCU WPISU**
 
 **2026-08-10.** Zapis własnego stanu moda (np. wyboru per miasto) wyłącznie do
 `localStorage` **nie przetrwał przeładowania gry**. Kanałem, który działa, jest ten sam,
@@ -765,6 +765,67 @@ a niepowiązane gry nie mieszają się ze sobą.
 
 Do zapisu gry (`AffectsSavedGames`) **nie** trzeba przy tym sięgać — i nie należy, jeśli
 mod deklaruje `0`.
+
+### UZUPEŁNIENIE 2026-08-26: jest drugi kanał — `Catalog`, i przyjmuje STRINGI ✅
+
+Powyższe zostaje w mocy dla **opcji moda**. Ale do stanu *strukturalnego, per partia,
+per miasto* jest lepsze narzędzie, którego wcześniej nie znaliśmy:
+`Catalog` / `SerialObject` z `/core/ui/utilities/utility-serialize.js` — patrz
+[17-advanced-and-undocumented.md](17-advanced-and-undocumented.md).
+
+| | `UI.setOption` | `Catalog` |
+|---|---|---|
+| typ wartości | ❗ **tylko liczba** | ✅ **string albo liczba** |
+| zakres | użytkownik (globalny) — partię trzeba kluczować przez `gameSeed` | ✅ gracz w tej partii, z natury |
+| przeżywa restart gry | ✅ | ✅ |
+| zapis | natychmiastowy + `saveCheckpoint()` | ⚠️ **kolejkowany**, commit przez zdarzenie |
+| dotyka zapisu gry | nie | ⚠️ **tak** (`player.Tutorial.setProperty`) |
+
+⚠️ To ostatnie to realny kompromis, nie formalność: `Catalog` z `player` zapisuje **dynamiczne
+właściwości gracza do save'a**. Sam mod nadal nie zmienia zasad i `AffectsSavedGames = 0` jest
+uczciwe, ale „nie zmienia mechaniki" i „nic nie pisze do save'a" to **dwa różne zdania** i tylko
+pierwsze jest wtedy prawdziwe. Save wczytany bez moda po prostu niesie nieodczytywane
+właściwości. ❓ Nieprzetestowane w praktyce.
+
+Wybór: **opcje → `UI.setOption`; stan per miasto/per partia → `Catalog`.**
+
+### ❗❗ KOREKTA 2026-08-27 — zmierzone na dysku, wychodzi ODWROTNIE
+
+Powyższe zostało napisane 2026-08-10 na podstawie obserwacji „ustawienie nie przeżyło
+przeładowania". Sprawdzenie plików użytkownika pokazuje coś innego. **Nie usuwam oryginalnego
+wpisu — poniżej jest to, co da się zweryfikować.**
+
+**Gdzie co naprawdę mieszka** ✅:
+
+| Kanał | Na dysku |
+|---|---|
+| `localStorage` | `%LOCALAPPDATA%\Firaxis Games\Sid Meier's Civilization VII\LocalStorage.sqlite`, tabela `Values(id, key, value)`, `id = 'fs://game'` |
+| `UI.setOption('user', 'Mod', …)` | ❗ **nigdzie nie do znalezienia** |
+
+1. ✅ **`localStorage` PRZEŻYWA restart gry.** `LocalStorage.sqlite` istnieje i trzyma wpisy
+   z poprzednich sesji — m.in. `najane-commerce-merchant-orders` z kluczem po ziarnie partii.
+2. ❗ **`UI.setOption('user','Mod',…)` nie zostawia śladu na dysku.** `UserOptions.txt` ma sekcje
+   `[Accessibility]`, `[Gameplay]`, `[Interface]`… i **żadnej sekcji `[Mod]`**. Przeszukanie
+   wszystkich `.txt`, `.json` i `.sqlite` w folderze użytkownika za konkretnym kluczem moda
+   trafia **wyłącznie w `LocalStorage.sqlite`** — mimo że kod wołał `UI.setOption`
+   **i** `Configuration.getUser().saveCheckpoint()`.
+3. ❗ **`UI.getOption` zwróciło null przy każdym odczycie w sesji z 2026-08-27.** `UI.log`, mod
+   `bz-map-trix` (używa współdzielonego `ModOptionsSingleton` z City Hall):
+   ```
+   LOAD bz-map-trix.commanders=undefined (stored)
+   LOAD bz-map-trix.commanders=2 (default)
+   ```
+   Ten kod loguje `(saved)`, gdy `UI.getOption` coś zwróci, a `(stored)`, gdy schodzi do
+   `localStorage`. **`(saved)` — zero wystąpień. `(stored)` — trzy, wszystkie `undefined`.**
+
+⚠️ **Zastrzeżenie:** te trzy odczyty są w zakresie **shell**, na starcie gry, a log miał 30 linii.
+To mocna poszlaka, nie dowód. ❓ **Do rozstrzygnięcia testem w grze** — procedura w
+`mod-projects/better-city-ui/documentation/07-feature-specs.md`, sekcja o feature 4.
+
+**Praktyczny wniosek na dziś:** pisz **oboma** kanałami, jak robi to
+`better-commerce-screen-ui` — ale nie zakładaj, że `UI.setOption` cokolwiek utrwala, i czytaj
+`localStorage` jako równorzędny, nie „zapasowy". I przeczytaj #62 poniżej, zanim uznasz
+`localStorage` za bezpieczny.
 
 ## 51. Wstrzyknięty element w drzewie Solid znika — potrzebny stały stróż ❗✅
 
@@ -1134,3 +1195,456 @@ każde wywołanie ma pokrycie. To ta sama kontrola, która przy przebudowie stru
 
 ⚠️ Kontrola składni **nie zastępuje** tego sprawdzenia. Wykrywa zepsuty plik, nie zepsuty
 moduł.
+
+---
+
+## 59. `sendRequest` KOLEJKUJE — `canStart` zaraz po nim kłamie ❗✅
+
+**Data: 2026-08-18.** Objaw: klikasz przycisk, mod przerysowuje UI, i **wszystko wygląda
+identycznie** — te same liczby, ten sam aktywny przycisk. Wygląda jak „przerysowanie nie
+działa", a przerysowanie działa doskonale; po prostu wierne odmalowanie **starego stanu**.
+
+```js
+Game.PlayerOperations.sendRequest(playerId, opType, args);   // ← tylko KOLEJKUJE
+Game.PlayerOperations.canStart(playerId, opType, args, false); // ← nadal Success: true
+```
+
+`sendRequest` **nie wykonuje** operacji — wrzuca ją do kolejki game core'a. Przez klatkę lub
+dwie `canStart`, koszty, limity i wszystko inne odczytane z silnika opisują stan **sprzed**
+żądania. Przerysowanie w `requestAnimationFrame` mieści się w tym oknie.
+
+### ✅ Dwa przebiegi, nie jeden
+
+1. **Natychmiast** — odmaluj to, co wiesz po swojej stronie (np. „propozycja jest w locie,
+   więc przycisk ma zgasnąć"). To jest prawdą od razu i daje graczowi reakcję na klik.
+2. **Po `GameCoreEventPlaybackComplete`** — dopiero wtedy silnik zna nowy stan. To jest
+   **własny wzorzec gry**: `panel-diplomacy-actions.js` na `DiplomacyEventEnded` /
+   `DiplomacyQueueChanged` **nie odświeża**, tylko ustawia flagę `needsRefresh`, a faktyczne
+   `checkRefesh()` woła z `GameCoreEventPlaybackComplete`.
+
+⚠️ To zdarzenie leci **bardzo często** i o wszystkim — nasłuchuj z flagą uzbrajaną przy
+kliknięciu, żeby poza tym oknem kosztowało jeden `if`.
+
+⚠️ Pamiętanie odpowiedzi po swojej stronie **to nie zgadywanie reguł**, dopóki odtwarzasz
+odpowiedź, którą silnik i tak da za chwilę, i podajesz **jego własny** klucz powodu (u nas
+`LOC_DIPLOMACY_ACTION_FAILURE_DUPLICATE_PROJECT`, przez tę samą tabelę podmian). Inaczej
+gracz zobaczy dwa różne zdania o jednej sytuacji.
+
+⚠️ Trzeba wiedzieć, **kiedy o tym zapomnieć**. U nas akcja dyplomatyczna ma `BaseDuration="0"`,
+czyli rozstrzyga się na koniec tury, w której ją złożono — więc pamięć czyści
+`LocalPlayerTurnBegin`. Odmowa też zwalnia akcję i też dzieje się na granicy tury.
+
+## 60. `Controls.decorate` woła fabrykę NA KAŻDĄ INSTANCJĘ — patch prototypu potrzebuje blokady ❗✅
+
+**Ustalone 2026-08-26** przy analizie `bz-city-hall` (ekran miasta, patrz [28](28-city-screen.md)).
+
+Naturalne miejsce na patch prototypu to konstruktor dekoratora — i to jest pułapka. Panele
+miasta (`panel-city-details`, `panel-production-chooser`) **powstają i giną przy każdym
+otwarciu osady**, a `Controls.decorate` woła swoją fabrykę raz na instancję. Bez blokady
+prototyp jest opakowywany na nowo przy każdym otwarciu i łańcuch opakowań rośnie bez końca.
+
+Objaw jest paskudny, bo **nie pojawia się od razu**: po kilkunastu minutach gry ta sama metoda
+wykonuje się kilkadziesiąt razy na wywołanie i gra zaczyna się krztusić. W logach nic.
+
+✅ Wzorzec z City Hall — statyczne pole jako blokada, plus most z prototypu do instancji
+dekoratora:
+
+```js
+class mojDekorator {
+    static c = null;
+    constructor(component) {
+        this.component = component;
+        component.mojMod = this;            // most: metoda prototypu sięgnie po dekorator
+        this.patchPrototype(Object.getPrototypeOf(component));
+    }
+    patchPrototype(proto) {
+        if (mojDekorator.c) return;         // ← bez tego łańcuch rośnie
+        const c = mojDekorator.c = { proto };
+        c.update = proto.update;
+        proto.update = function(...args) {
+            const r = c.update.apply(this, args);
+            this.mojMod.afterUpdate(...args);
+            return r;
+        }
+    }
+}
+```
+
+⚠️ Nazwij most unikalnie (`mojMod`, nie `component.mod`) — City Hall zajmuje `bzCityHall`.
+
+## 61. Dwa mody podmieniające ten sam plik gry: jeden przegrywa BEZ ŚLADU ❗✅
+
+**Ustalone 2026-08-26.** Rozwinięcie [#10](#10-importfiles-nadpisuje-pliki-gry-po-ścieżce-).
+
+`ImportFiles` z plikiem pod ścieżką pliku gry podmienia go dla wszystkich konsumentów. Gdy
+robią to **dwa mody naraz**, wygrywa jedna kopia, a zmiany drugiej po prostu nie istnieją —
+**żadnego błędu w `Modding.log`, `Database.log` ani `UI.log`**. Mod się ładuje, jest na liście
+włączonych, jego skrypty się wykonują i nic nie robią.
+
+✅ Dlatego autorzy dojrzałych modów wsadzają ryzykowną część w **osobną grupę akcji** z
+`<Criteria>`, która gasi ją przy wykrytym konkurencie:
+
+```xml
+<Criteria id="production-ok">
+    <ModInUse inverse="1">compact-production</ModInUse>
+    <ModInUse inverse="1">drongos-compact-production</ModInUse>
+</Criteria>
+```
+
+⚠️ `<ModInUse>` porównuje **id moda z jego własnego `.modinfo`** — nie nazwę folderu, nie nazwę
+wyświetlaną.
+
+⚠️ Podmiana zamraża plik na wersji gry, z której go skopiowano — patch Firaxis nie dotrze do
+gracza, dopóki autor nie skopiuje pliku ponownie. `bz-city-hall` niesie tak **1441-liniową kopię**
+`panel-production-chooser.js` z 16-liniowym diffem.
+
+**Wniosek dla własnych modów:** jeżeli podmiana ma służyć tylko przestawieniu importu albo
+dopisaniu atrybutów `data-*` — i tak jej unikaj, a jeśli musisz, zamknij ją we własnej grupie
+akcji z kryterium. Do wszystkiego innego wystarczy dekorator albo patch prototypu.
+
+## 62. City Hall KASUJE cały `localStorage` — wszystkim modom ❗✅
+
+**Ustalone 2026-08-27** przez czytanie `bz-city-hall/ui/options/mod-options.js`. Ten sam plik
+jest współdzielony przez mody autora (`bz-city-hall`, `bz-map-trix`, `bz-…`).
+
+```js
+save(modID, optionID, value) {
+    UI.setOption("user", "Mod", optionName, value);
+    Configuration.getUser().saveCheckpoint();
+    if (localStorage.length > 1) {
+        console.warn(`ModOptions: erasing storage (${localStorage.length} items)`);
+        localStorage.clear();                                    // ❗ WSZYSTKO, każdego moda
+    }
+    const storage = localStorage.getItem("modSettings") || "{}";  // → "{}" po clear()
+    const options = JSON.parse(storage);
+    options[modID] ??= {};
+    options[modID][optionID] = value;
+    localStorage.setItem("modSettings", JSON.stringify(options)); // tylko ta jedna wartość
+}
+```
+
+**Każda zmiana opcji w City Hall**, gdy w `localStorage` jest więcej niż jeden klucz,
+**kasuje dane wszystkich modów** — i **własne pozostałe opcje City Hall też**, bo po `clear()`
+odbudowuje `modSettings` od pustego obiektu.
+
+`localStorage` w Civ VII jest **wspólny dla wszystkich modów** (jedno źródło `fs://game`
+w `LocalStorage.sqlite`), więc `clear()` jednego moda dosięga każdego innego.
+
+⚠️ **To najprawdopodobniej wyjaśnia obserwację z #50** („localStorage nie przeżył przeładowania"):
+nie przeżył, bo ktoś go wyczyścił — nie dlatego, że nie jest trwały.
+
+⚠️ **Obserwacja bez wyjaśnienia:** na tej maszynie wiersz pod kluczem
+`najane-commerce-merchant-orders` zawiera, oprócz własnych danych, ustawienia
+`repair-shop-plus`, `drongos-cheat-panel`, `f1rstdan-cool-ui`, `better-commerce-screen-ui`
+i `najane-common-specialists-yields` — w **starszej migawce** (tura 55) niż ta w `modSettings`
+(tura 97). Czyli zawartość jednego klucza wylądowała pod innym. ❓ Mechanizm nieustalony:
+albo shim `localStorage` podał wartość spod złego klucza, albo dwa zapisy się ścigają.
+**Nie trać czasu na debugowanie własnego moda, zanim tego nie wykluczysz.**
+
+**Co z tym robić we własnym modzie:**
+- trzymaj dane pod **własnym kluczem**, nigdy w `modSettings` — to ten, który City Hall
+  odbudowuje od zera;
+- ⚠️ i tak licz się z tym, że `clear()` go zabierze. Projektuj tak, żeby utrata danych
+  oznaczała „ustawienie wróciło do domyślnego", a nie zepsuty stan;
+- **nigdy nie wołaj `localStorage.clear()`** we własnym kodzie.
+
+## 63. `getCityYieldDetails` KASUJE cale drzewo dochodu przez jeden nieopisany krok ❗✅
+
+**Ustalone 2026-08-27** na wlasnym modzie: tooltip rozbicia dochodow dzialal dla zlota
+i produkcji, a dla **zywnosci i wplywow pokazywal sam tytul**, bez ani jednego wiersza.
+
+Przyczyna jest w `base-standard/ui/utilities/utilities-city-yields.js`, w funkcji
+`removeBlankChildren`, ktorej wlasny komentarz Firaxis brzmi:
+
+> 'Blank' nodes are nodes without a label or icon to convey what exactly they mean.
+> To provide concise information, nodes with blank children have **_all_** their children removed.
+> To prevent situations where this is too deep a cut, these nodes should be correctly labeled in GameCore.
+
+```js
+removeBlankChildren(root) {
+    for (const data of root.childData) {
+        if (!data.label && !data.showIcon) { root.childData = []; }   // <- CALA lista
+    }
+    ...
+}
+```
+
+❗ **Jeden krok bez etykiety gdziekolwiek pod dochodem kasuje cale jego drzewo.** Nie tylko ten
+krok — wszystkie rodzenstwo razem z nim. Gra sama przyznaje, ze to "too deep a cut".
+
+✅ **Obejscie: druga sciezka.** Gra buduje to samo drzewo dwa razy, innym kodem:
+
+| Zrodlo | Przycina? | Ksztalt |
+|---|---|---|
+| `CityYields.getCityYieldDetails(cityID)` | ❗ tak, `removeBlankChildren` | `{label, value, valueNum, valueType, type, isNegative, isModifier, childData[]}` |
+| `CityDetails.yields` (`ui/city-details/model-city-details.js`) | ✅ nie | `{name, value, icon, iconContext, children[]}` |
+
+`CityDetails` chodzi po sciezkach `CityYieldNodes` i nie ma zadnego takiego czyszczenia — to
+ono zasila zakladke Dochody w szczegolach miasta. Bierz `CityYields` jako podstawe, a gdy wroci
+puste drzewo dla dochodu, ktory nie jest zerem, podmien dzieci na te z `CityDetails`.
+
+⚠️ Po takiej podmianie **trzeba samemu wyrzucic wezly bez etykiety** (i podniesc ich dzieci
+poziom wyzej) — bo to wlasnie one sa powodem, dla ktorego pierwsza sciezka je skasowala.
+Inaczej dostaniesz puste wiersze: okno rosnie, tekstu nie ma.
+
+⚠️ I wyrzuc powtorzenia. Silnik opisuje jeden budynek trzema wezlami — sam budynek,
+"Podstawa" o tej samej wartosci i mnoznik `x 1,0` o tej samej nazwie — czyli trzy wiersze na
+jedna informacje. Mnoznik rowny 1 nic nie zmienia z definicji, a jedyne dziecko niosace liczbe
+rodzica **jest** rodzicem.
+
+⚠️ Zasoby w zaopatrzeniu przychodza jako **jeden wezel na zasob, wszystkie z tym samym opisem** —
+bez scalenia rodzenstwa o identycznej etykiecie czytelnik widzi "Zasoby w zaopatrzeniu +7"
+bezposrednio nad "Zasoby w zaopatrzeniu +4" i nie ma jak zgadnac, o co chodzi.
+
+
+## 64. Budynku, ktory wlasnie budujesz, NIE MA na liscie produkcji ❗✅
+
+`GetConstructibleItemData` (`production-chooser-helpers.js`) zwraca `null`, kiedy wynik operacji
+niesie `InQueue`, a `hideIfUnavailable` jest ustawione — a jest ustawione przy **kazdym normalnym
+widoku** (`hideIfUnavailable: !showIfAvailable`, gdzie `showIfAvailable` wymaga `viewHidden`).
+
+```js
+// linia 223 i 295 w production-chooser-helpers.js
+if (operationResult.Success || insufficientFunds || !hideIfUnavailable || …) { … }
+if (!hideIfUnavailable || insufficientFunds && possibleLocations.length > 0) { … }
+```
+
+Konsekwencje dla moda:
+
+- **Nie da sie „przeniesc" wiersza budowanego budynku** do wlasnej sekcji — nie ma czego
+  przenosic. `panel.itemElementMap` nie zawiera tego typu. Wlasny blok musi **sam tworzyc**
+  elementy `production-chooser-item` i sam ustawiac im atrybuty.
+- Kafelek „przypiete na gorze" w sortowaniu (`getQueuedPositionOfType(hash) !== -1`) **prawie
+  nigdy nie zadziala dla budynkow w kolejce**. Trafia tylko w naprawy, ktore maja osobna sciezke
+  i zostaja na liscie.
+
+⚠️ Nie ma API zwracajacego **pozostala** produkcje. Jedyne, co gra ma, to procent:
+
+```js
+const pelny = city.Production.getConstructibleProductionCost(type, FeatureTypes.NO_FEATURE, false);
+const procent = city.BuildQueue.getPercentComplete(queueNode.type);   // 0-100, po HASHU wezla
+const zostalo = Math.ceil(pelny * (1 - procent / 100));
+```
+
+⚠️ Dwa rozne klucze w tym samym obiekcie: `getPercentComplete` bierze **hash** (`node.type`),
+a `getTurnsLeft` bierze **string typu** (`node.constructibleType` → `def.ConstructibleType`).
+Pomylenie ich nie rzuca bledu, tylko zwraca 0 / -1.
+
+### Wykup budowanego budynku
+
+`Construct(city, item, true)` czyta z `item` **tylko** `type` i `interfaceMode`. Dla
+konstruktu w kolejce silnik odpowiada `InProgress` i podaje `result.Plots[0]`, wiec zakup konczy
+**istniejaca budowe** zamiast pytac o nowy kafelek. Wystarczy wiec:
+
+```js
+Construct(city, { type, interfaceMode: 'INTERFACEMODE_PLACE_BUILDING' }, true);
+```
+
+### Wlasna sekcja w akordeonie
+
+`panel.productionAccordion` (`fxs-vslot`) trzyma `section.root` kazdej kategorii. Wlasny blok
+wstawia sie przez `accordion.insertBefore(wlasny, panel.productionCategorySlots['buildings'].root)`.
+Zeby wygladal natywnie, powtorz klasy sekcji: `production-category mb-2 ml-4` na korzeniu i
+`relative flex items-center h-10 mb-2 hud_sidepanel_list-bg` na naglowku.
+
+⚠️ `ProductionKind` jest **globalem silnika**, nie importem — `city-banners.js` uzywa go bez
+zadnego `import`. To samo dotyczy `FeatureTypes`, `YieldTypes`, `OrderTypes`.
+
+## 65. Prawy przycisk to `engine-input`, nie `contextmenu` — i musi być FINISH ❗✅
+
+Gra nie wysyła `contextmenu`. Każdy przycisk idzie przez jej własną warstwę wejścia i przychodzi
+jako zdarzenie `engine-input`:
+
+```js
+inputEvent.detail.name    // 'mousebutton-right' | 'shell-action-1' (pad) | 'mousebutton-left' | 'accept' | …
+inputEvent.detail.status  // InputActionStatuses.START | .FINISH
+```
+
+⚠️ **`FINISH`, nie `START`.** Reakcja na wciśnięcie odpala się **drugi raz** przy puszczeniu.
+Przy przełączniku (ukryj/pokaż) daje to dwa przełączenia i wygląda, jakby nic się nie stało.
+
+⚠️ W komponentach `ui-next` **`Activatable` przechwytuje** lewy przycisk, `accept`, `touch-tap`
+i `keyboard-enter`, a **całą resztę przekazuje** do propa `on:engine-input`:
+
+```js
+// core/ui-next/components/activatable.js
+props["on:engine-input"]?.(inputEvent);
+```
+
+`ChooserItem` robi `mergeProps(props, {…})` i nie definiuje tego klucza, więc prop przechodzi
+przez niego bez zmian. To **jedyna** droga do prawego przycisku w wierszu opartym na `ChooserItem`
+— zwykły `addEventListener('engine-input')` na hoście nie wystarczy, bo `Activatable` woła
+`stopPropagation()` na tym, co obsługuje samo.
+
+Wzorzec (nasz `production-item.js`):
+
+```js
+createComponent(ChooserItem, {
+    …,
+    'on:engine-input': (event) => {
+        const d = event?.detail;
+        if (d?.name !== 'mousebutton-right' && d?.name !== 'shell-action-1') return;
+        if (d.status !== InputActionStatuses.FINISH) return;
+        event.stopPropagation();
+        event.preventDefault();
+        // …
+    },
+});
+```
+
+`InputActionStatuses` jest globalem silnika (bez importu), tak jak `ProductionKind`.
+
+## 66. Zestaw stringów per miasto BEZ zapisu do save'a — jeden option na parę ❗✅
+
+`UI.setOption('user', 'Mod', klucz, wartość)` przyjmuje **liczbę**. Zbiór typów (stringów) nie
+zmieści się w jednej wartości, a `Catalog` / `SerialObject` z `utility-serialize.js` bierze
+stringi, ale **pisze do pliku zapisu** — czyli odpada przy `AffectsSavedGames = 0`.
+
+Rozwiązanie: **jeden option na parę (osada, typ)**:
+
+```js
+`${MOD_ID}.hidden.${gameSeed}.${cityId}.${TYPE}` = 1 (ukryty) | 2 (przywrócony)
+```
+
+⚠️ **Nie da się wylistować kluczy** tym kanałem — `UI.getOption` odpowiada tylko na konkretny
+klucz. Da się z tym żyć wtedy, gdy zbiór pytań jest znany z innego źródła (u nas: typy, które
+lista produkcji i tak właśnie pokazuje). Do projektowania: jeśli musisz **wyliczyć** zawartość,
+ten kanał nie zadziała.
+
+⚠️ **„Przywrócony" musi mieć własny kod (2), nie brak wpisu.** Nie ma pewnego „unset", a brak
+wartości musi dalej znaczyć „nigdy nie wybrano" — inaczej przywrócenie jest nieodróżnialne od
+stanu początkowego dopiero po restarcie.
+
+⚠️ Klucz gry to `Configuration.getGame().gameSeed`, bo numeryczna część `ComponentID` osady jest
+unikalna **tylko w obrębie jednej rozgrywki**.
+
+`localStorage` zostaje jako lustro, nigdy jako źródło prawdy — patrz [#62] (City Hall kasuje cały
+`localStorage`) i doświadczenie z Better Commerce Screen UI, gdzie sam `localStorage` nie przeżył
+przeładowania.
+
+## 67. Tooltip `ui-next` na elemencie STAREGO frameworka — `Tooltip.Trigger` nie opakowuje ❗✅
+
+Kluczowa własność, dzięki której da się połączyć oba systemy
+(`core/ui-next/components/tooltip.js`, `TooltipTriggerInternal`):
+
+```js
+if (resolvedChildren instanceof HTMLElement) {
+    element.addEventListener('mouseover', props.onShowTooltip);
+    // …
+    props.setRoot(element);       // TEN element jest kotwicą
+    setNeedsWrapper(false);       // nic go nie owija
+}
+```
+
+Gdy dzieckiem `Tooltip.Trigger` jest **pojedynczy `HTMLElement`**, komponent tylko **dowiesza mu
+słuchacze** i używa go jako kotwicy. Element zachowuje tożsamość, klasy i wszystkie handlery, jakie
+założyła na niego gra — zmienia jedynie rodzica (Solid wstawia go tam, gdzie renderuje się
+komponent).
+
+Wzorzec mostka (nasz `queue-tooltip.js` + `queue-decorator.js`):
+
+1. `defineLegacyComponent('moj-tip', { attrs: { 'data-anchor': null, … } }, …)`.
+2. Elementu **nie da się przekazać atrybutem** → rejestr `Map(id → element)`, id trafia do
+   `data-anchor`. Rejestruj **przed** wstawieniem hosta do DOM — komponent czyta kotwicę przy
+   pierwszym renderze, a `Trigger` bez elementu tworzy sobie własny wrapper.
+3. `parent.replaceChild(host, karta)` — Solid sam wciągnie kartę do środka.
+4. `onCleanup(() => anchors.delete(id))`, bo stary framework przebudowuje elementy przez
+   `Databind.for` przy każdej aktualizacji modelu.
+
+### ❗ KOREKTA — tego wzorca NIE WOLNO użyć na węzłach z `data-bind-for`
+
+Mostek powyżej działa tylko wtedy, gdy element podawany jako dziecko `Tooltip.Trigger`
+**należy do Ciebie**. Na kartach generowanych przez `data-bind-for` przeniesienie węzła
+**rozwala binding**: tooltip się pokazuje, ale panel przestaje się odświeżać — po zmianie
+kolejności ikony i pozycje zostają stare. Silnik trzyma referencje do węzłów, które sam
+wygenerował, i po podmianie nie potrafi ich już przestawić.
+
+Wzorzec bezpieczny (nasz `queue-decorator.js`): **jeden** tooltip na cały panel, doczepiony do
+korzenia panelu (poza poddrzewem bindowanym), `position: fixed`, `pointer-events: none`,
+pozycjonowany z `card.getBoundingClientRect()`. `Tooltip.Trigger` dostaje **brak**
+dziecka-elementu, więc buduje sobie własny wrapper — i to jego się rozciąga oraz karmi
+**syntetycznymi** zdarzeniami z listenera na karcie:
+
+```js
+trigger.dispatchEvent(new MouseEvent('mouseover'));
+trigger.dispatchEvent(new MouseEvent('mouseleave'));
+```
+
+Karta zachowuje wtedy wszystkie swoje zdarzenia — łącznie z hoverem odsłaniającym jej przyciski.
+
+⚠️ **`MutationObserver` NIE widzi węzłów z `data-bind-for`.** Rozwija je natywnie silnik Gameface,
+z pominięciem JS-owego DOM API — żadne rekordy nie powstają. Dekorację trzeba pisać po
+**callbacku modelu**:
+
+```js
+const previous = Model._OnUpdate;          // pole za setterem `updateCallback`
+Model.updateCallback = (...a) => { previous?.(...a); scheduleRefresh(); };
+```
+
+⚠️ Model ma **jedno** pole callbacku — nadpisanie bez wywołania poprzedniego zabija aktualizacje.
+
+⚠️ Callback leci przy wypchnięciu modelu; silnik rozwija bindingi **kilka klatek później**, i nie
+zawsze tyle samo. Rób kilka przebiegów (u nas 0/120/400 ms), każdy idempotentny (patrz [#57]).
+
+## 68. Są DWA stare systemy tooltipów — `data-tooltip-content` obsługuje inny ❗✅
+
+❗ **KOREKTA.** `data-tooltip-style="none"` na przodku wycisza `tooltip-manager.js`, ale
+**nie dotyka** `core/ui/tooltips/tooltip-controller.js` — a to on rysuje mały dymek z samą nazwą.
+Kontroler szuka wyłącznie treści i **w ogóle nie czyta** `data-tooltip-style`:
+
+```js
+recursiveGetTooltipContent(target) {
+    const content = finalTarget.getAttribute('data-tooltip-content');
+    if (content) { … return true; }
+    return this.recursiveGetTooltipContent(target.parentElement);
+}
+```
+
+Jedyny sposób, żeby go wyłączyć, to **usunąć `data-tooltip-content`** ze wszystkich przodków
+elementu pod kursorem.
+
+⚠️ Jeśli atrybut jest podpięty przez `Databind.attribute`, wraca przy każdej aktualizacji modelu —
+usuwanie trzeba powtarzać w tym samym cyklu, w którym odnawiasz resztę dekoracji.
+
+### Poprzednia notatka (dalej prawdziwa dla `tooltip-manager.js`)
+
+`data-tooltip-content` bywa podpięte przez `Databind.attribute` i jest **przepisywane przy każdej
+aktualizacji modelu** — usunięcie atrybutu nic nie daje, wróci.
+
+Za to `TooltipManager` wybiera typ przez **`RecursiveGetAttribute(target, 'data-tooltip-style')`**,
+czyli idzie w GÓRĘ od elementu pod kursorem, a `"none"` oznacza „nie pokazuj nic":
+
+```js
+const ttTypeName = RecursiveGetAttribute(targetElement, 'data-tooltip-style') ?? 'none';
+if (ttTypeName == 'none') { this.hideTooltips(); return; }
+```
+
+Jeden atrybut na korzeniu panelu wycisza więc stary tooltip w całym poddrzewie — bez walki
+z bindowaniem.
+
+## 69. Kolejka budowy: dowolne przestawienie istnieje, gra go nie używa ❗✅
+
+`model-build-queue.js` ma tylko `moveItemUp` / `moveItemDown` (`Swap`) i `moveItemLast`. Ale sam
+`moveItemLast` pokazuje, że silnik zna operację „przenieś na pozycję":
+
+```js
+const args = {
+    InsertMode: CityOperationsParametersValues.MoveTo,
+    QueueSourceLocation: from,
+    QueueDestinationLocation: to,
+};
+if (Game.CityOperations.canStart(cityID, CityOperationTypes.BUILD, args, false).Success) {
+    Game.CityOperations.sendRequest(cityID, CityOperationTypes.BUILD, args);
+}
+```
+
+To pełny prymityw dla drag-and-drop — nie trzeba składać przestawienia z wielu `Swap`.
+
+⚠️ Zawsze `canStart` przed `sendRequest`. Kolejka odmawia części przeniesień, a wysłanie mimo to
+jest **cichym no-opem**, który wygląda jak nieudany drag.
+
+⚠️ `BuildQueue.cityID` (model) to gotowe źródło `ComponentID` osady — panel kolejki sam nie trzyma
+miasta.
+
+⚠️ Próg ruchu przy starcie przeciągania jest obowiązkowy. Bez niego każde kliknięcie w kartę liczy
+się jako drag i przestaje działać jej własne `action-activate`.

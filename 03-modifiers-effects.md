@@ -185,3 +185,33 @@ INSERT INTO Adjacency_YieldChanges(ID,YieldType,YieldChange,TilesRequired,Adjace
 VALUES('POLAND_MILITARY_FARM_AQ','YIELD_HAPPINESS',1,1,'IMPROVEMENT_FARM');
 ```
 To jest prostsze i mniej podatne na błędy — używaj, gdy wystarcza.
+
+## Skala tabel — ile to naprawdę wierszy ✅ (zmierzone 2026-08-25)
+
+Policzone bezpośrednio w plikach gry (`Base/modules/**/*.xml`, wszystkie ery + `core` +
+`base-standard`), przez zliczenie elementów w blokach `<GameEffects>`:
+
+| element | sztuk w plikach |
+|---|---|
+| `<Modifier>` | 12 093 |
+| `<Argument>` | 39 385 |
+| `<Requirement>` | 15 147 |
+
+Formy tabelowej (`<Modifiers><Row/>`) jest w porównaniu z tym śladowo mało: 86 wierszy
+`Modifiers`, 230 `ModifierArguments`, 376 `Requirements`, 2 357 `TypeTags` w całej grze.
+Czyli **prawie wszystkie modyfikatory gry są pisane składnią `<GameEffects>`** i dopiero
+przy ładowaniu trafiają do tabel `Modifiers` / `ModifierArguments` / `Requirements`.
+
+⚠️ **Konsekwencja dla modów UI:** w runtime `GameInfo` widzi `core` + `base-standard` +
+**tylko bieżącą erę**, więc realnie to rząd kilku tysięcy modyfikatorów i kilkunastu tysięcy
+argumentów — ale to nadal znaczy, że *każde* pytanie typu „który modyfikator dotyczy tego
+zasobu" zadane przez skan `GameInfo.Modifiers` to pełny przemiał kilku tysięcy wierszy.
+Indeksuj raz i **ogranicz indeks do tego, o co faktycznie pytasz** (np. tylko modyfikatory
+przypięte do zasobów): trzymanie mapy dla wszystkich modyfikatorów to tysiące obiektów
+`Map` żyjących przez całą sesję. Przykład takiego indeksu:
+`mod-projects/better-commerce-screen-ui/ui/planner/effects.js`.
+
+⚠️ **Ile to kosztuje pamięci** (zmierzone w Node na syntetycznych tabelach tej wielkości,
+2026-08-25): pełny indeks `Modifiers` + `DynamicModifiers` + graf `Requirements` w mapach JS to
+**~6,8 MB żywej sterty** trzymanej przez całą sesję. Indeks ograniczony do modyfikatorów zasobów
+kosztuje w praktyce zero. Silnik gry to nie Node, więc traktuj to jako rząd wielkości, nie wyrocznię.

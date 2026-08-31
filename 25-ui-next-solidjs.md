@@ -117,6 +117,65 @@ defineLegacyComponent("screen-resource-allocation",
 ⚠️ Niesprawdzone w praktyce; `Modding.getModRankByURL` powinno dać modowi rangę > 1.
 Nadpisanie przez `ComponentRegistry` jest mniej inwazyjne i należy je preferować.
 
+### ❗✅ KOREKTA 2026-08-26: funkcja renderująca to zwykły `Map.set` — WYGRYWA OSTATNI
+
+Priorytet **nie decyduje o tym, co się narysuje**. Pełne ciało funkcji, przeczytane w
+`core/ui-next/components/fxs-solid-component.js`:
+
+```js
+function defineLegacyComponent(name, options, renderFunction) {
+  const ranking = typeof options.calleeURLOrPriority == "number" ? options.calleeURLOrPriority
+    : options.calleeURLOrPriority ? Modding.getModRankByURL(options.calleeURLOrPriority) : 1;
+  registeredLegacySolidComponents.set(name.toUpperCase(), { renderFunction, ...options });  // ← zwykły Map.set
+  Controls.define(name, { createInstance: FxsSolidComponent, priority: ranking >= 0 ? ranking : 0, … });
+}
+```
+
+`registeredLegacySolidComponents` to zwykła `Map` bez żadnego sprawdzania priorytetu.
+`priority` rządzi wyłącznie `Controls.define` — a **każdy** wywołujący podaje tę samą klasę
+`FxsSolidComponent`, więc kto wygra tamten wyścig, nie ma znaczenia.
+
+**Wniosek praktyczny:** żeby przejąć element zdefiniowany przez `defineLegacyComponent`
+(np. `production-chooser-item`), wystarczy zawołać `defineLegacyComponent` z tą samą nazwą
+**później** — czyli mieć wyższy `LoadOrder`. Działa to nawet wtedy, gdy inny mod podmienił
+cały plik gry przez `ImportFiles`, bo liczy się kolejność wykonania, nie to, czyj plik został
+wykonany.
+
+⚠️ To jest **tylko podmiana**, nie owinięcie: mapa jest prywatna dla modułu, a pliki gry z
+komponentami niczego nie eksportują. Trzeba napisać cały renderer.
+
+⚠️ Symetrycznie: mod ładujący się po tobie odbierze ci to tak samo.
+
+⚠️ `options.attrs` musi wymieniać **każdy** czytany atrybut `data-*`. `FxsSolidComponent`
+przepisuje do reaktywnego magazynu tylko zadeklarowane, a `Controls.define` obserwuje tylko je.
+Brakujący atrybut po prostu nigdy się nie zaktualizuje — bez błędu.
+
+### ✅ `Controls.decorate` DZIAŁA na elemencie z `defineLegacyComponent` — ale nie daje wnętrza
+
+Ustalone 2026-08-26 na działającym modzie `f1rstdan-cool-ui`: element zdefiniowany przez
+`defineLegacyComponent` to nadal zwykły custom element z `Controls.define` (klasa
+`FxsSolidComponent`), więc dekorator się podepnie i dostanie `Root` oraz cztery haki cyklu życia.
+
+❗ **Czego NIE dostanie: wnętrza jako nazwanych właściwości.** W starym frameworku komponent
+wystawiał `this.container`, `this.iconElement`, `this.itemNameElement`… Po przepisaniu na Solid
+tych pól nie ma — jest tylko wyrenderowany DOM pod `Root`.
+
+**Stąd dwie drogi i realny wybór między nimi:**
+
+| Droga | Daje | Kosztuje |
+|---|---|---|
+| **A** — ponowna rejestracja przez `defineLegacyComponent` | pełną kontrolę nad komponentem | tylko podmiana; trzeba napisać cały renderer |
+| **B** — `Controls.decorate` + operowanie na wyrenderowanym DOM | dodatkowość, współistnienie z innymi | walczy z reaktywnością Solid o wszystko, co Solid przerysowuje |
+
+⚠️ **Przestroga z praktyki:** `f1rstdan-cool-ui` zbudował swój kompaktowy układ wiersza produkcji
+na drodze B, na nazwanych elementach wnętrza. Gdy gra przeniosła `production-chooser-item` do
+`ui-next`, **funkcja przestała działać i jest niesprawna od dwóch wydań** — autor pisze o tym
+wprost w swoim `Changelog.md`. To, co w tym samym modzie **przetrwało**, to przycisk szybkiego
+zakupu, bo sięga wyłącznie po `Root.firstElementChild`.
+
+**Reguła:** droga B do rzeczy czysto dodawanych (wstrzyknięcie własnego przycisku), droga A do
+zmiany układu.
+
 ## ✅ Import z moda DZIAŁA — potwierdzone działającym modem z Workshop
 
 **2026-08-10, KOREKTA wcześniejszego ⚠️:** ścieżki `/core/vendor/…` i `/core/ui-next/…`
@@ -294,6 +353,38 @@ event.stopImmediatePropagation();
 Capture od `window` biegnie w dół **przed** dotarciem do elementu panelu, więc
 zatrzymanie propagacji tam faktycznie zapobiega zamknięciu ekranu. Zatrzymuj tylko
 te kliknięcia, które naprawdę obsługujesz — reszta PPM ma dalej zamykać ekran.
+
+### Klikanie komponentu gry Z KODU: `Activatable` NIE reaguje na natywny klik ❗✅
+
+**Data: 2026-08-18.** Odwrotność pułapki z `bindActivatable` (mod → wstrzyknięty div widzi
+tylko natywne zdarzenia). W drugą stronę jest tak samo szczelnie: `Activatable`
+(`core/ui-next/components/activatable.js`) nasłuchuje **wyłącznie** przez Solidowe
+`"on:engine-input"` i reaguje na `mousebutton-left` / `touch-tap` / `keyboard-enter` /
+przycisk akcji pada. `element.click()` i `dispatchEvent(new MouseEvent('click'))` **nie robią
+nic**. Trzeba wysłać zdarzenie silnika:
+
+```js
+import { InputEngineEvent } from '/core/ui/input/input-support.js';
+
+element.dispatchEvent(new InputEngineEvent(
+    'mousebutton-left',
+    InputActionStatuses.FINISH,   // ⚠️ FINISH, nie START
+    0, 0,                          // x, y — nieczytane przez Activatable
+    false,                         // isTouch
+    true,                          // isMouse
+));
+```
+
+⚠️ **Tylko `FINISH`.** `Activatable` na `START` odtwarza sam dźwięk wciśnięcia, a `activate()`
+woła dopiero na `FINISH`. Wysłanie obu = słyszalne wciśnięcie bez powodu.
+
+⚠️ `InputActionStatuses` i `InputEngineEventName` to globalne enumy silnika — nie importuje
+się ich, tak samo jak `GameContext` czy `Locale`.
+
+Dotyczy wszystkiego, co jest zbudowane na `Activatable` — czyli praktycznie każdego klikalnego
+elementu `ui-next`. Najbardziej przydatne przy **zakładkach**: element `[data-name="TabListItem"]`
+to `Activatable`, więc tak właśnie przełącza się zakładkę z moda (patrz
+[26-commerce-screen.md](26-commerce-screen.md), „Przeładowanie ekranu").
 
 ### Wzorzec priorytetu odpornego na kolejność ✅
 
@@ -687,3 +778,90 @@ pokazał `replaceWith is not a function`.
 
 **Wniosek:** owijaj takie operacje w `try/catch` z `warn` od razu, a nie dopiero gdy coś nie
 działa — inaczej szukasz przyczyny w zupełnie innym miejscu.
+
+## ❗✅ SA DWA SYSTEMY TOOLTIPOW — i tylko nowy umie zagniezdzanie i blokade
+
+**Ustalone 2026-08-27.** To jest dokladnie ta sama pulapka co z ekranami (#33): stary i nowy
+system istnieja rownolegle, oba dzialaja, i wybor miedzy nimi decyduje o tym, co da sie zrobic.
+
+| | stary | nowy |
+|---|---|---|
+| Plik | `core/ui/tooltips/tooltip-manager.js` | `core/ui-next/components/tooltip.js` (1116 linii) |
+| Zglaszanie sie | atrybut `data-tooltip-style="nazwa"` | komponent Solid `Tooltip.Trigger` |
+| Rejestracja | `TooltipManager.registerType(nazwa, instancja)` | `ComponentRegistry.register` |
+| Zagniezdzanie | ❗ **BRAK** | ✅ `NestedTooltipContext` |
+| Blokada / interakcja | ❗ **BRAK** | ✅ autolock + `pointer-events-auto` |
+
+### Dlaczego stary NIE moze byc interaktywny ✅
+
+`cursorTooltipCheck()` leci **co klatke** i czyta `Cursor.target`:
+
+```js
+targetElement = Cursor.target instanceof HTMLElement ? Cursor.target : void 0;
+const ttTypeName = RecursiveGetAttribute(targetElement, "data-tooltip-style") ?? "none";
+if (ttTypeName == "none") { this.hideTooltips(); return; }
+```
+
+W momencie, gdy kursor zjedzie z elementu w strone dymka, styl rozwiazuje sie na `"none"`
+i dymek znika. Nie da sie w niego wejsc mysza. `isToggledOn`, ktore wyglada na blokade,
+dotyczy **wylacznie dotyku** (`ActionHandler.deviceType != InputDeviceType.Touch`).
+
+### Nowy system — API i mechanizm ✅
+
+```js
+import { Tooltip } from '/core/ui-next/components/tooltip.js';
+Tooltip.Trigger   Tooltip.Content   Tooltip.Frame   Tooltip.Text   Tooltip.InspectHint
+```
+
+Uzywane w grze bazowej ponad 100 razy kazde. Blokada:
+
+```js
+"pointer-events-auto": tooltipModel.isLocked(ctx.name) || IsTouchActive(),
+"pointer-events-none": !tooltipModel.isLocked(ctx.name) && !IsTouchActive()
+```
+
+✅ **Autolock jest ustawieniem GRACZA w opcjach gry**: `Configuration.getUser().tooltipAutolockEnabled`
+oraz suwak czasu `Configuration.getUser().tooltipAutolock` (patrz `core/ui/options/options.js`).
+Czyli "dymek blokuje sie po pare sekundach najechania" to funkcja natywna, nie cos do napisania.
+Po zablokowaniu dymek dostaje `pointer-events-auto` i mozna w niego wejsc, klikac i rozwijac.
+
+`tooltip-model.js` daje `lock()`, `unlock()`, `unlockAll()`, `isLocked(name)`, a `Escape`
+(`inputEvent.isCancelInput()`) odblokowuje.
+
+### Most stary -> nowy dla tooltipa ⚠️
+
+`core/ui-next/components/tooltip-compat.js` definiuje `<fxs-tip>` przez `defineLegacyComponent`
+i renderuje w srodku `Tooltip.Text` — dowod, ze element starego frameworka **moze** hostowac
+tooltip z `ui-next`. ⚠️ Ale to most dla slow kluczowych w tekscie, nie ogolny adapter:
+zagniezdzony wariant wymaga wlascciciela Solid (`findOwnerFromElement`), a wlasny element trzeba
+zbudowac samemu.
+
+**Wniosek praktyczny:** tooltip, ktory ma byc tylko czytany — stary `TooltipManager`, jedna
+rejestracja i atrybut. Tooltip, ktory ma sie blokowac, byc klikalny albo zawierac kolejny tooltip
+— **musi** byc `ui-next` / Solid.
+
+### ❗ Pulapka: blokady NIE DA SIE wlaczyc, dopoki tooltip nie ma DZIECI
+
+**Ustalone 2026-08-27 na wlasnym modzie.** Tooltip `ui-next` zbudowany poprawnie, a mimo to
+nie dawal sie zablokowac TAB-em — zamiast "SPRAWDZ" (`LOC_INSPECT_TOOLTIP`) ramka pokazywala
+wylacznie "UKRYJ (PRZYTRZYMAJ)".
+
+Warunek w `TooltipInspectHintComponent`:
+
+```js
+when: tooltipCount() > 0 && (!isLocked() || isTopLevelActiveAndLocked())
+```
+
+gdzie `tooltipCount()` to `ctx.childTooltipList().length` — **liczba tooltipow POTOMNYCH**.
+
+❗ **Tooltip bez ani jednego zagniezdzonego tooltipa nie oferuje inspekcji**, bo nie ma w co
+wejsc — i tym samym nie da sie go zablokowac ani wejsc w niego mysza. To nie jest blad w
+konfiguracji: gra celowo nie proponuje blokady tam, gdzie nie ma glebszego poziomu.
+
+**Wniosek:** jesli chcesz, zeby tooltip dal sie zatrzymac, **musi zawierac przynajmniej jeden
+`Tooltip` zagniezdzony w swoim `Tooltip.Content`**. Renderowanie calej tresci "plasko" wewnatrz
+jednej ramki zabiera te mozliwosc.
+
+Blokade odpala akcja `keyboard-inspect-tooltip` / `toggle-tooltip` (TAB) na `FINISH`, przy
+krotkim nacisnieciu; przytrzymanie ponad `HIDE_TOOLTIPS_HOLD_THRESHOLD_MS` chowa tooltipy
+zamiast blokowac. `Escape` (`inputEvent.isCancelInput()`) odblokowuje.

@@ -226,3 +226,73 @@ LensManager.registerLensLayer("bz-wonder-layer", new bzWonderLensLayer());
 LensManager.toggleLayer("bz-wonder-layer");
 ```
 Popularna kategoria modów (`maple-leaves-more-lens`, `slothoth-better-archeology-lens`).
+
+## Wydajność modów UI — zdarzenia silnika ✅
+
+Zweryfikowane w praktyce na modzie `better-commerce-screen-ui` (2026-08-23). To jest
+najczęstsza przyczyna „gra chodzi wolno, kiedy mod jest włączony".
+
+**1. Zdarzenia silnika NIE dotyczą tylko ciebie.** `UnitMoved`, `UnitMoveComplete`,
+`UnitMovementPointsChanged`, `ConstructibleChanged`, `ResourceAssigned` i większość reszty są
+podnoszone dla **każdego gracza w partii**. W późnej grze tura AI podnosi ich tysiące. Gra
+sama filtruje je od razu — `panel-action.ts` otwiera `onUnitMoved` linią
+`if (data.unit.owner !== GameContext.localPlayerID) { return; }`, a
+`panel-production-chooser.ts` dla `ConstructibleAddedToMap` pyta o właściciela **kafelek**
+(`GameplayMap.getOwningCityFromXY`). Mod musi robić to samo, przed jakąkolwiek pracą.
+
+Gdzie w payloadzie siedzi właściciel (z obserwacji źródeł gry):
+
+| Pole | Zdarzenia |
+|---|---|
+| `unit` (ComponentID) | wszystkie `Unit*` |
+| `constructible` (ComponentID) | `ConstructibleBuildCompleted` |
+| `cityID` / `city` | zdarzenia miast |
+| `player` (zwykłe id) | `ResourceAssigned`, `ResourceUnassigned` |
+| tylko `location` | `ConstructibleAddedToMap` — trzeba zapytać kafelek |
+
+⚠️ Payload **bez** właściciela nigdy nie powinien być odrzucany — brakujący trigger wygląda
+identycznie jak funkcja, która nic nie robi, i to jest gorszy błąd niż koszt.
+
+**2. Każde `engine.on` to osobne przejście z silnika do JS.** Kilka modułów jednego moda
+zwykle chce tych samych nazw. W tym modzie było **53 subskrypcje na 27 różnych nazw** —
+`LocalPlayerTurnBegin` sześć razy, `ResourceUnassigned` i `ResourceCapChanged` po cztery. Jedno
+zdarzenie w grze wchodziło do moda sześć razy i sześć razy padało to samo pytanie „czy to
+moje?". Rozwiązanie: **jedna subskrypcja na nazwę**, lista słuchaczy za nią, właściciel
+policzony **raz** na zdarzenie (leniwie — nazwa, której wszyscy słuchacze są niefiltrowani,
+nigdy nie pyta).
+
+**3. `engine.off` wymaga TEJ SAMEJ referencji funkcji**, którą zarejestrowano. Inline arrow
+przekazany do `engine.on` i zapomniany to wyciek na całą sesję — subskrypcje żyją dłużej niż
+ekran, a `startX()` wołane przy każdym wejściu w zakładkę dokłada kolejne.
+
+**4. Zmierz, zanim zaczniesz zgadywać.** Jeden licznik w takim wspólnym dyspozytorze (ile
+zdarzeń każdej nazwy i ile ms zajęła ich obsługa, wypisywane raz na turę) mierzy cały mod i
+odpowiada na pytanie, na które lektura kodu nie odpowie: które nazwy naprawdę przychodzą
+tysiącami w **tej** partii.
+
+**5. Inne pułapki tej samej klasy** (wszystkie zweryfikowane w tym modzie):
+- `GameInfo.X.lookup(...)` to **wywołanie bazy danych**. Odpowiedź jest kolumną w statycznej
+  tabeli i nie zmienia się w trakcie gry — memoizuj po kluczu, który podaje silnik.
+- `GameInfo.Modifiers` / `GameInfo.DynamicModifiers` mają tysiące wierszy; `.find()` po nich to
+  pełny skan. Złącz je raz w indeks.
+- `Database.makeHash(...)` i `Game.getHash(...)` to **lookupy, nie stałe** — nie wołaj ich w
+  pętli ani w funkcji odpalanej z `refreshActionButton`.
+- `Locale.compose(...)` to wywołanie do gry; nazwa osady nie zmienia się przy otwartym ekranie.
+- `Game.PlayerOperations.canStart(...)` jest najdroższym z tych wywołań — odsiewaj pary, które
+  dane i tak wykluczają (zasób klasy CITY nie wejdzie do Town), zanim zapytasz silnik.
+- `Units.getPathTo(...)` to **pełne wyszukiwanie ścieżki (A*)**, nie tania odpowiedź. ⚠️ I
+  najdroższy jest przypadek NIEUDANY: wyszukiwanie, które trafia w cel, kończy się na celu, a
+  takie, które celu nie osiąga, musi wyczerpać cały obszar osiągalny dla jednostki, zanim
+  odpowie „nie da się". Nigdy nie puszczaj tego w pętli po liście kafelków (np. po wszystkich
+  polach osady — rozwinięte miasto ma ich 30-50). Sortuj po odległości od jednostki, sonduj
+  kilka najbliższych i przerwij, gdy masz dość trafień. To samo dotyczy
+  `Game.UnitOperations.canStart(MOVE_TO, ...)`, które wyszukuje ścieżkę wewnętrznie — pętla
+  „getPathTo po wszystkich, potem canStart po wszystkich" to podwójny rachunek.
+- **Timeouty licz w milisekundach, nie w klatkach.** `requestAnimationFrame` × N jako limit
+  czasu rozciąga się dokładnie wtedy, gdy gra zwalnia, a przy przejściu tury pętla klatek może
+  w ogóle nie chodzić — wtedy limit nie zadziała nigdy. `setTimeout` nie jest związany z
+  pętlą klatek.
+- `MutationObserver` na `document.body` z `subtree: true` widzi **cały HUD**. Celuj w element
+  własnego ekranu i zbieraj przebieg do jednej klatki (`requestAnimationFrame`) — to zarazem
+  omija crash `reconcileArrays`/`insertBefore` przy pisaniu do DOM z mikrotaska Solid.
+

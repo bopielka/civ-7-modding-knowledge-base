@@ -1640,3 +1640,68 @@ jako **„≈"** i tooltip mówi wprost, że to szacunek.
 kultura (kaolin), zadowolenie (kakao). Reszta zasobów fabrycznych mnoży produkcję w stronę
 konkretnej rzeczy albo tempo wzrostu; nie ma czego wziąć procent, a zgadywanie byłoby gorsze
 niż zostawienie samego procentu.
+
+---
+
+## Przeładowanie ekranu — działa, ale prawie zawsze jest złą odpowiedzią ❗✅
+
+**Data: 2026-08-18.** Sprawdzone w grze — i **odrzucone** jako rozwiązanie.
+
+`commerce-screen-model.js` buduje `tradeRouteTabData` **dokładnie raz**, przy tworzeniu modelu,
+i **nigdy** go nie przebudowuje przez całe jedno otwarcie ekranu — ani na zdarzeniu, ani
+z timera. Model siedzi w `createMutable`, ale funkcje `populateData` / `populateTradeRoutes` są
+domknięciami wewnątrz `createCommerceScreenModel` i **nic ich nie eksponuje**. Więc gdy stan gry
+zmieni się pod ekranem, nie ma czego poprosić o odświeżenie.
+
+Zamknięcie i otwarcie od nowa **działa**:
+
+```js
+ContextManager.pop('screen-resource-allocation');
+requestAnimationFrame(() => {
+    ContextManager.push('screen-resource-allocation', { singleton: true, createMouseGuard: true });
+});
+```
+
+⚠️ ale **w grze wygląda to fatalnie**: cały ekran gaśnie i wraca, ginie pozycja przewijania
+i zaznaczenie, a otwiera się na pierwszej zakładce (trzeba osobno wracać na właściwą). Jako
+reakcja na kliknięcie jednego przycisku na jednej karcie jest to nieproporcjonalne — użytkownik
+odrzucił to od razu.
+
+### ✅ Co robić zamiast tego
+
+**Przerysować własne dekoracje, bez ruszania Solid.** Wszystko, co mod sam narysował na karcie
+(przyciski, ostrzeżenia, nagłówki grup, podsumowanie), jest zwykłym DOM-em wstrzykniętym obok
+elementów gry — można to odbudować w każdej chwili, a Solid w ogóle o tym nie wie. W praktyce:
+wyczyścić własne cache'e i wywołać własny przebieg dekorujący (u nas `forgetTradeRoutes()` +
+`scheduleDecorate()`), spięte zdarzeniem `CustomEvent` na `window`.
+
+⚠️ **Samo wyczyszczenie cache'a nie wystarczy** — to naprawia dopiero *następny* przebieg,
+a na ekranie, którego wszystkie karty należą do gry, `MutationObserver` może nie odpalić przez
+długi czas. Trzeba jawnie zaplanować przerysowanie.
+
+### Czego tym NIE da się zrobić
+
+Karta **nie przeskoczy między sekcjami** „available" ↔ „unavailable" — to dwa różne `<For>` po
+dwóch różnych tablicach, czyli jedyna rzecz, której `reconcileArrays` nie przeżyje ruszona
+z zewnątrz. Na to jedyną odpowiedzią jest przeładowanie ekranu, więc **zostawia się to graczowi**
+(sam zamknie i otworzy), zamiast robić mu to pod palcami.
+
+⚠️ Zanim uznasz, że karta musi przeskoczyć — sprawdź, w której sekcji naprawdę jest. U nas
+ostrzeżenie „no trade route slot left" wisi na kartach w sekcji **available** (limit per lider
+jest już zajęty przez kupca w drodze), więc żadnego przeskoku nie było trzeba; wystarczyło
+przerysowanie.
+
+### Gdyby jednak trzeba było przeładować
+
+- `push` musi poczekać **jedną klatkę** po `pop`. `pop` odpina element synchronicznie, co odpala
+  Solidowe cleanupy — ale mod liczący żywe komponenty w `requestAnimationFrame` (żeby odróżnić
+  demontaż od dołka w przerysowaniu) dokończy sprzątanie dopiero w tej klatce. `push` w tym
+  samym ticku zamontuje nowe karty przed tym sprawdzeniem, licznik nie spadnie do zera
+  i teardown zostanie pominięty.
+- `singleton: true` mimo wszystko zbuduje **nowy** element — `pop` zdjął poprzedni ze stosu,
+  więc `getTargetIndex` zwraca -1. O to chodzi: nowy element = nowy model = świeże dane.
+- Świeży ekran otwiera się na **pierwszej zakładce**. Pasek zakładek jest za `Suspense`, więc
+  o właściwą trzeba poprosić dopiero, gdy się pojawi — i **zdarzeniem silnika**, bo
+  `[data-name="TabListItem"]` to `Activatable` (natywny klik nie działa; patrz
+  [25-ui-next-solidjs.md](25-ui-next-solidjs.md), „Klikanie komponentu gry Z KODU").
+  Handel to zawsze indeks 1.

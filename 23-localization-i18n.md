@@ -385,3 +385,34 @@ a gra mówi **Święto**. Samo poprawienie wielkości liter zostawiłoby zły te
 Niemiecki (wszystkie rzeczowniki wielką) i CJK (brak wielkości liter) załatwiają się same.
 Języki romańskie w plikach gry używają zdaniowej — zostawiamy. Realnie do przejrzenia są
 angielski i polski, a ukraiński idzie za polskim.
+
+## ✅ Alternatywa dla XML: JEDEN plik `.sql` na wszystkie języki
+
+**Ustalone 2026-08-26** na `f1rstdan-cool-ui` 1.9.6. `<UpdateText>` przyjmuje `.sql` tak samo
+jak `.xml`:
+
+```xml
+<UpdateText><Item>text/localization.sql</Item></UpdateText>
+```
+
+```sql
+INSERT OR REPLACE INTO LocalizedText (Tag, Language, Text) VALUES
+('LOC_MOJ_MOD_NAZWA', 'en_US', 'My Mod'),
+('LOC_MOJ_MOD_NAZWA', 'pl_PL', 'Mój mod'),
+('LOC_MOJ_MOD_NAZWA', 'zh_Hans_CN', '我的模组');
+```
+
+Cool UI mieści w ten sposób **jedenaście języków w 151 liniach jednego pliku**, zamiast
+jedenastu plików XML i jedenastu wpisów `<Item locale="...">` w każdej grupie akcji.
+
+⚠️ **Wartość kolumny `Language` to `en_US`, a nie nazwa folderu `en_us`.** Wielkość liter ma
+znaczenie.
+
+✅ **`INSERT OR REPLACE` omija błąd**
+`UNIQUE constraint failed: LocalizedText.ModRowId, Tag, Locale`, który przy drodze XML-owej
+wyskakuje, gdy ten sam tag zostanie zdefiniowany dwa razy.
+
+⚠️ Apostrof w tekście podwaja się po SQL-owemu (`d''ensemble`), nie escape'uje ukośnikiem.
+
+**Kiedy co:** XML, gdy tłumaczenia przysyłają osobne osoby per język (łatwiejszy pull request na
+jeden plik); SQL, gdy stringi są nieliczne i utrzymuje je jedna osoba.

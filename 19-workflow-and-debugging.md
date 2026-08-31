@@ -101,8 +101,45 @@ plik. Nic tego nie wyłapie: weryfikacja `.modinfo` sprawdza tylko pliki wymieni
 `.modinfo`, a ten się tam nie pojawia. Skrypty na różne platformy powinny różnić się
 **wyłącznie ścieżką docelową** — resztę trzymaj identyczną i sprawdzaj `diff`.
 
-ℹ️ CRLF w `.sh` nie jest problemem — mimo `core.autocrlf=true` Git Bash na Windows
-uruchamia skrypty z CRLF bez błędu (sprawdzone: pełny deploy, exit 0).
+ℹ️ CRLF w `.sh` nie jest problemem **na Windows** — mimo `core.autocrlf=true` Git Bash
+uruchamia skrypty z CRLF bez błędu (sprawdzone: pełny deploy, exit 0). Na macOS jest:
+`#!/usr/bin/env bash` + CR to "bad interpreter". `deploy-on-mac.sh` trzymaj w LF, i to nie
+ręcznie — samo `* text=auto` w `.gitattributes` przy `core.autocrlf=true` przepisze go z powrotem
+na CRLF przy pierwszym dotknięciu przez Gita. Dołóż regułę `*.sh text eol=lf`.
+
+## ⚠️ Dwuklik na `deploy.sh` w Explorerze cicho nie wdraża (alias `winpty`) ✅
+
+Objaw: w terminalu `./deploy.sh` działa, a dwuklik w Explorerze mignie oknem i **nic
+nie kopiuje** — pliki w `Mods\` zostają z poprzedniego wdrożenia.
+
+Przyczyna: `.sh` jest skojarzone z `git-bash.exe --no-cd "%L"`, a to uruchamia skrypt
+w powłoce **interaktywnej** (`$-` zawiera `i`). Git for Windows definiuje tam
+`alias node='winpty node.exe'`. `winpty` wymaga tty, więc przy przekierowaniu
+(`node --input-type=module --check < plik >/dev/null`) kończy się `stdin is not a tty`
+i kodem 1. Kontrola składni uznaje **każdy** plik za błędny, `die` przerywa skrypt
+przed kopiowaniem, a okno znika, zanim ktokolwiek przeczyta błąd. Z terminala aliasy
+nie istnieją (powłoka nieinteraktywna), więc ten sam skrypt działa — stąd mylący objaw.
+
+Weryfikacja (uruchomione z dwukliku, wynik do pliku):
+
+```
+command -v node   →  alias node='winpty node.exe'
+node -v           →  stdout is not a tty     (exit 1)
+```
+
+Dwie poprawki w skrypcie deploy:
+
+- **rozwiąż binarkę przez `type -P`, nie wołaj po nazwie** — `type -P` pomija aliasy
+  i funkcje i zwraca prawdziwy `.exe`:
+  `NODE_BIN="$(type -P node || true)"` i dalej `"$NODE_BIN" --check ...`.
+  Dotyczy każdego natywnego narzędzia konsolowego (node, python, winpty-owane w Git Bash).
+- **zatrzymaj okno, gdy skrypt szedł z dwukliku** — inaczej każdy błąd wygląda jak
+  "nic się nie stało":
+  `if [[ $- == *i* ]]; then trap PAUSE EXIT (patrz deploy.sh); fi`.
+  `$-` z `i` to dokładnie przypadek dwukliku; `./deploy.sh` z terminala nie pauzuje.
+  Warte dodania do **każdego** skryptu deploy, także bez `node`: bez pauzy udany deploy
+  i `die` wyglądają identycznie - okno mignie i znika (potwierdzone w
+  `najane-common-specialists-yields`, gdzie skrypt działał poprawnie, a wyglądał na martwy).
 
 ## Pętla pracy
 
@@ -149,6 +186,7 @@ sesji — a to jest dokładnie ten problem, dla którego ta baza powstała.
 
 | Objaw | Gdzie szukać | Prawdopodobna przyczyna |
 |---|---|---|
+| **Zmiana nie działa, „nic się nie dzieje"** | `UI.log` → linia ze stemplem builda | **nie odpalono `deploy.sh`** — gra czyta `Mods\`, nie repo. Sprawdź to PIERWSZE |
 | **Moda nie ma w `Modding.log` W OGÓLE** | `Modding.log` → `Discovered 0 mods.` | **mod w złym folderze** — musi być w `AppData\Local\Firaxis Games\...\Mods\`, nie w `Documents` |
 | Moda nie ma na liście, ale jest w logu | `Modding.log` | błąd składni `.modinfo`, zły `<Package>`, `ShowInBrowser=0` |
 | Mod na liście, ale nic nie robi | `Modding.log` + `Mods.sqlite` | kryterium niespełnione, zły `scope` |
@@ -158,6 +196,30 @@ sesji — a to jest dokładnie ten problem, dla którego ta baza powstała.
 | Brak ikony | `UI.log` (`Failed to open file`) | zła ścieżka `fs://game/...`, brak `ImportFiles` |
 | Panel UI nie reaguje | `UI.log` | dekorator zarejestrowany za późno → podnieś `LoadOrder` |
 | Gra się wysypuje | `dumps\` | zwykle błąd danych; sprawdź `Database.log` tuż przed |
+
+## ❗ Zanim zaczniesz debugować zmianę: sprawdź, czy gra ją w ogóle widzi ✅
+
+**Data: 2026-08-18.** Kosztowało pełną rundę „przecież to powinno działać".
+
+Repo w `Documents\Civ7Modding\mod-projects\` a folder, z którego gra czyta
+(`AppData\Local\Firaxis Games\...\Mods\`) to **dwa różne miejsca**. Edycja pliku
+w repo nie zmienia nic w grze, dopóki nie pójdzie `./deploy.sh`. Objaw jest mylący, bo
+identyczny z „kod jest zły": klikasz i **nic się nie dzieje**.
+
+Dlatego mod wypisuje przy starcie **stempel builda** generowany w czasie deployu
+(`ui/support/build-stamp.js`, wypisywany przez `console.error`):
+
+```bash
+L="/c/Users/najan/AppData/Local/Firaxis Games/Sid Meier's Civilization VII/Logs"
+grep "loaded, build" "$L/UI.log" | tail -3
+```
+
+Jeśli godzina stempla jest **starsza niż Twoja edycja** — gra gra ze starym kodem i nie ma
+czego debugować. To sprawdzenie zajmuje sekundę i powinno być **pierwszym krokiem**, przed
+czytaniem czegokolwiek innego.
+
+⚠️ Sam deploy **nie wystarczy** — trzeba jeszcze zrestartować grę albo wrócić do menu
+głównego, żeby skrypty UI przeładowały się z dysku.
 
 ## ⚠️ `console.log` NIE trafia do `UI.log` ✅
 
@@ -215,3 +277,27 @@ grep -rn "Controls.define" "$G/Base/modules/base-standard/ui/" | head -40
 
 - `..\tools\extract_ts.py` — wyciąga oryginalny TypeScript z sourcemap gry
   (patrz [16-ui-source-reference.md](16-ui-source-reference.md))
+
+## Gdzie mod trzyma stan — pliki do zajrzenia ✅
+
+**Ustalone 2026-08-27.** Wszystko w
+`%LOCALAPPDATA%\Firaxis Games\Sid Meier's Civilization VII\`:
+
+| Plik | Co w nim jest |
+|---|---|
+| `LocalStorage.sqlite` | ✅ **`localStorage` modów**. Tabela `Values(id, key, value)`, `id = 'fs://game'` dla wszystkich — wspólna przestrzeń nazw |
+| `UserOptions.txt` | opcje `UI.setOption('user', <sekcja>, …)`. ❗ **Sekcji `[Mod]` tam NIE MA** — patrz [14](14-quirks-and-gotchas.md) #50 KOREKTA |
+| `Mods.sqlite` | co gra wykryła i włączyła; kolumny `Mods.ModId`, `ScannedFiles.Path` |
+| `Logs/UI.log` | wyjście modów i błędy JS |
+
+Podgląd `localStorage` bez uruchamiania gry:
+
+```python
+import sqlite3, os, json
+B = os.path.join(os.environ['LOCALAPPDATA'], "Firaxis Games", "Sid Meier's Civilization VII")
+c = sqlite3.connect('file:' + os.path.join(B, "LocalStorage.sqlite") + '?mode=ro', uri=True)
+for id_, key, val in c.execute('select id, key, value from "Values"'):
+    print(id_, key, json.loads(val))
+```
+
+⚠️ Otwieraj **tylko do odczytu** (`mode=ro`) i najlepiej przy wyłączonej grze.

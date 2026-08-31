@@ -152,3 +152,39 @@ Patrz [07-cookbook-new-leader.md](07-cookbook-new-leader.md) — wymagają pacze
 z GUID-ami, brak publicznych narzędzi.
 **Realna droga dla moddera: `VisualRemaps`** — nowy typ pożycza model istniejącego
 obiektu (patrz [06](06-cookbook-new-civilization.md), krok 7).
+
+## `UpdateIcons` — własne ikony pod własnym ID ✅
+
+**Ustalone 2026-08-26** na `f1rstdan-cool-ui` 1.9.6.
+
+```xml
+<ImportFiles><Item>textures/dan_city_population.png</Item></ImportFiles>
+<UpdateIcons><Item>icons/icons.xml</Item></UpdateIcons>
+```
+
+```xml
+<Database>
+    <IconDefinitions>
+        <Row>
+            <ID>DAN_CITY_POPULATION</ID>
+            <Path>fs://game/dan_city_population.png</Path>
+            <Context>DEFAULT</Context>
+        </Row>
+    </IconDefinitions>
+</Database>
+```
+
+Zarejestrowane `ID` działa **wszędzie tam, gdzie gra przyjmuje identyfikator ikony** —
+`<fxs-icon data-icon-id="...">`, `UI.getIconCSS(...)`, `UI.getIconBLP(...)`.
+
+✅ Sprytne zastosowanie z tego moda: ikona pod własnym ID pozwala **wstawić do paska dochodów
+miasta wpis, który nie jest żadnym yieldem** — `yield-bar-base` bierze `type` z JSON-a i podaje
+go jako `data-icon-id`, więc `DAN_CITY_POPULATION` renderuje się obok `YIELD_FOOD` bez żadnej
+zmiany w komponencie. Patrz [28-city-screen.md](28-city-screen.md).
+
+⚠️ Wskazuje się `Path` przez `fs://game/<nazwa-pliku>`, a sam plik trzeba osobno zarejestrować
+w `<ImportFiles>` — i **powtórzyć oba w każdej grupie akcji**, która tych ikon używa
+(patrz [14](14-quirks-and-gotchas.md) #1).
+
+⚠️ Sprite'y na mapie (`WorldUI`) to **inna sprawa** — tam działają wyłącznie wbudowane BLP-y,
+patrz [28-city-screen.md](28-city-screen.md).

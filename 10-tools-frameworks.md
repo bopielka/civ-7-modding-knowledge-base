@@ -80,7 +80,8 @@ Najlepsze mody referencyjne z zainstalowanych 49 (wg złożoności i jakości ko
 |---|---|---|
 | `bz-map-trix` | 3507072814 | zaawansowany UI, warstwy map, dekoratory, patch prototypów |
 | `szczupakabra-poland` | 3768377608 | pełna cywilizacja w SQL, VisualRemaps |
-| `f1rstdan-cool-ui` | 3510572267 | rozbudowany mod UI z własnymi importami |
+| `f1rstdan-cool-ui` | 3510572267 | ✅ **ponownie zainstalowany 2026-08-26, wersja 1.9.6, przeanalizowany.** Uczy: `TooltipManager.registerType`, `CityYields.getCityYieldDetails`, własny przycisk w wierszu produkcji, `UpdateIcons`, lokalizacja jednym `.sql`, architektura czterowarstwowa (DAL/DPL/ULL/URL). ⚠️ Ma też przestrogę: jego kompaktowy układ wiersza jest **niesprawny** od migracji do `ui-next`. Pełna analiza w `mod-projects/better-city-ui/documentation/04-f1rstdan-cool-ui-analysis.md` |
+| `bz-city-hall` | 3507102289 | ✅ **wzorzec moda na ekran miasta**: dekoratory, patche prototypów, dodanie zakładki przez atrybut, własna warstwa soczewki, `<ActionCriteria>` gaszące ryzykowną grupę akcji. Pełna analiza w [28](28-city-screen.md) i w `mod-projects/better-city-ui/documentation/03-city-hall-analysis.md` |
 | `leugi-diploribbon-tweaks` | 3537808797 | `ReplaceUIScript`, dużo grafiki |
 | `stachs-elegant-policies-and-traditions` | 3730149478 | przepisanie ekranu polityk |
 | `drongos-cheat-panel` | 3734207916 | narzędzie deweloperskie/debug |

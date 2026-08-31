@@ -377,3 +377,68 @@ nie po `DefaultHandler` — inaczej gubimy to, co się dzieje po kliknięciu pow
 
 Definicje typów: `base-standard/data/notification.xml`. Warto zajrzeć w `SeverityType`
 i `ExpiresEndOfTurn` — `HIGH` + `False` znaczy „będzie wisiało w rogu w kółko".
+
+## `Catalog` / `SerialObject` — trwały stan moda, który przyjmuje STRINGI ✅
+
+**Ustalone 2026-08-26** przy specyfikacji moda „Better City UI". Uzupełnia
+[14-quirks #50](14-quirks-and-gotchas.md), które opisuje tylko `UI.setOption`.
+
+`/core/ui/utilities/utility-serialize.js` eksportuje `Catalog`, `SerialObject`,
+`CatalogItemCommittedEvent` i `CatalogItemCommittedEventName`. To **własny mechanizm gry**,
+używany przez nią w pięciu miejscach: `core/ui/lenses/lens-manager.js`,
+`base-standard/ui/quest-tracker/quest-tracker.js`, `base-standard/ui/advice/advice-manager.js`,
+`base-standard/ui-next/screens/legacies/triumph-tracking-manager.js`,
+`core/ui-next/screens/unlocks/civ-unlock-tracking-manager.js`.
+
+```js
+import { Catalog } from '/core/ui/utilities/utility-serialize.js';
+
+const catalog = new Catalog({
+    name: "MojMod",
+    version: 1,
+    player: Players.get(GameContext.localPlayerID),   // null => magazyn „światowy"
+});
+const obj = catalog.getObject("cokolwiek");
+obj.write("klucz", "wartość, także wielowyrazowa");   // ✅ string przechodzi
+const v = obj.read("klucz");                          // undefined gdy brak
+obj.getKeys();                                        // Set kluczy tego obiektu
+catalog.getObjectIds();                               // Set nazw obiektów
+catalog.dumpToLog();                                  // debug: całość jako drzewo ASCII
+```
+
+**Jak to działa pod spodem** (istotne dla oceny ryzyka):
+
+```js
+internalWrite = (player, hash, value) =>
+    player ? player.Tutorial.setProperty(hash, value) : GameTutorial.setProperty(hash, value);
+hash = Database.makeHash("_" + scope + "_" + id + "_" + key);
+```
+
+Czyli: **dynamiczne właściwości gracza**. Lista kluczy jest sama trzymana jako string pod
+kluczem `KEYS` (`Array.join(",")`) — co jest zarazem dowodem, że stringi działają.
+
+| Cecha | |
+|---|---|
+| typ wartości | ✅ string albo liczba |
+| zakres | gracz w tej partii (albo świat, gdy `player: null`) |
+| przeżywa restart | ✅ |
+| wersjonowanie | ✅ `version` w konstruktorze, `fileVersion` vs `runningVersion`, `justCreated` |
+| enumerowanie | ✅ `getKeys()` / `getObjectIds()` |
+
+⚠️ **Zapis jest KOLEJKOWANY**, gdy jest `player`. Odczyt w tej samej klatce zwróci starą
+wartość. Commit przychodzi jako `PlayerDynamicPropertyChanged` i wypływa jako okienne zdarzenie
+`catalog-item-committed`. Nie buduj pętli „zapisz i zaraz odczytaj".
+
+⚠️ **To pisze do zapisu gry.** Dla moda z `AffectsSavedGames = 0` to nadal uczciwe (nie zmienia
+zasad), ale „nie zmienia mechaniki" i „nic nie pisze do save'a" to dwa różne zdania.
+❓ Nieprzetestowane, jak zachowa się save wczytany bez moda — teoretycznie po prostu niesie
+nieodczytywane właściwości.
+
+**Kiedy czego używać:**
+
+| Potrzeba | Narzędzie |
+|---|---|
+| opcja moda (checkbox, wybór z listy) | `UI.setOption('user','Mod',…)` + `saveCheckpoint()` |
+| stan strukturalny per partia / per miasto | ✅ `Catalog` z `player` |
+| stan wspólny dla wszystkich partii, nieliczbowy | `Catalog` z `player: null` |
+| cokolwiek | ❗ **nie `localStorage`** — nie przeżywa przeładowania gry |
