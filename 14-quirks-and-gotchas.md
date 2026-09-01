@@ -1648,3 +1648,39 @@ miasta.
 
 ⚠️ Próg ruchu przy starcie przeciągania jest obowiązkowy. Bez niego każde kliknięcie w kartę liczy
 się jako drag i przestaje działać jej własne `action-activate`.
+
+---
+
+## 70. `style.cssText` na elemencie plot-icona zdejmuje wyśrodkowanie gry ❗✅
+
+`plot-icons-root.js` → `createIcon()` ustawia ikonie **inline**:
+
+```js
+plotIcon.style.transform = `translateX(-50%) translateY(-50%)`;
+```
+
+To jedyne, co centruje ikonę na heksie — kotwica świata (`WorldAnchors.RegisterFixedWorldAnchor`)
+pozycjonuje RODZICA `<plot-icons>`, a dziecko musi cofnąć się o połowę własnego rozmiaru samo.
+
+⚠️ Przypisanie `element.style.cssText = '...'` na TYM elemencie **podmienia cały blok deklaracji**,
+więc kasuje ten `transform`. Ikona przestaje być wyśrodkowana i siada lewym górnym rogiem na
+kotwicy — czyli **przesuwa się w prawo i w dół o połowę swojej szerokości/wysokości**.
+
+⚠️ **Objaw wygląda jak błąd zoomu, a nie pozycjonowania.** Przesunięcie jest stałe w PIKSELACH
+EKRANU (DOM nie skaluje się z kamerą), a heks kurczy się przy oddalaniu — więc z bliska wygląda to
+na drobne niedociągnięcie, a przy dużym oddaleniu ikona ląduje o kilka pól w bok. Zgłaszane jako
+„ikony rozjeżdżają się przy zoomowaniu".
+
+Na własnych elementach `cssText` jest w porządku i jest znacznie tańszy niż `setProperty` per
+własność (jedno przejście do silnika zamiast N). Wyjątkiem jest **korzeń ikony**, bo to jedyny
+element współdzielony z grą:
+
+```js
+// ✅ korzeń: setProperty, dokłada się do istniejących deklaracji
+for (const [name, value] of ROOT_ENTRIES) this.Root.style.setProperty(name, value);
+// ✅ elementy stworzone przez nas: cssText
+child.style.cssText = CHILD_CSS;
+```
+
+Ta sama zasada dotyczy każdego elementu, na którym gra trzyma inline'owy styl — m.in. wszystkiego,
+co ma `data-bind-style-*` (bindingi też piszą inline).

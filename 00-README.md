@@ -120,7 +120,7 @@ nie traktowały domysłów jak faktów:
 1. **[24-kb-maintenance.md](24-kb-maintenance.md)** — zasada aktualizowania tej bazy
 2. **[19-workflow-and-debugging.md](19-workflow-and-debugging.md)** — logi i pętla pracy;
    `console.log` **nie** trafia do `UI.log`, używaj `console.error`
-3. **[14-quirks-and-gotchas.md](14-quirks-and-gotchas.md)** — 31 pułapek; przejrzyj, zanim
+3. **[14-quirks-and-gotchas.md](14-quirks-and-gotchas.md)** — 70 pułapek; przejrzyj, zanim
    zaczniesz debugować cokolwiek „dziwnego"
 4. Mod „Better Specialists UI" — źródła i stan projektu:
    `../mod-projects/najane-common-specialists-yields/README.md`
