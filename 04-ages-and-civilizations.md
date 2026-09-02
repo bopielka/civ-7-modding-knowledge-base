@@ -1,31 +1,31 @@
-# 04 — Epoki, cywilizacje, drzewa rozwoju
+# 04 — Ages, civilizations, progression trees
 
-## System epok ✅
+## The age system ✅
 
-Civ VII dzieli grę na trzy epoki, każda jako **osobny moduł** gry:
+Civ VII splits the game into three ages, each a **separate module** of the game:
 
-| Epoka | `AgeType` | Moduł |
+| Age | `AgeType` | Module |
 |---|---|---|
-| Starożytność | `AGE_ANTIQUITY` | `Base\modules\age-antiquity` |
-| Eksploracja | `AGE_EXPLORATION` | `Base\modules\age-exploration` |
-| Nowoczesność | `AGE_MODERN` | `Base\modules\age-modern` |
+| Antiquity | `AGE_ANTIQUITY` | `Base\modules\age-antiquity` |
+| Exploration | `AGE_EXPLORATION` | `Base\modules\age-exploration` |
+| Modern | `AGE_MODERN` | `Base\modules\age-modern` |
 
-To ma bezpośrednie konsekwencje dla moda: **dane specyficzne dla epoki muszą być
-w `ActionGroup` z kryterium `AgeInUse`**, bo tabele epoki istnieją tylko wtedy.
+This has direct consequences for a mod: **age-specific data must live in an
+`ActionGroup` with the `AgeInUse` criterion**, because the age's tables only exist then.
 
 ```xml
 <Criteria id="aq"><AgeInUse>AGE_ANTIQUITY</AgeInUse></Criteria>
 ...
-<ActionGroup id="moj-mod-aq" scope="game" criteria="aq">
+<ActionGroup id="my-mod-aq" scope="game" criteria="aq">
     <Actions><UpdateDatabase><Item>Core/age-antiquity.sql</Item></UpdateDatabase></Actions>
 </ActionGroup>
 ```
 
-Kryterium `AgeAtOrBefore` pozwala na „ta epoka i wcześniejsze" (używa go gra bazowa).
+The `AgeAtOrBefore` criterion allows "this age and earlier" (the base game uses it).
 
-## Cywilizacja — tabela `Civilizations` ✅
+## A civilization — the `Civilizations` table ✅
 
-Kolumny (pełne, ze schematu):
+Columns (complete, from the schema):
 `CivilizationType`, `Adjective`, `AITargetCityPercentage`, `ApexAge`, `CapitalName`,
 `Description`, `FullName`, `Name`, `RandomCityNameDepth`, `StartingCivilizationLevelType`,
 `UniqueCultureProgressionTree`
@@ -40,14 +40,14 @@ VALUES('CIVILIZATION_POLAND','LOC_CIVILIZATION_POLAND_ADJECTIVE',50,'AGE_MODERN'
     'CIVILIZATION_LEVEL_FULL_CIV','TREE_CIVICS_MO_POLAND');
 ```
 
-- `ApexAge` — epoka, w której cywilizacja jest „pełna"/najsilniejsza
-- `StartingCivilizationLevelType` — `CIVILIZATION_LEVEL_FULL_CIV` dla normalnej cywilizacji
-- `UniqueCultureProgressionTree` — ⚠️ **zmienia się per epoka**; mod Polska ustawia
-  wartość bazową, a potem `UPDATE`-uje ją w pliku danej epoki
+- `ApexAge` — the age in which the civilization is "full"/strongest
+- `StartingCivilizationLevelType` — `CIVILIZATION_LEVEL_FULL_CIV` for a normal civilization
+- `UniqueCultureProgressionTree` — ⚠️ **changes per age**; the Poland mod sets
+  a base value and then `UPDATE`s it in that age's file
 
-## Cechy (`Traits`) ✅
+## Traits (`Traits`) ✅
 
-Cechy to spinacz między cywilizacją a jej bonusami.
+Traits are the connector between a civilization and its bonuses.
 
 ```sql
 INSERT INTO Traits(TraitType,Description,InternalOnly,Name) VALUES
@@ -55,41 +55,41 @@ INSERT INTO Traits(TraitType,Description,InternalOnly,Name) VALUES
 
 INSERT INTO CivilizationTraits(CivilizationType,TraitType) VALUES
   ('CIVILIZATION_POLAND','TRAIT_POLAND'),
-  ('CIVILIZATION_POLAND','TRAIT_MODERN_CIV'),               -- epoka
-  ('CIVILIZATION_POLAND','TRAIT_ATTRIBUTE_EXPANSIONIST'),   -- atrybut
+  ('CIVILIZATION_POLAND','TRAIT_MODERN_CIV'),               -- age
+  ('CIVILIZATION_POLAND','TRAIT_ATTRIBUTE_EXPANSIONIST'),   -- attribute
   ('CIVILIZATION_POLAND','TRAIT_ATTRIBUTE_MILITARISTIC');
 ```
 
-Rodzaje cech spotykane w grze:
-- `TRAIT_<CIV>` — własna cecha cywilizacji (nośnik jej modyfikatorów)
-- `TRAIT_ANTIQUITY_CIV` / `TRAIT_EXPLORATION_CIV` / `TRAIT_MODERN_CIV` — przypisanie do epoki
-- `TRAIT_ATTRIBUTE_*` — atrybuty (EXPANSIONIST, MILITARISTIC, SCIENTIFIC, ECONOMIC,
-  CULTURAL, DIPLOMATIC/POLITICAL), także warianty `_WIDE`, `_TOT_AQ`, `_TOT_EX`
-- `TRAIT_ANACHRONISTIC_CIV` — cywilizacja grywalna poza swoją epoką
+Kinds of traits found in the game:
+- `TRAIT_<CIV>` — the civilization's own trait (the carrier of its modifiers)
+- `TRAIT_ANTIQUITY_CIV` / `TRAIT_EXPLORATION_CIV` / `TRAIT_MODERN_CIV` — assignment to an age
+- `TRAIT_ATTRIBUTE_*` — attributes (EXPANSIONIST, MILITARISTIC, SCIENTIFIC, ECONOMIC,
+  CULTURAL, DIPLOMATIC/POLITICAL), also the `_WIDE`, `_TOT_AQ`, `_TOT_EX` variants
+- `TRAIT_ANACHRONISTIC_CIV` — a civilization playable outside its own age
 
-## Przejścia między epokami i syncretism ✅
+## Age transitions and syncretism ✅
 
-Civ VII pozwala zmienić cywilizację przy przejściu epoki. Żeby nowa cywilizacja była
-dostępna, trzeba wpiąć się w kilka tabel:
+Civ VII lets you change civilization at an age transition. For a new civilization to be
+available, you have to hook into several tables:
 
 ```sql
--- które cywilizacje odblokowują moją
+-- which civilizations unlock mine
 INSERT INTO CivilizationSyncretismUnlocks(CivilizationType,UnlockCivilizationType)
 VALUES('CIVILIZATION_ROME','CIVILIZATION_POLAND');
 
--- którzy liderzy ją odblokowują
+-- which leaders unlock it
 INSERT INTO LeaderSyncretismUnlocks(LeaderType,UnlockCivilizationType)
 SELECT LeaderType,'CIVILIZATION_POLAND' FROM Leaders WHERE LeaderType IN(...);
 
--- preferencje AI (jak chętnie lider wybierze tę cywilizację)
+-- AI preferences (how eagerly a leader will pick this civilization)
 INSERT INTO LeaderCivPriorities(Civilization,Leader,Priority)
 SELECT 'CIVILIZATION_POLAND',LeaderType,3 FROM Leaders WHERE ...;
 ```
 
-⚠️ **Pułapka udokumentowana w komentarzu autora moda Polska** — cytuję sens:
-ekran syncretismu rozwiązuje cywilizację przez tabele *legacy* **zanim** sięgnie po
-`CivSelfSyncretismUnlocks`. Bez obu wierszy poniżej efekt zostanie przyznany, ale
-karta w UI będzie pusta:
+⚠️ **A trap documented in a comment by the Poland mod's author** — paraphrasing:
+the syncretism screen resolves a civilization through the *legacy* tables **before** it
+reaches for `CivSelfSyncretismUnlocks`. Without both rows below the effect will be granted,
+but the card in the UI will be empty:
 
 ```sql
 INSERT INTO LegacyCivilizations(CivilizationType,Name,FullName,Adjective,Age)
@@ -98,9 +98,9 @@ INSERT INTO LegacyCivilizationTraits(CivilizationType,TraitType)
 VALUES('CIVILIZATION_POLAND','TRAIT_POLAND');
 ```
 
-## Tradycje (`Traditions`) ✅
+## Traditions (`Traditions`) ✅
 
-Kolumny: `TraditionType`, `AgeType`, `AllowInitializeAdvancedStart`, `CultureSlotType`,
+Columns: `TraditionType`, `AgeType`, `AllowInitializeAdvancedStart`, `CultureSlotType`,
 `Description`, `IgnoreInitializeUnlock`, `IsCrisis`, `Name`, `ObsoletesTraditionType`,
 `TraitType`
 
@@ -110,18 +110,18 @@ INSERT INTO Traditions(TraditionType,Name,Description,TraitType,AgeType,CultureS
 VALUES('TRADITION_POLAND_HETMAN_II','LOC_..._NAME','LOC_..._DESCRIPTION','TRAIT_POLAND',
     'AGE_MODERN','TRADITION_CULTURE_SLOT','TRADITION_POLAND_HETMAN_I',0,0);
 ```
-`ObsoletesTraditionType` — nowa tradycja zastępuje starszą wersję z poprzedniej epoki.
+`ObsoletesTraditionType` — the new tradition replaces the older version from the previous age.
 
-Podpięcie efektu: `INSERT INTO TraditionModifiers(TraditionType,ModifierId) VALUES(...)`.
+Attaching an effect: `INSERT INTO TraditionModifiers(TraditionType,ModifierId) VALUES(...)`.
 
-## Drzewa rozwoju (`ProgressionTrees`) ✅
+## Progression trees (`ProgressionTrees`) ✅
 
-Kolumny `ProgressionTrees`: `ProgressionTreeType`, `AgeType`, `CivInjectedName`,
+`ProgressionTrees` columns: `ProgressionTreeType`, `AgeType`, `CivInjectedName`,
 `CostProgressionModel`, `IconString`, `MultipleUnlockName`, `Name`, `PrereqFormat`,
 `RevealRequirementSetId`, `SystemType`
 
-Dodanie własnego węzła do **istniejącego** drzewa (podejście moda Polska — mniej
-inwazyjne niż własne drzewo):
+Adding your own node to an **existing** tree (the Poland mod's approach — less
+invasive than a tree of your own):
 
 ```sql
 INSERT INTO Types(Type,Kind) VALUES('NODE_CIVIC_AQ_POLAND_ORIGINS','KIND_TREE_NODE');
@@ -130,30 +130,30 @@ INSERT INTO ProgressionTreeNodes(ProgressionTreeNodeType,ProgressionTree,Cost,Na
 VALUES('NODE_CIVIC_AQ_POLAND_ORIGINS','TREE_CIVICS_AQ_TEST_OF_TIME',150,
        'LOC_NODE_CIVIC_AQ_POLAND_ORIGINS_NAME','cult_poland',0);
 
--- węzeł widoczny tylko dla mojej cywilizacji
+-- a node visible only to my civilization
 INSERT INTO ProgressionTreeNodeTraits(ProgressionTreeNodeType,RequiredTraitType)
 VALUES('NODE_CIVIC_AQ_POLAND_ORIGINS','TRAIT_POLAND');
 
--- miejsce w grafie (co jest po nim)
+-- its place in the graph (what comes after it)
 INSERT INTO ProgressionTreePrereqs(Node,PrereqNode)
 VALUES('NODE_CIVIC_AQ_FOUNDATION','NODE_CIVIC_AQ_POLAND_ORIGINS');
 
--- co odblokowuje
+-- what it unlocks
 INSERT INTO ProgressionTreeNodeUnlocks(ProgressionTreeNodeType,TargetKind,TargetType,UnlockDepth)
 VALUES('NODE_CIVIC_AQ_POLAND_ORIGINS','KIND_TRADITION','TRADITION_POLAND_HETMAN_I',1);
 
--- cytat na karcie węzła (kosmetyka)
+-- the quote on the node's card (cosmetic)
 INSERT INTO TypeQuotes(Type,Quote,QuoteAuthor)
 VALUES('NODE_CIVIC_AQ_POLAND_ORIGINS','LOC_..._QUOTE','LOC_..._QUOTE_AUTHOR');
 ```
 
-## Nazwy miast i wygląd ✅
+## City names and appearance ✅
 
 ```sql
 INSERT INTO CityNames(CivilizationType,CityName) VALUES
-  ('CIVILIZATION_POLAND','LOC_CITY_NAME_POLAND_1'), ... ;   -- mod Polska ma 29
+  ('CIVILIZATION_POLAND','LOC_CITY_NAME_POLAND_1'), ... ;   -- the Poland mod has 29
 
--- styl architektury i jednostek (używa istniejących zestawów artu gry)
+-- architecture and unit style (uses the game's existing art sets)
 INSERT INTO VisArt_CivilizationBuildingCultures(CivilizationType,BuildingCulture) VALUES
   ('CIVILIZATION_POLAND','BUILDING_CULTURE_NEU'),
   ('CIVILIZATION_POLAND','BUILDING_CULTURE_EEU_ANT'),
@@ -162,7 +162,7 @@ INSERT INTO VisArt_CivilizationUnitCultures(CivilizationType,UnitCulture)
 VALUES('CIVILIZATION_POLAND','Euro');
 ```
 
-## Narracja przypisana do cywilizacji ✅
+## Narrative tied to a civilization ✅
 
 ```sql
 INSERT INTO Types(Type,Kind) VALUES('POLAND_WAR_GOLD_STORY_AQ','KIND_NARRATIVE_STORY');
@@ -175,5 +175,5 @@ VALUES('POLAND_WAR_GOLD_REWARD_AQ','POLAND_WAR_GOLD_AQ');
 INSERT INTO NarrativeStory_Rewards(NarrativeStoryType,NarrativeRewardType,Activation)
 VALUES('POLAND_WAR_GOLD_STORY_AQ','POLAND_WAR_GOLD_REWARD_AQ','COMPLETE');
 ```
-`Hidden=1` + `StartEveryone=1` + `Activation='AUTO'` = cicha mechanika w tle,
-która wyzwala się po spełnieniu wymagań (tu: wypowiedzenie wojny).
+`Hidden=1` + `StartEveryone=1` + `Activation='AUTO'` = a silent background mechanic
+that fires once the requirements are met (here: declaring war).

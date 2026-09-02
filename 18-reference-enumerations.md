@@ -1,11 +1,11 @@
-# 18 — Pełne enumeracje (generowane z plików gry)
+# 18 — Full enumerations (generated from the game's files)
 
-Wygenerowane automatycznie z `Base\modules\*\data\*.xml` (461 plików).
-Wszystko poniżej jest ✅ — to identyfikatory faktycznie występujące w grze.
+Generated automatically from `Base\modules\*\data\*.xml` (461 files).
+Everything below is ✅ — these are identifiers that actually occur in the game.
 
-Regeneracja: patrz skrypt na końcu pliku.
+Regeneration: see the script at the end of the file.
 
-## Kolekcje — COLLECTION_* (38)
+## Collections — COLLECTION_* (38)
 
 ```
 COLLECTION_ALL_CAPITAL_CITIES
@@ -48,7 +48,7 @@ COLLECTION_UNIT_OCCUPIED_CITY
 COLLECTION_UNIT_OCCUPIED_DISTRICT
 ```
 
-## Typy wymagań — REQUIREMENT_* (270)
+## Requirement types — REQUIREMENT_* (270)
 
 ```
 REQUIREMENT_AGE_CRISIS_STAGE_IS_X
@@ -323,11 +323,11 @@ REQUIREMENT_UNIT_TYPE_MATCHES
 REQUIREMENT_WONDER_IS_ACTIVE
 ```
 
-## Typy efektów — EFFECT_* i pokrewne (387)
+## Effect types — EFFECT_* and related (387)
 
-Uwaga: obok `EFFECT_*` występują tu też `CARD_*`, `PLOTEFFECT_*`, `MOD_*`,
-`ADV_START_EFFECT_*`, `LEADER_CARD_*` — to efekty specjalnych podsystemów
-(karty przejścia epok, efekty pól, zaawansowany start).
+Note: alongside `EFFECT_*` this list also contains `CARD_*`, `PLOTEFFECT_*`, `MOD_*`,
+`ADV_START_EFFECT_*`, `LEADER_CARD_*` — these are the effects of special subsystems
+(age transition cards, plot effects, advanced start).
 
 ```
 EFFECT_ADD_BELIEF
@@ -719,14 +719,14 @@ TRIGGER_PLAYER_GRANT_YIELD_ON_PROGRESSION_TREE_NODE_DEPTH_UNLOCKED
 TRIGGER_PLAYER_GRANT_YIELD_ON_UNIT_CREATED
 ```
 
-## Typy zestawów wymagań
+## Requirement set types
 
 ```
-REQUIREMENTSET_TEST_ALL   (AND - wszystkie muszą być spełnione)
-REQUIREMENTSET_TEST_ANY   (OR  - wystarczy jedno)
+REQUIREMENTSET_TEST_ALL   (AND - all must be satisfied)
+REQUIREMENTSET_TEST_ANY   (OR  - one is enough)
 ```
 
-## Skrypt regenerujący
+## Regeneration script
 
 ```bash
 G="/c/Program Files (x86)/Steam/steamapps/common/Sid Meier's Civilization VII"

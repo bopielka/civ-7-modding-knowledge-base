@@ -1,27 +1,27 @@
-# 19 — Workflow pracy i debugowanie
+# 19 — Working workflow and debugging
 
-## Logi gry ✅ (znalezione i zweryfikowane)
+## The game's logs ✅ (found and verified)
 
 ```
 C:\Users\najan\AppData\Local\Firaxis Games\Sid Meier's Civilization VII\Logs\
 ```
 
-**To jest najważniejsze narzędzie debugowania.** 32 pliki logów, najistotniejsze:
+**This is the most important debugging tool.** 32 log files; the most relevant ones:
 
-| Log | Do czego |
+| Log | What for |
 |---|---|
-| **`Modding.log`** | ładowanie modów, wykryte subskrypcje, lista aktywnych modów, rekonfiguracja |
-| **`Database.log`** | walidacja bazy, **błędy XML/SQL**, klucze obce |
-| **`UI.log`** | błędy JS, brakujące zasoby graficzne, błędy konwersji argumentów |
-| `Startup.log`, `General.log` | ogólny przebieg startu |
-| `Localization.log` | problemy z tekstami |
-| `ArtDef.log`, `Renderer.log`, `VFXSystem.log` | grafika |
+| **`Modding.log`** | mod loading, detected subscriptions, the list of active mods, reconfiguration |
+| **`Database.log`** | database validation, **XML/SQL errors**, foreign keys |
+| **`UI.log`** | JS errors, missing graphical assets, argument conversion errors |
+| `Startup.log`, `General.log` | the general course of startup |
+| `Localization.log` | text problems |
+| `ArtDef.log`, `Renderer.log`, `VFXSystem.log` | graphics |
 
-### Format wpisów ✅
+### Entry format ✅
 
 ```
 [2026-08-08 21:53:47]	Subscription Service - Detected 49 subscriptions
-[2026-08-08 21:53:47]	bz-map-trix (Map Trix)                     ← id (nazwa wyświetlana)
+[2026-08-08 21:53:47]	bz-map-trix (Map Trix)                     ← id (display name)
 [2026-08-08 21:53:47]	Successfully reconfigured game.
 ```
 
@@ -32,9 +32,9 @@ C:\Users\najan\AppData\Local\Firaxis Games\Sid Meier's Civilization VII\Logs\
                                         either <Database> or <GameEffects>.
 ```
 
-⚠️ **Ta linia to autorytatywna reguła:** root pliku XML musi być `<Database>` **albo**
-`<GameEffects>` — nic innego nie przejdzie. (Powyższy wpis to realny błąd w plikach gry
-bazowej — nawet Firaxis go ma.)
+⚠️ **That line is an authoritative rule:** an XML file's root must be `<Database>` **or**
+`<GameEffects>` — nothing else will pass. (The entry above is a real error in the base game's
+files — even Firaxis has it.)
 
 ```
 [2026-08-08 21:54:05]	Failed to open file - lp_circ_alexander_256
@@ -42,255 +42,255 @@ bazowej — nawet Firaxis go ma.)
 [2026-08-08 21:54:17]	Argument conversion failed: Wrong type - expected String, got Null
                         while converting argument 0 for getIconBLP
 ```
-Tak wyglądają błędy brakujących ikon i błędy JS — dokładnie to, co zobaczysz,
-gdy twoje `IconDefinitions` będą niepoprawne.
+That is what missing-icon errors and JS errors look like — exactly what you will see
+when your `IconDefinitions` are wrong.
 
-## Baza moddingu ✅
+## The modding database ✅
 
 ```
 ...\AppData\Local\Firaxis Games\Sid Meier's Civilization VII\Mods.sqlite
 ```
-To fizyczna baza ze schematu `schema-modding-10.sql` — możesz ją otworzyć
-w DB Browser for SQLite i zobaczyć, **jak gra faktycznie zinterpretowała twój `.modinfo`**:
-tabele `Mods`, `ModProperties`, `ActionGroups`, `Actions`, `ActionItems`, `Criteria`.
+This is the physical database from the `schema-modding-10.sql` schema — you can open it
+in DB Browser for SQLite and see **how the game actually interpreted your `.modinfo`**:
+the tables `Mods`, `ModProperties`, `ActionGroups`, `Actions`, `ActionItems`, `Criteria`.
 
-Nieocenione, gdy mod „się nie ładuje" i nie wiadomo dlaczego.
+Invaluable when a mod "does not load" and it is not clear why.
 
-Obok: `LocalStorage.sqlite`, `HallofFame.sqlite`.
+Next to it: `LocalStorage.sqlite`, `HallofFame.sqlite`.
 
-## Inne lokalizacje ✅
+## Other locations ✅
 
-| Ścieżka | Zawartość |
+| Path | Contents |
 |---|---|
-| `AppData\Local\Firaxis Games\...\Mods\` | (u mnie pusty) — ⚠️ możliwa alternatywna lokalizacja modów |
-| `AppData\Local\Firaxis Games\...\ModUserData\` | dane zapisywane przez mody (u mnie pusty) |
-| `AppData\Local\Firaxis Games\...\dumps\`, `packagedDumps\` | zrzuty po crashach |
-| `AppData\Local\Firaxis Games\...\AppOptions.txt`, `UserOptions.txt` | ustawienia (tekstowe) |
+| `AppData\Local\Firaxis Games\...\Mods\` | (empty here) — ⚠️ a possible alternative mod location |
+| `AppData\Local\Firaxis Games\...\ModUserData\` | data written by mods (empty here) |
+| `AppData\Local\Firaxis Games\...\dumps\`, `packagedDumps\` | crash dumps |
+| `AppData\Local\Firaxis Games\...\AppOptions.txt`, `UserOptions.txt` | settings (text) |
 
-## Źródła osobno, wdrożenie skryptem ✅ (zalecane)
+## Sources kept separately, deployed by a script ✅ (recommended)
 
-Trzymanie źródeł w folderze gry blokuje repozytorium: `.git`, README i skrypty
-trafiałyby do folderu gracza. Rozdziel to:
+Keeping the sources in the game's folder blocks a repository: `.git`, the README and the scripts
+would end up in the player's folder. Separate them:
 
 ```
-Documents\Civ7Modding\mod-projects\<mod>\   ← źródło prawdy, repozytorium
+Documents\Civ7Modding\mod-projects\<mod>\   ← the source of truth, the repository
         ↓  deploy.sh
-%LOCALAPPDATA%\Firaxis Games\...\Mods\<mod>\  ← wynik, traktowany jak build
+%LOCALAPPDATA%\Firaxis Games\...\Mods\<mod>\  ← the output, treated as a build
 ```
 
-Wzorzec skryptu (działający przykład: `mod-projects/najane-common-specialists-yields/deploy.sh`):
+The script pattern (a working example: `mod-projects/najane-common-specialists-yields/deploy.sh`):
 
-- **kopiuj listę dozwolonych, nie wykluczaj** — kopiuj tylko `.modinfo`, `ui/`, `text/`.
-  Wtedy README, `deploy.sh` i `.git/` nie trafią do gry **z konstrukcji**, a nie dzięki
-  liście wykluczeń, która z czasem się rozjedzie.
-- **wyczyść cel przed kopiowaniem** — inaczej plik usunięty w repo zostaje w grze
-  jako duch. Cel to build, nie magazyn.
-- **zabezpiecz ścieżki** — sprawdź, czy katalog docelowy kończy się na id moda, zanim
-  wywołasz `rm -rf`. Literówka w zmiennej nie może skasować czegoś innego.
-- **weryfikuj po wdrożeniu** — sprawdź, czy każdy `<Item>`/`<File>` z `.modinfo`
-  faktycznie istnieje w celu. Wyłapuje literówki w ścieżkach, zanim zrobi to gra.
-- **dodaj `--dry`** — pokazuje, co zostanie skopiowane, bez zmian.
+- **copy an allowlist, do not exclude** — copy only `.modinfo`, `ui/`, `text/`.
+  Then the README, `deploy.sh` and `.git/` will not reach the game **by construction**, rather than thanks to
+  an exclusion list that drifts out of date over time.
+- **clear the target before copying** — otherwise a file deleted in the repo stays in the game
+  as a ghost. The target is a build, not a warehouse.
+- **guard the paths** — check that the target directory ends with the mod's id before you
+  call `rm -rf`. A typo in a variable must not delete something else.
+- **verify after deploying** — check that every `<Item>`/`<File>` from `.modinfo`
+  really exists in the target. It catches path typos before the game does.
+- **add `--dry`** — shows what will be copied, without changing anything.
 
-⚠️ **Pliki generowane przez deploy + drugi skrypt na inną platformę = cicha awaria.**
-Jeśli deploy generuje plik, którego nie ma w git (np. `ui/support/build-stamp.js` w
-`better-commerce-screen-ui`, ignorowany w `.gitignore`), a moduł wejściowy moda go
-importuje, to **każdy** skrypt deploy musi go zapisywać. Wystarczy dodać krok tylko do
-`deploy-on-mac.sh` i zapomnieć o `deploy.sh` — po `git pull` na drugim komputerze deploy
-kończy się sukcesem, a mod nie ładuje się w ogóle, bo `import` wskazuje na nieistniejący
-plik. Nic tego nie wyłapie: weryfikacja `.modinfo` sprawdza tylko pliki wymienione w
-`.modinfo`, a ten się tam nie pojawia. Skrypty na różne platformy powinny różnić się
-**wyłącznie ścieżką docelową** — resztę trzymaj identyczną i sprawdzaj `diff`.
+⚠️ **Files generated by deploy + a second script for another platform = a silent failure.**
+If deploy generates a file that is not in git (e.g. `ui/support/build-stamp.js` in
+`better-commerce-screen-ui`, ignored in `.gitignore`) and the mod's entry module
+imports it, then **every** deploy script has to write it. It is enough to add the step to
+`deploy-on-mac.sh` only and forget `deploy.sh` — after a `git pull` on the other computer the deploy
+succeeds and the mod does not load at all, because the `import` points at a non-existent
+file. Nothing will catch it: the `.modinfo` verification only checks files listed in
+`.modinfo`, and this one does not appear there. Scripts for different platforms should differ
+**only in the target path** — keep the rest identical and check with `diff`.
 
-ℹ️ CRLF w `.sh` nie jest problemem **na Windows** — mimo `core.autocrlf=true` Git Bash
-uruchamia skrypty z CRLF bez błędu (sprawdzone: pełny deploy, exit 0). Na macOS jest:
-`#!/usr/bin/env bash` + CR to "bad interpreter". `deploy-on-mac.sh` trzymaj w LF, i to nie
-ręcznie — samo `* text=auto` w `.gitattributes` przy `core.autocrlf=true` przepisze go z powrotem
-na CRLF przy pierwszym dotknięciu przez Gita. Dołóż regułę `*.sh text eol=lf`.
+ℹ️ CRLF in a `.sh` is not a problem **on Windows** — despite `core.autocrlf=true`, Git Bash
+runs CRLF scripts without an error (checked: a full deploy, exit 0). On macOS it is:
+`#!/usr/bin/env bash` + CR gives "bad interpreter". Keep `deploy-on-mac.sh` in LF, and not
+by hand — a bare `* text=auto` in `.gitattributes` with `core.autocrlf=true` will rewrite it back
+to CRLF the first time Git touches it. Add a `*.sh text eol=lf` rule.
 
-## ⚠️ Dwuklik na `deploy.sh` w Explorerze cicho nie wdraża (alias `winpty`) ✅
+## ⚠️ Double-clicking `deploy.sh` in Explorer silently fails to deploy (the `winpty` alias) ✅
 
-Objaw: w terminalu `./deploy.sh` działa, a dwuklik w Explorerze mignie oknem i **nic
-nie kopiuje** — pliki w `Mods\` zostają z poprzedniego wdrożenia.
+Symptom: in a terminal `./deploy.sh` works, while a double-click in Explorer flashes a window and **copies
+nothing** — the files in `Mods\` are left from the previous deployment.
 
-Przyczyna: `.sh` jest skojarzone z `git-bash.exe --no-cd "%L"`, a to uruchamia skrypt
-w powłoce **interaktywnej** (`$-` zawiera `i`). Git for Windows definiuje tam
-`alias node='winpty node.exe'`. `winpty` wymaga tty, więc przy przekierowaniu
-(`node --input-type=module --check < plik >/dev/null`) kończy się `stdin is not a tty`
-i kodem 1. Kontrola składni uznaje **każdy** plik za błędny, `die` przerywa skrypt
-przed kopiowaniem, a okno znika, zanim ktokolwiek przeczyta błąd. Z terminala aliasy
-nie istnieją (powłoka nieinteraktywna), więc ten sam skrypt działa — stąd mylący objaw.
+The cause: `.sh` is associated with `git-bash.exe --no-cd "%L"`, and that runs the script
+in an **interactive** shell (`$-` contains `i`). Git for Windows defines
+`alias node='winpty node.exe'` there. `winpty` requires a tty, so with redirection
+(`node --input-type=module --check < file >/dev/null`) it ends with `stdin is not a tty`
+and exit code 1. The syntax check considers **every** file broken, `die` aborts the script
+before copying, and the window vanishes before anyone can read the error. From a terminal the aliases
+do not exist (a non-interactive shell), so the same script works — hence the misleading symptom.
 
-Weryfikacja (uruchomione z dwukliku, wynik do pliku):
+Verification (run from a double-click, output to a file):
 
 ```
 command -v node   →  alias node='winpty node.exe'
 node -v           →  stdout is not a tty     (exit 1)
 ```
 
-Dwie poprawki w skrypcie deploy:
+Two fixes in the deploy script:
 
-- **rozwiąż binarkę przez `type -P`, nie wołaj po nazwie** — `type -P` pomija aliasy
-  i funkcje i zwraca prawdziwy `.exe`:
-  `NODE_BIN="$(type -P node || true)"` i dalej `"$NODE_BIN" --check ...`.
-  Dotyczy każdego natywnego narzędzia konsolowego (node, python, winpty-owane w Git Bash).
-- **zatrzymaj okno, gdy skrypt szedł z dwukliku** — inaczej każdy błąd wygląda jak
-  "nic się nie stało":
-  `if [[ $- == *i* ]]; then trap PAUSE EXIT (patrz deploy.sh); fi`.
-  `$-` z `i` to dokładnie przypadek dwukliku; `./deploy.sh` z terminala nie pauzuje.
-  Warte dodania do **każdego** skryptu deploy, także bez `node`: bez pauzy udany deploy
-  i `die` wyglądają identycznie - okno mignie i znika (potwierdzone w
-  `najane-common-specialists-yields`, gdzie skrypt działał poprawnie, a wyglądał na martwy).
+- **resolve the binary with `type -P`, do not call it by name** — `type -P` skips aliases
+  and functions and returns the real `.exe`:
+  `NODE_BIN="$(type -P node || true)"` and then `"$NODE_BIN" --check ...`.
+  This applies to every native console tool (node, python, anything winpty-wrapped in Git Bash).
+- **hold the window open when the script came from a double-click** — otherwise every error looks like
+  "nothing happened":
+  `if [[ $- == *i* ]]; then trap PAUSE EXIT (see deploy.sh); fi`.
+  `$-` containing `i` is exactly the double-click case; `./deploy.sh` from a terminal does not pause.
+  Worth adding to **every** deploy script, even one without `node`: without the pause a successful deploy
+  and a `die` look identical - the window flashes and disappears (confirmed in
+  `najane-common-specialists-yields`, where the script worked correctly and looked dead).
 
-## Pętla pracy
+## The work loop
 
 ```
-1. edytuj pliki moda w Documents\Civ7Modding\mod-projects\moj-mod\ i uruchom ./deploy.sh
-   (albo, bez repozytorium, wprost w AppData\Local\Firaxis Games\...\Mods\moj-mod\)
-2. uruchom grę (albo wróć do menu głównego — patrz niżej)
-3. sprawdź Modding.log  → czy mod się w ogóle załadował
-4. sprawdź Database.log → czy dane przeszły walidację
-5. sprawdź UI.log       → czy JS/ikony działają
-6. testuj w grze
+1. edit the mod's files in Documents\Civ7Modding\mod-projects\my-mod\ and run ./deploy.sh
+   (or, without a repository, directly in AppData\Local\Firaxis Games\...\Mods\my-mod\)
+2. start the game (or return to the main menu — see below)
+3. check Modding.log  → did the mod load at all
+4. check Database.log → did the data pass validation
+5. check UI.log       → do the JS/icons work
+6. test in game
 ```
 
-⚠️ W `Modding.log` widać wpisy `Reason: Main Menu Reset` i `Reason: Script Reset`
-— sugeruje to, że **powrót do menu głównego przeładowuje mody**, bez restartu gry.
-❓ Nie potwierdziłem tego eksperymentalnie, ale warto spróbować — oszczędza mnóstwo czasu.
+⚠️ `Modding.log` shows `Reason: Main Menu Reset` and `Reason: Script Reset` entries
+— which suggests that **returning to the main menu reloads mods**, without restarting the game.
+❓ I have not confirmed this experimentally, but it is worth trying — it saves a lot of time.
 
-## Zasady iteracji
+## Iteration rules
 
-1. **Zacznij od najmniejszej zmiany, która da widoczny efekt.**
-   Np. `UPDATE Units SET BaseMoves=5 WHERE UnitType='UNIT_SCOUT'` — natychmiast widać.
-2. **Dodawaj po jednym pliku.** Przy 53 plikach naraz nie znajdziesz, co zepsuło.
-3. **Najpierw dane, potem grafika.** Ikony są najbardziej upierdliwe i najmniej krytyczne.
-4. **Trzymaj wersję działającą.** Kopiuj folder przed większą zmianą.
-5. **Zapisz, czego się nauczyłeś.** ⬅ krok, o którym najłatwiej zapomnieć
+1. **Start with the smallest change that produces a visible effect.**
+   E.g. `UPDATE Units SET BaseMoves=5 WHERE UnitType='UNIT_SCOUT'` — visible immediately.
+2. **Add one file at a time.** With 53 files at once you will not find what broke.
+3. **Data first, graphics later.** Icons are the most tedious and the least critical.
+4. **Keep a working version.** Copy the folder before a bigger change.
+5. **Write down what you learned.** ⬅ the step that is easiest to forget
 
-## Krok 7 pętli: aktualizacja bazy wiedzy ⚠️ obowiązkowy
+## Step 7 of the loop: updating the knowledge base ⚠️ mandatory
 
-Każde ustalenie, które nie wynikało wprost z bazy wiedzy, **trafia z powrotem do bazy**
-— zanim skończysz sesję. Dotyczy to zarówno agenta AI, jak i Ciebie.
+Every finding that did not follow directly from the knowledge base **goes back into the base**
+— before you end the session. This applies to the AI agent as much as to you.
 
-Najczęstsze przypadki:
-- coś zadziałało inaczej, niż opisano → **popraw wpis**
-- ⚠️ lub ❓ potwierdzone w praktyce → **zmień na ✅**, dopisz jak sprawdzono
-- błąd, który kosztował więcej niż kilka minut → **[14-quirks-and-gotchas.md](14-quirks-and-gotchas.md)**
+The most common cases:
+- something behaved differently than described → **fix the entry**
+- a ⚠️ or ❓ confirmed in practice → **change it to ✅**, note how it was checked
+- a mistake that cost more than a few minutes → **[14-quirks-and-gotchas.md](14-quirks-and-gotchas.md)**
 
-Pełna procedura, mapa „co gdzie zapisać" i wzorce korekt:
+The full procedure, the "what goes where" map and correction patterns:
 **[24-kb-maintenance.md](24-kb-maintenance.md)**.
 
-Uzasadnienie: wiedza, która zostanie tylko w oknie czatu, przepada przy następnej
-sesji — a to jest dokładnie ten problem, dla którego ta baza powstała.
+The rationale: knowledge that stays only in the chat window is lost at the next
+session — and that is exactly the problem this knowledge base was created for.
 
-## Typowe objawy → przyczyny
+## Common symptoms → causes
 
-| Objaw | Gdzie szukać | Prawdopodobna przyczyna |
+| Symptom | Where to look | Probable cause |
 |---|---|---|
-| **Zmiana nie działa, „nic się nie dzieje"** | `UI.log` → linia ze stemplem builda | **nie odpalono `deploy.sh`** — gra czyta `Mods\`, nie repo. Sprawdź to PIERWSZE |
-| **Moda nie ma w `Modding.log` W OGÓLE** | `Modding.log` → `Discovered 0 mods.` | **mod w złym folderze** — musi być w `AppData\Local\Firaxis Games\...\Mods\`, nie w `Documents` |
-| Moda nie ma na liście, ale jest w logu | `Modding.log` | błąd składni `.modinfo`, zły `<Package>`, `ShowInBrowser=0` |
-| Mod na liście, ale nic nie robi | `Modding.log` + `Mods.sqlite` | kryterium niespełnione, zły `scope` |
-| Błąd walidacji bazy | `Database.log` | brak wiersza w `Types`, złamany klucz obcy |
-| XML zignorowany | `Database.log` | root nie jest `<Database>`/`<GameEffects>` |
-| Widać `LOC_...` | `Localization.log` | brak `UpdateText` albo literówka w tagu |
-| Brak ikony | `UI.log` (`Failed to open file`) | zła ścieżka `fs://game/...`, brak `ImportFiles` |
-| Panel UI nie reaguje | `UI.log` | dekorator zarejestrowany za późno → podnieś `LoadOrder` |
-| Gra się wysypuje | `dumps\` | zwykle błąd danych; sprawdź `Database.log` tuż przed |
+| **The change does not work, "nothing happens"** | `UI.log` → the line with the build stamp | **`deploy.sh` was not run** — the game reads `Mods\`, not the repo. Check this FIRST |
+| **The mod is NOT in `Modding.log` AT ALL** | `Modding.log` → `Discovered 0 mods.` | **the mod is in the wrong folder** — it must be in `AppData\Local\Firaxis Games\...\Mods\`, not in `Documents` |
+| The mod is not in the list but is in the log | `Modding.log` | a `.modinfo` syntax error, a wrong `<Package>`, `ShowInBrowser=0` |
+| The mod is in the list but does nothing | `Modding.log` + `Mods.sqlite` | an unsatisfied criterion, the wrong `scope` |
+| A database validation error | `Database.log` | a missing row in `Types`, a broken foreign key |
+| The XML was ignored | `Database.log` | the root is not `<Database>`/`<GameEffects>` |
+| You see `LOC_...` | `Localization.log` | a missing `UpdateText` or a typo in the tag |
+| A missing icon | `UI.log` (`Failed to open file`) | a wrong `fs://game/...` path, a missing `ImportFiles` |
+| A UI panel does not react | `UI.log` | the decorator was registered too late → raise `LoadOrder` |
+| The game crashes | `dumps\` | usually a data error; check `Database.log` just before |
 
-## ❗ Zanim zaczniesz debugować zmianę: sprawdź, czy gra ją w ogóle widzi ✅
+## ❗ Before you start debugging a change: check whether the game even sees it ✅
 
-**Data: 2026-08-18.** Kosztowało pełną rundę „przecież to powinno działać".
+**Date: 2026-08-18.** It cost a full round of "but this should work".
 
-Repo w `Documents\Civ7Modding\mod-projects\` a folder, z którego gra czyta
-(`AppData\Local\Firaxis Games\...\Mods\`) to **dwa różne miejsca**. Edycja pliku
-w repo nie zmienia nic w grze, dopóki nie pójdzie `./deploy.sh`. Objaw jest mylący, bo
-identyczny z „kod jest zły": klikasz i **nic się nie dzieje**.
+The repo in `Documents\Civ7Modding\mod-projects\` and the folder the game reads from
+(`AppData\Local\Firaxis Games\...\Mods\`) are **two different places**. Editing a file
+in the repo changes nothing in the game until `./deploy.sh` runs. The symptom is misleading, because it is
+identical to "the code is wrong": you click and **nothing happens**.
 
-Dlatego mod wypisuje przy starcie **stempel builda** generowany w czasie deployu
-(`ui/support/build-stamp.js`, wypisywany przez `console.error`):
+That is why the mod prints a **build stamp** at startup, generated at deploy time
+(`ui/support/build-stamp.js`, printed with `console.error`):
 
 ```bash
 L="/c/Users/najan/AppData/Local/Firaxis Games/Sid Meier's Civilization VII/Logs"
 grep "loaded, build" "$L/UI.log" | tail -3
 ```
 
-Jeśli godzina stempla jest **starsza niż Twoja edycja** — gra gra ze starym kodem i nie ma
-czego debugować. To sprawdzenie zajmuje sekundę i powinno być **pierwszym krokiem**, przed
-czytaniem czegokolwiek innego.
+If the stamp's timestamp is **older than your edit** — the game is running old code and there is
+nothing to debug. That check takes a second and should be the **first step**, before
+reading anything else.
 
-⚠️ Sam deploy **nie wystarczy** — trzeba jeszcze zrestartować grę albo wrócić do menu
-głównego, żeby skrypty UI przeładowały się z dysku.
+⚠️ A deploy alone **is not enough** — you still have to restart the game or return to the main
+menu so that the UI scripts reload from disk.
 
-## ⚠️ `console.log` NIE trafia do `UI.log` ✅
+## ⚠️ `console.log` does NOT reach `UI.log` ✅
 
-Sprawdzone empirycznie: wywołania `console.log()` z moda **nie zostawiają śladu**
-w `Logs\UI.log` — zrzut diagnostyczny wypisany przez `console.log` nie pojawił się
-tam wcale, mimo że kod na pewno się wykonał.
+Verified empirically: `console.log()` calls from a mod **leave no trace**
+in `Logs\UI.log` — a diagnostic dump printed with `console.log` did not appear
+there at all, even though the code definitely ran.
 
-Do logowania diagnostycznego z moda używaj **`console.error()`** — te wpisy trafiają
-do `UI.log` (widać je jako `JS Error`). Brzydkie, ale działa:
+For diagnostic logging from a mod use **`console.error()`** — those entries do reach
+`UI.log` (they show up as `JS Error`). Ugly, but it works:
 
 ```js
-console.error(`moj-mod: plot=${i} deltas=[${...}]`);
+console.error(`my-mod: plot=${i} deltas=[${...}]`);
 ```
-❓ Nie sprawdziłem `console.warn` ani `console.info` — możliwe, że któryś też przechodzi.
+❓ I have not checked `console.warn` or `console.info` — it is possible one of them also gets through.
 
-Wniosek praktyczny: planując „dodam log i sprawdzę w pliku", od razu pisz `console.error`,
-inaczej stracisz cały cykl uruchamiania gry na nic.
+The practical conclusion: when planning "I will add a log and check the file", write `console.error`
+straight away, or you will waste a whole game-launch cycle for nothing.
 
-## Szybkie komendy
+## Quick commands
 
 ```bash
 L="/c/Users/najan/AppData/Local/Firaxis Games/Sid Meier's Civilization VII/Logs"
 
-# czy mój mod się załadował
-grep -i "moj-mod" "$L/Modding.log"
+# did my mod load
+grep -i "my-mod" "$L/Modding.log"
 
-# błędy bazy z ostatniego uruchomienia
+# database errors from the last run
 grep -iv "Passed Validation" "$L/Database.log" | tail -30
 
-# błędy UI
+# UI errors
 grep -i "error\|failed\|warn" "$L/UI.log" | tail -30
 
-# lista załadowanych modów
+# the list of loaded mods
 grep -E "^\[.*\]\t[a-z0-9-]+ \(" "$L/Modding.log" | tail -60
 ```
 
-## Przeszukiwanie plików gry (najważniejsza umiejętność)
+## Searching the game's files (the most important skill)
 
 ```bash
 G="/c/Program Files (x86)/Steam/steamapps/common/Sid Meier's Civilization VII"
 
-# jak Firaxis zrobił coś podobnego — TYLKO w data/ (14 MB, szybkie)
+# how Firaxis did something similar — data/ ONLY (14 MB, fast)
 grep -rn "EFFECT_CITY_ADJUST_YIELD" "$G/Base/modules/"*/data/ | head
 
-# kolumny dowolnej tabeli
+# the columns of any table
 S="$G/Base/Assets/schema/gameplay/01_GameplaySchema.sql"
 awk -v w="CREATE TABLE 'Traditions' (" 'index($0,w)==1{f=1} f{print} f&&/^\);/{exit}' "$S"
 
-# komponenty UI do dekoracji
+# UI components to decorate
 grep -rn "Controls.define" "$G/Base/modules/base-standard/ui/" | head -40
 ```
-⚠️ Nie rób `grep -r` po całym `$G` — 1,3 GB, zajmie minuty.
+⚠️ Do not `grep -r` the whole of `$G` — 1.3 GB, it will take minutes.
 
-## Narzędzia pomocnicze w tym repo
+## Helper tools in this repo
 
-- `..\tools\extract_ts.py` — wyciąga oryginalny TypeScript z sourcemap gry
-  (patrz [16-ui-source-reference.md](16-ui-source-reference.md))
+- `..\tools\extract_ts.py` — extracts the original TypeScript from the game's sourcemaps
+  (see [16-ui-source-reference.md](16-ui-source-reference.md))
 
-## Gdzie mod trzyma stan — pliki do zajrzenia ✅
+## Where a mod keeps its state — files to look at ✅
 
-**Ustalone 2026-08-27.** Wszystko w
+**Established 2026-08-27.** Everything under
 `%LOCALAPPDATA%\Firaxis Games\Sid Meier's Civilization VII\`:
 
-| Plik | Co w nim jest |
+| File | What is in it |
 |---|---|
-| `LocalStorage.sqlite` | ✅ **`localStorage` modów**. Tabela `Values(id, key, value)`, `id = 'fs://game'` dla wszystkich — wspólna przestrzeń nazw |
-| `UserOptions.txt` | opcje `UI.setOption('user', <sekcja>, …)`. ❗ **Sekcji `[Mod]` tam NIE MA** — patrz [14](14-quirks-and-gotchas.md) #50 KOREKTA |
-| `Mods.sqlite` | co gra wykryła i włączyła; kolumny `Mods.ModId`, `ScannedFiles.Path` |
-| `Logs/UI.log` | wyjście modów i błędy JS |
+| `LocalStorage.sqlite` | ✅ **mods' `localStorage`**. Table `Values(id, key, value)`, `id = 'fs://game'` for all of them — a shared namespace |
+| `UserOptions.txt` | `UI.setOption('user', <section>, …)` options. ❗ **There is NO `[Mod]` section there** — see [14](14-quirks-and-gotchas.md) #50 CORRECTION |
+| `Mods.sqlite` | what the game detected and enabled; columns `Mods.ModId`, `ScannedFiles.Path` |
+| `Logs/UI.log` | mods' output and JS errors |
 
-Podgląd `localStorage` bez uruchamiania gry:
+Inspecting `localStorage` without launching the game:
 
 ```python
 import sqlite3, os, json
@@ -300,4 +300,4 @@ for id_, key, val in c.execute('select id, key, value from "Values"'):
     print(id_, key, json.loads(val))
 ```
 
-⚠️ Otwieraj **tylko do odczytu** (`mode=ro`) i najlepiej przy wyłączonej grze.
+⚠️ Open it **read-only** (`mode=ro`) and preferably with the game closed.

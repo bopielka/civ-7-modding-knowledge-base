@@ -1,73 +1,73 @@
-# 11 — Dystrybucja, Workshop, zarządzanie modami
+# 11 — Distribution, the Workshop, managing mods
 
-## Trzy lokalizacje modów ✅
+## Three mod locations ✅
 
-| Rodzaj | Ścieżka | Uwagi |
+| Kind | Path | Notes |
 |---|---|---|
-| **Mody użytkownika** | `C:\Users\najan\AppData\Local\Firaxis Games\Sid Meier's Civilization VII\Mods\` | tutaj tworzysz własne; folder może trzeba założyć |
-| **Steam Workshop** | `C:\Program Files (x86)\Steam\steamapps\workshop\content\1295660\` | zarządzane przez Steam, **nie edytować** |
-| **Gra i DLC** | `...\common\Sid Meier's Civilization VII\{Base,DLC}\` | tylko do odczytu |
+| **User mods** | `C:\Users\najan\AppData\Local\Firaxis Games\Sid Meier's Civilization VII\Mods\` | this is where you create your own; you may have to create the folder |
+| **Steam Workshop** | `C:\Program Files (x86)\Steam\steamapps\workshop\content\1295660\` | managed by Steam, **do not edit** |
+| **The game and DLC** | `...\common\Sid Meier's Civilization VII\{Base,DLC}\` | read-only |
 
-> ⚠️ **KOREKTA (2026-08-08).** Wcześniej podawano tu
-> `Documents\My Games\Sid Meier's Civilization VII\Mods\` — **błędnie**, to konwencja
-> z Civ VI powtarzana też przez dokumentację społeczności. Mod umieszczony tam nie
-> zostaje wykryty (`Discovered 0 mods.` w `Modding.log`). Zweryfikowane empirycznie
-> przy pierwszym własnym modzie. W `Documents\My Games\...` są tylko `Saves\`.
+> ⚠️ **CORRECTION (2026-08-08).** This used to say
+> `Documents\My Games\Sid Meier's Civilization VII\Mods\` — **wrongly**; that is the Civ VI
+> convention, repeated by the community documentation as well. A mod placed there is not
+> detected (`Discovered 0 mods.` in `Modding.log`). Verified empirically
+> with the first mod of my own. `Documents\My Games\...` contains only `Saves\`.
 
-`1295660` = AppID Civilization VII (z `steamapps\appmanifest_1295660.acf`).
+`1295660` = the AppID of Civilization VII (from `steamapps\appmanifest_1295660.acf`).
 
-## Włączanie modów
+## Enabling mods
 
-Menu główne gry → **Additional Content** → lista wykrytych modów.
-Kontroluje to kolumna `Mods.Disabled` w bazie moddingu:
-`0 = Automatic`, `1 = ExplicitEnable`, `-1 = ExplicitDisable` ✅ (ze schematu).
+The game's main menu → **Additional Content** → the list of detected mods.
+This is controlled by the `Mods.Disabled` column in the modding database:
+`0 = Automatic`, `1 = ExplicitEnable`, `-1 = ExplicitDisable` ✅ (from the schema).
 
-## Właściwości wpływające na dystrybucję ✅
+## Properties that affect distribution ✅
 
 ```xml
 <Properties>
-    <ShowInBrowser>1</ShowInBrowser>       <!-- widoczny na liście modów -->
-    <AffectsSavedGames>0</AffectsSavedGames> <!-- czy psuje kompatybilność zapisów -->
-    <EnabledByDefault>1</EnabledByDefault>  <!-- używane przez DLC Firaxis -->
+    <ShowInBrowser>1</ShowInBrowser>       <!-- visible in the mod list -->
+    <AffectsSavedGames>0</AffectsSavedGames> <!-- whether it breaks save compatibility -->
+    <EnabledByDefault>1</EnabledByDefault>  <!-- used by Firaxis DLC -->
     <Package>Mod</Package>
     <URL>https://forums.civfanatics.com/resources/...</URL>
 </Properties>
 ```
 
-⚠️ `<Package>` — obserwowane wartości: `Mod` (44 mody), `MOD` (2 — najpewniej literówka,
-ale działa, więc porównanie prawdopodobnie ignoruje wielkość liter ❓).
-Gra bazowa używa `BaseGame`, DLC np. `Carlisle`.
+⚠️ `<Package>` — observed values: `Mod` (44 mods), `MOD` (2 — most likely a typo,
+but it works, so the comparison is probably case-insensitive ❓).
+The base game uses `BaseGame`, DLC use e.g. `Carlisle`.
 
-## Zależności vs referencje ✅
+## Dependencies vs references ✅
 
 ```xml
-<Dependencies>   <!-- twarde: mod wymaga tego do działania -->
+<Dependencies>   <!-- hard: the mod requires this to work -->
     <Mod id="base-standard" title="LOC_MODULE_BASE_STANDARD_NAME" />
 </Dependencies>
-<References>     <!-- miękkie: wpływa na kolejność/kompatybilność, nie wymaga obecności -->
+<References>     <!-- soft: affects ordering/compatibility, does not require presence -->
     <Mod id="detailed-map-tacks" title="LOC_MOD_DETAILED_MAP_TACKS_NAME" />
 </References>
 ```
-`bz-map-trix` deklaruje 5 `References` do innych modów UI — to sposób na
-zadeklarowanie „wiem o tobie, ustaw się względem mnie", bez twardego wymogu.
+`bz-map-trix` declares 5 `References` to other UI mods — a way of stating
+"I know about you, position yourself relative to me", without a hard requirement.
 
-Kryterium `ModInUse` pozwala włączyć akcję tylko, gdy inny mod jest obecny (6 użyć):
+The `ModInUse` criterion lets you enable an action only when another mod is present (6 uses):
 ```xml
-<Criteria id="gdy-inny-mod"><ModInUse>inny-mod-id</ModInUse></Criteria>
+<Criteria id="when-other-mod"><ModInUse>other-mod-id</ModInUse></Criteria>
 ```
 
-## Kompatybilność między modami — praktyka
+## Compatibility between mods — in practice
 
-Kolejność ryzyka, od najbezpieczniejszego:
-1. `UpdateDatabase` dokładający **nowe** wiersze — praktycznie bezkonfliktowy
-2. `UIScripts` + `Controls.decorate` — kilka modów może dekorować ten sam komponent
-3. `UpdateDatabase` z `UPDATE`/`DELETE` na istniejących wierszach — wygrywa ostatni
-4. `ReplaceUIScript` — tylko jeden mod może wygrać
-5. `ImportFiles` nadpisujący plik gry — jak wyżej, plus psuje się przy patchach
+In order of risk, from the safest:
+1. `UpdateDatabase` adding **new** rows — practically conflict-free
+2. `UIScripts` + `Controls.decorate` — several mods can decorate the same component
+3. `UpdateDatabase` with `UPDATE`/`DELETE` on existing rows — the last one wins
+4. `ReplaceUIScript` — only one mod can win
+5. `ImportFiles` overriding a game file — as above, plus it breaks on patches
 
-## Pełna lista 49 zainstalowanych modów ✅
+## The full list of the 49 installed mods ✅
 
-Foldery Workshop nazwane są ID przedmiotu, nie nazwą — stąd ta tabela.
+Workshop folders are named by item ID, not by name — hence this table.
 
 | Workshop ID | Mod ID |
 |---|---|
@@ -121,7 +121,7 @@ Foldery Workshop nazwane są ID przedmiotu, nie nazwą — stąd ta tabela.
 | 3773536869 | leader-xp-tracker |
 | 3773763645 | AutoMissionary |
 
-Odświeżenie listy po zmianie subskrypcji:
+Refreshing the list after changing subscriptions:
 ```bash
 W="/c/Program Files (x86)/Steam/steamapps/workshop/content/1295660"
 for d in "$W"/*/; do
@@ -131,42 +131,42 @@ for d in "$W"/*/; do
 done
 ```
 
-## Publikacja własnego moda — Mod SDK ✅
+## Publishing your own mod — the Mod SDK ✅
 
-**Gra NIE ma wbudowanego uploadera.** ✅ Sprawdzone w plikach: `core/ui/shell/mods-content/mods-content.js`
-jedynie **wyświetla** treści z Workshop (`case "SteamWorkshopContent"`), nie publikuje.
+**The game does NOT have a built-in uploader.** ✅ Checked in the files: `core/ui/shell/mods-content/mods-content.js`
+only **displays** Workshop content (`case "SteamWorkshopContent"`), it does not publish.
 
-Do publikacji służy **osobne narzędzie w Steam**:
+Publishing is done with a **separate tool in Steam**:
 
-- Wydane w **aktualizacji z czerwca 2025 (Update 1.2.2)**, razem z obsługą Steam Workshop
-- Potrafi tworzyć, debugować, wyszukiwać i **wysyłać mody na Steam Workshop**
-- Pobiera się z **sekcji „Narzędzia" (Tools) w bibliotece Steam** — nie ze sklepu jak zwykłą grę
-- Widoczne tylko dla posiadaczy gry
+- Released in the **June 2025 update (Update 1.2.2)**, together with Steam Workshop support
+- It can create, debug, search and **upload mods to the Steam Workshop**
+- You download it from the **"Tools" section of the Steam library** — not from the store like a normal game
+- Visible only to owners of the game
 
-⚠️ Narzędzia domyślnie **nie pokazują się** na liście biblioteki Steam — trzeba włączyć
-filtr „Narzędzia"/„Tools" (Biblioteka → filtr typu treści) albo wyszukać po nazwie.
+⚠️ Tools **do not show up** in the Steam library list by default — you have to enable
+the "Tools" filter (Library → content type filter) or search by name.
 
-❓ Nie udało mi się potwierdzić dokładnej nazwy ani AppID narzędzia z dostępnych źródeł
-(oficjalny wpis 2K zapowiada SDK, ale go nie nazywa; wątek „The SDK is now available"
-na CivFanatics dotyczy **Civ VI**, nie VII — łatwo się pomylić przy wyszukiwaniu).
-Sprawdź w bibliotece Steam pod filtrem Tools.
+❓ I was not able to confirm the tool's exact name or AppID from the available sources
+(the official 2K post announces the SDK but does not name it; the "The SDK is now available"
+thread on CivFanatics is about **Civ VI**, not VII — easy to confuse when searching).
+Check the Steam library under the Tools filter.
 
-⚠️ Dla porównania: SDK do **Civ VI** nazywało się „Sid Meier's Civilization VI Development
-Tools" i zawierało ModBuddy, FireTuner, narzędzia artystyczne oraz Workshop Uploader.
-Nie zakładaj, że skład SDK do Civ VII jest identyczny — to była pierwsza wersja narzędzi
-i Firaxis zapowiadał rozbudowę.
+⚠️ For comparison: the **Civ VI** SDK was called "Sid Meier's Civilization VI Development
+Tools" and contained ModBuddy, FireTuner, art tools and the Workshop Uploader.
+Do not assume the Civ VII SDK's contents are identical — that was the first version of the tools
+and Firaxis announced further development.
 
-### Zanim opublikujesz — checklist
-- [ ] `<Name>` i `<Description>` opisują, co mod faktycznie robi
-- [ ] `ShowInBrowser=1`, poprawny `<Package>Mod</Package>`
-- [ ] `AffectsSavedGames` zgodne z prawdą
-- [ ] `<Authors>`, `<Version>`, opcjonalnie `<URL>`
-- [ ] tłumaczenia (patrz [23-localization-i18n.md](23-localization-i18n.md)) — fallback na angielski działa,
-      więc komplet nie jest wymagany
-- [ ] miniatura/obrazek podglądu (wymóg Workshop, nie moda)
-- [ ] test na czystej instalacji: czy mod działa bez Twoich innych modów
+### Before you publish — a checklist
+- [ ] `<Name>` and `<Description>` describe what the mod actually does
+- [ ] `ShowInBrowser=1`, a correct `<Package>Mod</Package>`
+- [ ] `AffectsSavedGames` matches reality
+- [ ] `<Authors>`, `<Version>`, optionally `<URL>`
+- [ ] translations (see [23-localization-i18n.md](23-localization-i18n.md)) — the English fallback works,
+      so a complete set is not required
+- [ ] a thumbnail/preview image (a Workshop requirement, not a mod one)
+- [ ] a test on a clean installation: does the mod work without your other mods
 
-### Kanał alternatywny
-**CivFanatics** — wiele modów podaje tam `<URL>` w `.modinfo` (np. `bz-map-trix`
-linkuje do `forums.civfanatics.com/resources/...`). Działa też dla graczy z Epic,
-którzy nie mają Workshop.
+### An alternative channel
+**CivFanatics** — many mods put a `<URL>` to it in their `.modinfo` (e.g. `bz-map-trix`
+links to `forums.civfanatics.com/resources/...`). It also works for Epic players,
+who have no Workshop.

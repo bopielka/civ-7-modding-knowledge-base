@@ -1,66 +1,66 @@
-# 27 — Zasoby: co który daje, i pod jakim warunkiem
+# 27 — Resources: what each one gives, and under what condition
 
-✅ **Zweryfikowane bezpośrednio w plikach gry** (`Base/modules/{base-standard,age-*}/data/`),
-przez sparsowanie wszystkich `<Modifier>` z `*-gameeffects.xml` i powiązanie ich z zasobami
-oboma ścieżkami opisanymi niżej. Tabele na końcu są wygenerowane z danych, nie przepisane
-ręcznie.
+✅ **Verified directly in the game's files** (`Base/modules/{base-standard,age-*}/data/`),
+by parsing every `<Modifier>` from `*-gameeffects.xml` and linking them to resources
+through both of the routes described below. The tables at the end are generated from the data, not written out
+by hand.
 
-Powstało przy pracy nad modem *Better Commerce Screen UI*, gdzie algorytm przypisywania
-zasobów podejmował złe decyzje, bo pytał dane o niewłaściwą rzecz. Sam wzorzec jest jednak
-własnością gry, nie moda, więc jest tu, a nie w dokumentacji moda.
+It came out of work on the *Better Commerce Screen UI* mod, where the resource-assignment
+algorithm made bad decisions because it asked the data about the wrong thing. The pattern itself is however
+a property of the game, not of the mod, so it lives here rather than in the mod's documentation.
 
 ---
 
-## 1. Gdzie mieszka „co daje zasób"
+## 1. Where "what a resource gives" lives
 
-Nic z tego nie jest w tabeli `Resources`. Tam jest tylko tożsamość zasobu:
+None of it is in the `Resources` table. That holds only the resource's identity:
 `ResourceType`, `ResourceClassType` (`BONUS` / `CITY` / `EMPIRE` / `TREASURE` / `FACTORY`),
-ikona i nazwa.
+the icon and the name.
 
-| Co | Gdzie |
+| What | Where |
 |---|---|
-| Ile zasób płaci i czym | `<Modifier>` w `<age>/data/resources-gameeffects.xml` |
-| Który modyfikator dotyczy którego zasobu | `ModifierMetadatas` **albo** argument `ResourceType` |
-| Warunki („tylko w mieście z portem") | `<SubjectRequirements>` wewnątrz `<Modifier>` |
-| Do kogo modyfikator się stosuje | atrybut `collection` na `<Modifier>` |
-| Co modyfikator robi | atrybut `effect` na `<Modifier>` |
-| Yieldy pokazywane w UI | `TypeTags` (`FOOD`, `PRODUCTION`, `GOLD`, `SCIENCE`, `CULTURE`, `HAPPINESS`) |
+| How much a resource pays and in what | a `<Modifier>` in `<age>/data/resources-gameeffects.xml` |
+| Which modifier belongs to which resource | `ModifierMetadatas` **or** a `ResourceType` argument |
+| Conditions ("only in a city with a Port") | `<SubjectRequirements>` inside the `<Modifier>` |
+| Who the modifier applies to | the `collection` attribute on the `<Modifier>` |
+| What the modifier does | the `effect` attribute on the `<Modifier>` |
+| The yields shown in the UI | `TypeTags` (`FOOD`, `PRODUCTION`, `GOLD`, `SCIENCE`, `CULTURE`, `HAPPINESS`) |
 
-### ⚠️ Dwie ścieżki powiązania, nie jedna
+### ⚠️ Two linking routes, not one
 
-Większość modyfikatorów zasobowych jest zarejestrowana w `ModifierMetadatas`:
+Most resource modifiers are registered in `ModifierMetadatas`:
 
 ```xml
 <Row ModifierId="MOD_FISH_PORT_FOOD" FieldName="ResourceType" String="RESOURCE_FISH"/>
 ```
 
-**Ale nie wszystkie.** Część jest powiązana wyłącznie własnym argumentem `ResourceType`
-modyfikatora — w epoce nowożytnej tak jest z niklem, w starożytności z jednym
-z modyfikatorów gipsu. Kod, który czyta tylko `ModifierMetadatas`, uzna te zasoby za
-niedające **niczego**. Trzeba czytać oba źródła i je scalić.
+**But not all of them.** Some are linked only through the modifier's own `ResourceType`
+argument — in the Modern age that is the case for nickel, in Antiquity for one
+of the gypsum modifiers. Code that reads `ModifierMetadatas` only will conclude that those resources give
+**nothing**. You have to read both sources and merge them.
 
-### ⚠️ `TypeTags` to nie to samo co realne yieldy
+### ⚠️ `TypeTags` is not the same as actual yields
 
-`TypeTags` mówi, jakie ikony yieldów UI pokaże przy zasobie. Nie mówi, ile ani czy w tej
-konkretnej osadzie cokolwiek zapłaci. Jadeit ma tag `GOLD`, ale w miasteczku daje zero,
-bo jego modyfikator jest bramkowany na `REQUIREMENT_CITY_HAS_BUILD_QUEUE`.
+`TypeTags` says which yield icons the UI will show next to a resource. It does not say how much, or whether in
+that particular settlement it will pay anything at all. Jade has the `GOLD` tag, but in a town it gives zero,
+because its modifier is gated on `REQUIREMENT_CITY_HAS_BUILD_QUEUE`.
 
-### ⚠️ `effect` i `collection` czyta się z `DynamicModifiers`, nie z `Modifiers`
+### ⚠️ `effect` and `collection` are read from `DynamicModifiers`, not from `Modifiers`
 
-W bazie w czasie gry wiersz `Modifiers` **nie ma** kolumn `EffectType` ani `CollectionType`
-— trzeba przejść przez `DynamicModifiers` po `ModifierType`. W XML-u są to atrybuty na samym
-`<Modifier>`, co łatwo pomylić z tym, jak wyglądają po załadowaniu. Odczytanie
-`CollectionType` prosto z `Modifiers` zwraca `undefined` za każdym razem.
+In the runtime database a `Modifiers` row **has no** `EffectType` or `CollectionType` columns
+— you have to go through `DynamicModifiers` by `ModifierType`. In XML they are attributes on the
+`<Modifier>` itself, which is easy to confuse with how they look after loading. Reading
+`CollectionType` straight from `Modifiers` returns `undefined` every time.
 
 ---
 
-## 2. ✅ Klasa zasobu decyduje, czy w ogóle się go przypisuje — i zmienia się między epokami
+## 2. ✅ A resource's class decides whether it is assigned at all — and it changes between ages
 
-`ResourceClassType` ma pięć wartości: `BONUS`, `CITY`, `FACTORY`, `EMPIRE`, `TREASURE`.
+`ResourceClassType` has five values: `BONUS`, `CITY`, `FACTORY`, `EMPIRE`, `TREASURE`.
 
-⚠️ **Zasoby imperialne i skarbowe nigdy nie trafiają do żadnej osady.** Imperialny płaci za samo
-**posiadanie**, skarbowy zamienia się we floty skarbów. Ekran Handlu gry pomija oba, zanim
-w ogóle zbuduje pulę nieprzypisanych — `commerce-screen-model.ts`:
+⚠️ **Empire and treasure resources never go into any settlement.** An empire one pays for merely
+**being owned**, a treasure one turns into treasure fleets. The game's Commerce screen skips both before
+it even builds the unassigned pool — `commerce-screen-model.ts`:
 
 ```ts
 if (playerResource.ResourceClassType == "RESOURCECLASS_EMPIRE" ||
@@ -69,48 +69,48 @@ if (playerResource.ResourceClassType == "RESOURCECLASS_EMPIRE" ||
 }
 ```
 
-Zwróć uwagę: **żadnej logiki epokowej**. Nie jest potrzebna, bo…
+Note: **no age logic whatsoever**. It is not needed, because…
 
-### ⚠️ …to sama klasa zmienia się między epokami
+### ⚠️ …it is the class itself that changes between ages
 
-**17 z 55 zasobów zmienia klasę.** Każda epoka przepisuje kolumnę wierszami `<Update>` w swoim
-`<age>/data/resources.xml`. Czytanie `ResourceClassType` z załadowanej bazy daje więc od razu
-odpowiedź dla granej epoki — ale **lista nazw zasobów napisana pod jedną epokę jest błędna
-w dwóch pozostałych**.
+**17 of the 55 resources change class.** Each age rewrites the column with `<Update>` rows in its own
+`<age>/data/resources.xml`. So reading `ResourceClassType` from the loaded database gives you the
+answer for the age being played straight away — but **a list of resource names written for one age is wrong
+in the other two**.
 
-| Zasób | Starożytność | Eksploracja | Nowożytność |
+| Resource | Antiquity | Exploration | Modern |
 |---|---|---|---|
-| Kakao | — | TREASURE | FACTORY |
-| Bawełna | BONUS | BONUS | FACTORY |
-| Len | CITY | BONUS | — |
-| Futra | — | TREASURE | CITY |
-| Złoto | EMPIRE | TREASURE | EMPIRE |
-| Złoto (odległe ziemie) | EMPIRE | TREASURE | EMPIRE |
-| Konie | EMPIRE | TREASURE | BONUS |
-| Kość słoniowa | EMPIRE | BONUS | BONUS |
+| Cocoa | — | TREASURE | FACTORY |
+| Cotton | BONUS | BONUS | FACTORY |
+| Flax | CITY | BONUS | — |
+| Furs | — | TREASURE | CITY |
+| Gold | EMPIRE | TREASURE | EMPIRE |
+| Gold (distant lands) | EMPIRE | TREASURE | EMPIRE |
+| Horses | EMPIRE | TREASURE | BONUS |
+| Ivory | EMPIRE | BONUS | BONUS |
 | Kaolin | CITY | CITY | FACTORY |
-| Rubiny | BONUS | TREASURE | — |
-| Srebro | EMPIRE | TREASURE | EMPIRE |
-| Srebro (odległe ziemie) | EMPIRE | TREASURE | EMPIRE |
-| Przyprawy | — | TREASURE | BONUS |
-| Cukier | — | TREASURE | BONUS |
-| Herbata | — | TREASURE | FACTORY |
-| Cyna | BONUS | BONUS | FACTORY |
-| Wino | EMPIRE | EMPIRE | BONUS |
+| Rubies | BONUS | TREASURE | — |
+| Silver | EMPIRE | TREASURE | EMPIRE |
+| Silver (distant lands) | EMPIRE | TREASURE | EMPIRE |
+| Spices | — | TREASURE | BONUS |
+| Sugar | — | TREASURE | BONUS |
+| Tea | — | TREASURE | FACTORY |
+| Tin | BONUS | BONUS | FACTORY |
+| Wine | EMPIRE | EMPIRE | BONUS |
 
-Złoto jest tu najlepszym przykładem: imperialne → skarbowe → imperialne. W żadnej z tych epok
-nie da się go wsadzić do miasta, ale **kość słoniowa** i **konie** przechodzą z imperialnych
-na `BONUS` i od tej pory już **trzeba** je przypisywać.
+Gold is the best example here: empire → treasure → empire. In none of those ages
+can it be put into a city, but **ivory** and **horses** move from empire
+to `BONUS` and from then on they **have** to be assigned.
 
-⚠️ Filtr pisz jako **wykluczenie** (`EMPIRE`, `TREASURE`), nie jako białą listę — tak samo, jak
-robi to gra. Klasa dodana patchem albo DLC trafi wtedy do puli, zamiast po cichu zniknąć.
+⚠️ Write the filter as an **exclusion** (`EMPIRE`, `TREASURE`), not as an allowlist — exactly as
+the game does. A class added by a patch or a DLC will then land in the pool instead of quietly disappearing.
 
 ---
 
-## 3. ⚠️ Wzorzec rozgałęziony — najważniejsza rzecz w tym pliku
+## 3. ⚠️ The branched pattern — the most important thing in this file
 
-Gra zapisuje bonus „albo–albo" jako **dwa bramkowane modyfikatory, z których drugi jest
-zaprzeczeniem pierwszego**:
+The game encodes an "either–or" bonus as **two gated modifiers, the second of which is the
+negation of the first**:
 
 ```xml
 <Modifier id="MOD_FISH_PORT_FOOD" ...>
@@ -132,163 +132,163 @@ zaprzeczeniem pierwszego**:
 </Modifier>
 ```
 
-Potwierdzone opisem w grze: *„+8 Food in Settlements with a Port, +4 Food in any other
-Settlement"*. Warianty są **rozłączne, nie sumujące się** — dokładnie jeden obowiązuje.
+Confirmed by the in-game description: *"+8 Food in Settlements with a Port, +4 Food in any other
+Settlement"*. The variants are **mutually exclusive, not additive** — exactly one applies.
 
-### Dlaczego to jest pułapka
+### Why this is a trap
 
-Naturalne pytanie „czy ten zasób ma warunkowy bonus, który ta osada spełnia?" zwraca
-**prawdę po obu stronach rozgałęzienia**. Osada bez portu spełnia warunek `NOT PORT` —
-czyli spełnia warunek wariantu *pocieszenia*. Algorytm, który z „warunek spełniony" robi
-„ten zasób jest tu wyjątkowo dobry", wsadzi ryby (4 żywności) do miasteczka bez portu
-przed cukrem (płaskie 8 żywności), bo cukier nie ma żadnego warunku.
+The natural question "does this resource have a conditional bonus that this settlement satisfies?" returns
+**true on both sides of the branch**. A settlement without a port satisfies the `NOT PORT` condition —
+i.e. it satisfies the condition of the *consolation* variant. An algorithm that turns "the condition is satisfied" into
+"this resource is exceptionally good here" will put fish (4 food) into a town without a port
+ahead of sugar (a flat 8 food), because sugar has no condition at all.
 
-### ✅ Reguła, która to rozstrzyga
+### ✅ The rule that settles it
 
-> Bonus jest „warunkowy" (czytaj: ta osada jest dla niego dobrym miejscem) tylko wtedy, gdy
-> jakiś bramkowany modyfikator tu działa **i** to, co osada z niego dostaje, jest
-> **maksimum, jakie ten zasób może zapłacić za ten yield gdziekolwiek**.
+> A bonus is "conditional" (read: this settlement is a good place for it) only when
+> some gated modifier applies here **and** what the settlement gets from it is
+> **the maximum that resource can pay for that yield anywhere**.
 
-Ryby z portem: 8 = maks. 8 → dobre miejsce. Ryby bez portu: 4 < 8 → zwykły zasób, punktowany
-swoją realną kwotą. Cukier: brak bramki → nigdy nie wchodzi do tej kategorii, a przy 8
-żywności i tak wygrywa z rybą za 4.
+Fish with a port: 8 = max 8 → a good place. Fish without a port: 4 < 8 → an ordinary resource, scored
+at its actual amount. Sugar: no gate → it never enters that category, and with 8
+food it beats fish at 4 anyway.
 
-### Pełna lista rozgałęzień (wszystkie epoki)
+### The complete list of branches (all ages)
 
-| Epoka | Zasób | Yield | Lepszy wariant | Gorszy wariant |
+| Age | Resource | Yield | Better variant | Worse variant |
 |---|---|---|---|---|
-| Starożytność | Gips | Produkcja | 4 — **poza** stolicą | 2 — bez warunku (czyli w stolicy) |
-| Starożytność | Kaolin | Żywność | 4 — **poza** stolicą | 2 — bez warunku |
-| Starożytność | Perły | Zadowolenie | 6 — **poza** stolicą | 3 — bez warunku |
-| Starożytność | Cyna | Produkcja | 4 — miasteczko | 2 — miasto |
-| Starożytność | Dziczyzna | Żywność | 4 — miasteczko | 2 — miasto |
-| Eksploracja | Gips | Produkcja | 6 — odległe ziemie | 3 — ojczyzna |
-| Eksploracja | Kaolin | Żywność | 6 — odległe ziemie | 3 — ojczyzna |
-| Eksploracja | Perły | Zadowolenie | 6 — odległe ziemie | 3 — ojczyzna |
-| Eksploracja | Dziczyzna | Żywność | 6 — miasteczko | 3 — miasto |
-| Eksploracja | Kakao | Zadowolenie | 2 — miasteczko w ojczyźnie | 1 — miasteczko w odległych ziemiach |
-| Eksploracja | Rubiny | Złoto | 2 — miasteczko w ojczyźnie | 1 — miasteczko w odległych ziemiach |
-| Eksploracja | Przyprawy | Kultura / Dyplomacja | 2 — ojczyzna | 1 — odległe ziemie |
-| Eksploracja | Cukier | Żywność / Zadowolenie | 2 — ojczyzna | 1 — odległe ziemie |
-| Eksploracja | Herbata | Produkcja / Nauka | 2 — ojczyzna | 1 — odległe ziemie |
-| Nowożytność | **Ryby** | Żywność | **8 — z portem** | **4 — bez portu** |
-| Nowożytność | Futra | Zadowolenie | 8 — ze stacją kolejową | 4 — bez |
-| Nowożytność | Perły | Zadowolenie | 8 — stolica (pałac) | 4 — poza stolicą |
-| Nowożytność | Jedwab | Kultura | 8 — stolica (pałac) | 4 — poza stolicą |
-| Nowożytność | Tytoń | Produkcja | 8 — ze stacją kolejową | 4 — bez |
-| Nowożytność | Trufle | Żywność | 8 — ze stacją kolejową | 4 — bez |
+| Antiquity | Gypsum | Production | 4 — **outside** the capital | 2 — no condition (i.e. in the capital) |
+| Antiquity | Kaolin | Food | 4 — **outside** the capital | 2 — no condition |
+| Antiquity | Pearls | Happiness | 6 — **outside** the capital | 3 — no condition |
+| Antiquity | Tin | Production | 4 — a town | 2 — a city |
+| Antiquity | Wild game | Food | 4 — a town | 2 — a city |
+| Exploration | Gypsum | Production | 6 — distant lands | 3 — the homeland |
+| Exploration | Kaolin | Food | 6 — distant lands | 3 — the homeland |
+| Exploration | Pearls | Happiness | 6 — distant lands | 3 — the homeland |
+| Exploration | Wild game | Food | 6 — a town | 3 — a city |
+| Exploration | Cocoa | Happiness | 2 — a town in the homeland | 1 — a town in distant lands |
+| Exploration | Rubies | Gold | 2 — a town in the homeland | 1 — a town in distant lands |
+| Exploration | Spices | Culture / Diplomacy | 2 — the homeland | 1 — distant lands |
+| Exploration | Sugar | Food / Happiness | 2 — the homeland | 1 — distant lands |
+| Exploration | Tea | Production / Science | 2 — the homeland | 1 — distant lands |
+| Modern | **Fish** | Food | **8 — with a Port** | **4 — without a Port** |
+| Modern | Furs | Happiness | 8 — with a Rail Station | 4 — without |
+| Modern | Pearls | Happiness | 8 — the capital (Palace) | 4 — outside the capital |
+| Modern | Silk | Culture | 8 — the capital (Palace) | 4 — outside the capital |
+| Modern | Tobacco | Production | 8 — with a Rail Station | 4 — without |
+| Modern | Truffles | Food | 8 — with a Rail Station | 4 — without |
 
-⚠️ Zwróć uwagę, że **kierunek warunku zmienia się między epokami**: w starożytności perły
-są lepsze *poza* stolicą, w nowożytności *w* stolicy. Każda ręcznie pisana tabela nazw
-zasobów rozjedzie się z danymi przy pierwszej epoce, której autor nie sprawdził — dlatego
-to się czyta z danych.
+⚠️ Note that **the direction of the condition changes between ages**: in Antiquity pearls
+are better *outside* the capital, in the Modern age *in* it. Any hand-written table of resource
+names will drift away from the data at the first age its author did not check — which is why
+this is read from the data.
 
-⚠️ Gips, kaolin i perły w starożytności są zapisane inaczej niż reszta: wariant „gorszy" nie
-ma **żadnego** warunku, więc poza stolicą oba modyfikatory są aktywne naraz. Opis w grze
-(„+2 do stolicy, +4 w każdym innym mieście") mówi, że mają być **rozłączne**, więc przy
-sumowaniu trzeba brać **maksimum z grupy**, a nie sumę — inaczej poza stolicą wyjdzie 6
-zamiast 4.
+⚠️ Gypsum, kaolin and pearls in Antiquity are encoded differently from the rest: the "worse" variant has
+**no** condition at all, so outside the capital both modifiers are active at once. The in-game description
+("+2 in the capital, +4 in any other city") says they are meant to be **mutually exclusive**, so when
+summing you have to take **the maximum of the group**, not the sum — otherwise outside the capital you get 6
+instead of 4.
 
 ---
 
-## 4. Warianty jednostronne — bramka bez alternatywy
+## 4. One-sided variants — a gate with no alternative
 
-Osobna kategoria: modyfikator ma warunek, ale nie ma wariantu zapasowego. Poza warunkiem
-zasób daje po prostu **zero**.
+A separate category: a modifier has a condition, but no fallback variant. Outside the condition
+the resource simply gives **zero**.
 
-| Epoka | Zasób | Yield | Warunek |
+| Age | Resource | Yield | Condition |
 |---|---|---|---|
-| wszystkie | Kauri | Złoto **albo** Nauka | miasto → złoto, miasteczko → nauka (rozłącznie) |
-| Star. / Eksp. | Jedwab | Kultura % | tylko miasto (kolejka budowy) |
-| Star. / Eksp. | Jadeit | Złoto % | tylko miasto |
-| Starożytność | Lapis lazuli | Produkcja + Złoto % | tylko miasto |
-| Starożytność | Kadzidło | Nauka % | tylko miasto |
-| Eksploracja | Goździki | Złoto % | tylko miasto |
-| Nowożytność | Nikiel | Nauka % + Złoto % | tylko miasto |
-| Star. / Eksp. | Wino | Kultura | tylko podczas Święta (Golden Age) |
-| Eksploracja | Futra | Złoto | tylko podczas Święta |
+| all | Cowrie | Gold **or** Science | city → gold, town → science (mutually exclusive) |
+| Ant. / Expl. | Silk | Culture % | cities only (build queue) |
+| Ant. / Expl. | Jade | Gold % | cities only |
+| Antiquity | Lapis lazuli | Production + Gold % | cities only |
+| Antiquity | Incense | Science % | cities only |
+| Exploration | Cloves | Gold % | cities only |
+| Modern | Nickel | Science % + Gold % | cities only |
+| Ant. / Expl. | Wine | Culture | only during a Celebration (Golden Age) |
+| Exploration | Furs | Gold | only during a Celebration |
 
-⚠️ `REQUIREMENT_CITY_HAS_BUILD_QUEUE` to najczęstszy zapis „tylko miasta" — **miasteczko nie
-ma kolejki budowy**. 29 modyfikatorów zasobowych jest tak bramkowanych. Kod, który to
-zignoruje, przypisze miasteczkom +10 złota z jadeitu, +10 kultury z jedwabiu i +4 produkcji
-z lapis lazuli, z których żadne tam nie powstanie.
+⚠️ `REQUIREMENT_CITY_HAS_BUILD_QUEUE` is the most common way of writing "cities only" — **a town does
+not have a build queue**. 29 resource modifiers are gated this way. Code that ignores it
+will assign towns +10 gold from jade, +10 culture from silk and +4 production
+from lapis lazuli, none of which will ever materialize there.
 
-⚠️ `REQUIREMENT_PLAYER_IS_IN_GOLDEN_AGE` to jedyny warunek dotyczący **gracza**, nie osady.
-Nie da się go spełnić wyborem osady, więc nie powinien wpływać na to, gdzie zasób trafi —
-a przy podliczaniu dochodu imperium trzeba go liczyć osobno, bo poza Świętem nie płaci nic.
+⚠️ `REQUIREMENT_PLAYER_IS_IN_GOLDEN_AGE` is the only condition concerning the **player** rather than a settlement.
+It cannot be satisfied by choosing a settlement, so it should not affect where a resource goes —
+and when totalling the empire's yield it has to be counted separately, because outside a Celebration it pays nothing.
 
 ---
 
-## 5. Rodzaje efektów, które zasoby w ogóle mają
+## 5. The kinds of effects resources actually have
 
-Nie każdy modyfikator zasobowy daje yield. Pełen zestaw kształtów spotykanych w danych:
+Not every resource modifier grants a yield. The full set of shapes found in the data:
 
-| Kształt efektu | Co to znaczy | Przykłady |
+| Effect shape | What it means | Examples |
 |---|---|---|
-| `CITY_ADJUST_YIELD_PER_RESOURCE` | płaski yield na osadę | Ryby, Perły, Kość słoniowa |
-| `CITY_ADJUST_YIELD_PER_AVAILABLE_RESOURCE_TYPE` | to samo, inne liczenie | Złoto, Srebro, Wino, Futra |
-| `PLAYER_ADJUST_YIELD_PER_RESOURCE_TYPE` | yield dla gracza, raz | — |
-| `UNIT_ADJUST_COMBAT_STRENGTH_PER_RESOURCE` | siła bojowa, **limit +6** | Saletra, Węgiel, Ropa, Kauczuk |
-| `CITY_ADJUST_CONSTRUCTIBLE_PRODUCTION_PER_RESOURCE` | % ku budowie czegoś | Węgiel, Ropa, Marmur |
-| `*_ADJUST_UNIT_PRODUCTION_*` | tańsze jednostki | Trufle, Sól, Bawełna, Kadzidło |
-| `CITY_ADJUST_CONSTRUCTIBLE_YIELD_PER_RESOURCE` z `Tag=WAREHOUSE` | skaluje się liczbą magazynów | Żółwie, Glina, Kraby |
-| `ADJUST_PLAYER_YIELD_PER_SLOTTED_RESOURCE` | % yieldu, zasoby fabryczne | Kakao, Herbata, Kaolin |
-| `CITY_ADJUST_GROWTH_PER_RESOURCE` | % tempa wzrostu | Cyna |
-| `UNIT_ADJUST_HEAL_PER_RESOURCE` | leczenie jednostek | Chinina |
-| `PLOT_PLACE_RESOURCE` | nie efekt gracza — rozstawianie na mapie | Gips, Konie |
+| `CITY_ADJUST_YIELD_PER_RESOURCE` | a flat yield per settlement | Fish, Pearls, Ivory |
+| `CITY_ADJUST_YIELD_PER_AVAILABLE_RESOURCE_TYPE` | the same, counted differently | Gold, Silver, Wine, Furs |
+| `PLAYER_ADJUST_YIELD_PER_RESOURCE_TYPE` | a yield for the player, once | — |
+| `UNIT_ADJUST_COMBAT_STRENGTH_PER_RESOURCE` | combat strength, **capped at +6** | Niter, Coal, Oil, Rubber |
+| `CITY_ADJUST_CONSTRUCTIBLE_PRODUCTION_PER_RESOURCE` | a % towards building something | Coal, Oil, Marble |
+| `*_ADJUST_UNIT_PRODUCTION_*` | cheaper units | Truffles, Salt, Cotton, Incense |
+| `CITY_ADJUST_CONSTRUCTIBLE_YIELD_PER_RESOURCE` with `Tag=WAREHOUSE` | scales with the number of warehouses | Turtles, Clay, Crabs |
+| `ADJUST_PLAYER_YIELD_PER_SLOTTED_RESOURCE` | a % of a yield, factory resources | Cocoa, Tea, Kaolin |
+| `CITY_ADJUST_GROWTH_PER_RESOURCE` | a % of the growth rate | Tin |
+| `UNIT_ADJUST_HEAL_PER_RESOURCE` | healing units | Quinine |
+| `PLOT_PLACE_RESOURCE` | not a player effect — placement on the map | Gypsum, Horses |
 
-⚠️ **Limit siły bojowej +6 nie istnieje w danych.** Każdy z tych zasobów ma „(maximum +6)"
-w swoim opisie, ale żaden argument, parametr globalny ani tabela go nie niesie — trzyma go
-silnik. Trzeba go zapisać jako stałą i wiedzieć, że patch może ją unieważnić.
+⚠️ **The +6 combat strength cap does not exist in the data.** Every one of those resources has "(maximum +6)"
+in its description, but no argument, global parameter or table carries it — it is held by
+the engine. You have to record it as a constant and know that a patch can invalidate it.
 
-⚠️ **Dwa efekty fabryczne trzymają liczbę w argumencie `Percent`, nie `Amount`**, a jeden
-nazywa `ConstructibleClass` zamiast `ConstructibleType`. Kod pisany pod kształty zasobów
-imperialnych odczyta je wszystkie jako **zero**.
+⚠️ **Two factory effects keep the number in a `Percent` argument, not `Amount`**, and one
+names `ConstructibleClass` instead of `ConstructibleType`. Code written for the shapes of empire
+resources will read all of them as **zero**.
 
-⚠️ **Wszystkie cztery przyrostki skalują się liczbą kopii** — `PER_RESOURCE`,
-`PER_AVAILABLE_RESOURCE_TYPE`, `PER_RESOURCE_TYPE`, `PER_SLOTTED_RESOURCE`. Nazwa sugeruje,
-że te z `_TYPE` płacą raz za całe imperium; **pomiar w grze mówi inaczej**. To, co się
-faktycznie różni, to **zasięg**, a on wynika z `collection`.
+⚠️ **All four suffixes scale with the number of copies** — `PER_RESOURCE`,
+`PER_AVAILABLE_RESOURCE_TYPE`, `PER_RESOURCE_TYPE`, `PER_SLOTTED_RESOURCE`. The name suggests
+that the `_TYPE` ones pay once for the whole empire; **measurement in game says otherwise**. What
+actually differs is the **scope**, and that comes from `collection`.
 
 ---
 
-## 6. Kolekcje używane przez zasoby
+## 6. The collections used by resources
 
-| Kolekcja | Ile modyfikatorów | Zasięg |
+| Collection | How many modifiers | Scope |
 |---|---|---|
-| `COLLECTION_ALL_CITIES` | 115 | raz na każdą osadę, którą przepuszczą wymagania |
-| `COLLECTION_ALL_UNITS` | 10 | armia |
-| `COLLECTION_ALL_PLAYERS` | 10 | raz, na gracza |
-| `COLLECTION_ALL_CAPITAL_CITIES` | 6 | tylko stolica |
+| `COLLECTION_ALL_CITIES` | 115 | once per settlement that the requirements let through |
+| `COLLECTION_ALL_UNITS` | 10 | the army |
+| `COLLECTION_ALL_PLAYERS` | 10 | once, for the player |
+| `COLLECTION_ALL_CAPITAL_CITIES` | 6 | the capital only |
 
-⚠️ Czytanie samych wymagań **nie wystarcza**. Futra dają +3 Zadowolenia przez
-`COLLECTION_ALL_CAPITAL_CITIES` — raz, w stolicy — a policzenie tego w każdej osadzie mnoży
-wynik przez wielkość imperium.
+⚠️ Reading the requirements alone **is not enough**. Furs give +3 Happiness through
+`COLLECTION_ALL_CAPITAL_CITIES` — once, in the capital — and counting that in every settlement multiplies
+the result by the size of the empire.
 
 ---
 
-## 7. Uwagi metodologiczne
+## 7. Methodological notes
 
-- **Nazwa w danych to hipoteza, pomiar w działającej grze to fakt.** Kilka błędów w tej
-  dziedzinie wzięło się z czytania nazwy efektu jak specyfikacji.
-- **Czego nie rozumiesz, uznaj za spełnione.** Przy ocenie wymagań zbyt gorliwe podejście
-  kosztuje trochę niedokładny wynik; zbyt surowe **wycina zasób z rozważań w ogóle**, co jest
-  znacznie gorsze i znacznie trudniejsze do zauważenia.
-- ❓ **Tabele poniżej pokrywają wyłącznie `Base/modules`.** DLC (`DLC/*/modules`) mogą dodawać
-  i nadpisywać zasoby — nie zostało to sprawdzone.
-- Zasoby fabryczne: **osada prowadzi naraz tylko jeden rodzaj, ale dowolnie wiele kopii**
+- **A name in the data is a hypothesis, a measurement in a running game is a fact.** Several errors in this
+  area came from reading an effect's name as if it were a specification.
+- **Treat what you do not understand as satisfied.** When evaluating requirements, being too eager
+  costs you a somewhat inaccurate result; being too strict **cuts the resource out of consideration entirely**, which is
+  much worse and much harder to notice.
+- ❓ **The tables below cover `Base/modules` only.** DLC (`DLC/*/modules`) may add
+  and override resources — that has not been checked.
+- Factory resources: **a settlement runs only one kind at a time, but any number of copies**
   (`LOC_PEDIA_CONCEPTS_FACTORY_RESOURCES_TOOLTIP`).
 
 ---
 
-## 8. Pełne tabele efektów, per epoka
+## 8. The complete effect tables, per age
 
-Wygenerowane z plików gry. „Kwota" z `%` to wartość procentowa. Wiersze bez nazwy zasobu
-należą do zasobu z wiersza powyżej.
+Generated from the game's files. An "Amount" with `%` is a percentage value. Rows with no resource name
+belong to the resource in the row above.
 
 ### age-antiquity
 
-| Zasób | Klasa | Efekt | Kwota | Warunek |
+| Resource | Class | Effect | Amount | Condition |
 |---|---|---|---|---|
 | CLAY | BONUS | Production | 1 | — |
 | COTTON | BONUS | Food | 2 | — |
@@ -362,7 +362,7 @@ należą do zasobu z wiersza powyżej.
 
 ### age-exploration
 
-| Zasób | Klasa | Efekt | Kwota | Warunek |
+| Resource | Class | Effect | Amount | Condition |
 |---|---|---|---|---|
 | CLAY | BONUS | Production | 1 | — |
 | CLOVES | CITY | CITY_ADD_RESOURCE_TO_PLOT | — | PLAYER_ELIGIBLE_CS_BONUS |
@@ -456,7 +456,7 @@ należą do zasobu z wiersza powyżej.
 
 ### age-modern
 
-| Zasób | Klasa | Efekt | Kwota | Warunek |
+| Resource | Class | Effect | Amount | Condition |
 |---|---|---|---|---|
 | CITRUS | FACTORY | CITY_ADJUST_UNIT_PRODUCTION_PER_SLOTTED_RESOURCE | 5% | — |
 | COAL | EMPIRE | UNIT_ADJUST_COMBAT_STRENGTH_PER_RESOURCE | 1 | UNIT_TAG_MATCHES |

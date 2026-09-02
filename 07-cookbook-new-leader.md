@@ -1,29 +1,29 @@
-# 07 — Cookbook: nowy lider
+# 07 — Cookbook: a new leader
 
-Przepis oparty na **oficjalnym DLC Firaxis** `DLC\ada-lovelace\modules` ✅ — to jest
-zwykły mod o dokładnie tej samej strukturze co mod użytkownika, więc stanowi
-wzorzec referencyjny najwyższej jakości.
+A recipe based on the **official Firaxis DLC** `DLC\ada-lovelace\modules` ✅ — it is
+an ordinary mod with exactly the same structure as a user mod, so it makes for
+a reference model of the highest quality.
 
-> Żaden z 49 modów Workshop nie dodawał lidera — dlatego wzorcem jest DLC.
+> None of the 49 Workshop mods added a leader — which is why the DLC is the model.
 >
-> ❗ **Nie ufaj przewodnikowi o liderach z dokumentacji społeczności.** Wymienia on
-> tabele `LeaderCivilizations`, `Agendas`, `HistoricalAgendas`, `RandomAgendas`,
-> które **nie istnieją w Civ VII** (to nazwy z Civ VI), a jego przykład XML ustawia
-> na wierszu `Leaders` nieistniejącą kolumnę `Description`. Szczegóły weryfikacji:
-> [22-source-evaluation.md](22-source-evaluation.md). Trzymaj się wzorca z DLC poniżej.
-> Pozostałe DLC z liderami: `napoleon`, `genghis-khan`, `bolivar`, `ashoka-himiko-alt`,
+> ❗ **Do not trust the leader guide from the community documentation.** It lists the
+> tables `LeaderCivilizations`, `Agendas`, `HistoricalAgendas`, `RandomAgendas`,
+> which **do not exist in Civ VII** (those are Civ VI names), and its XML example sets
+> a non-existent `Description` column on the `Leaders` row. Verification details:
+> [22-source-evaluation.md](22-source-evaluation.md). Stick to the DLC model below.
+> The other DLCs with leaders: `napoleon`, `genghis-khan`, `bolivar`, `ashoka-himiko-alt`,
 > `friedrich-xerxes-alt`, `lakshmibai`, `edward-teach`, `sayyida-al-hurra`,
 > `trung-nhi`, `yi-sun-sin`, `toyotomi-hideyoshi`, `shawnee-tecumseh`.
 
-## Pliki w module lidera (DLC ada-lovelace) ✅
+## Files in a leader module (the ada-lovelace DLC) ✅
 
 ```
 modules/
 ├── ada-lovelace.modinfo
 ├── config/config.xml, metaprogression.xml, unlockableRewards.xml
 ├── data/
-│   ├── leaders.xml                  ← RDZEŃ: definicja lidera
-│   ├── leaders-gameeffects.xml      ← modyfikatory zdolności
+│   ├── leaders.xml                  ← THE CORE: the leader's definition
+│   ├── leaders-gameeffects.xml      ← ability modifiers
 │   ├── civilizations-shared.xml, civilizations-legacy.xml
 │   ├── loading-info.xml, movies.xml, playercolors.xml
 │   ├── mementos.xml + mementos-gameeffects.xml
@@ -31,16 +31,16 @@ modules/
 │   ├── narrative-stories*.xml
 │   ├── unlocks.xml, unlocks-syncretism.xml
 │   └── icons/leader-icons.xml, icons/card-icons.xml
-└── (poziom wyżej) ada-lovelace.dep  ← paczka zasobów 3D
+└── (one level up) ada-lovelace.dep  ← the 3D asset package
 ```
 
-## `leaders.xml` — kompletny wzorzec ✅
+## `leaders.xml` — the complete model ✅
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <Database>
     <Kinds>
-        <InsertOrIgnore Kind="KIND_TRAIT"/>      <!-- bezpieczne, gdy już istnieje -->
+        <InsertOrIgnore Kind="KIND_TRAIT"/>      <!-- safe when it already exists -->
         <InsertOrIgnore Kind="KIND_VICTORY"/>
     </Kinds>
     <Types>
@@ -81,19 +81,19 @@ modules/
 </Database>
 ```
 
-### Kluczowe obserwacje ✅
+### Key observations ✅
 
-- **`InheritFrom="LEADER_DEFAULT"`** — standardowy wzorzec; nie trzeba wypełniać
-  wszystkich kolumn `Leaders`, dziedziczysz domyślne. Firaxis podaje tylko
+- **`InheritFrom="LEADER_DEFAULT"`** — the standard pattern; you do not have to fill in
+  all the `Leaders` columns, you inherit the defaults. Firaxis supplies only
   `LeaderType`, `Name`, `IsMajorLeader`, `InheritFrom`.
-- Boolean w XML zapisywany jako `"true"` (w SQL byłoby `1`).
-- Lider ma **trzy rodzaje cech**: własną zdolność (`TRAIT_LEADER_*_ABILITY`),
-  atrybuty (`TRAIT_LEADER_ATTRIBUTE_CULTURAL`, `..._SCIENTIFIC`) i preferencje
-  zwycięstwa per epoka (`TRAIT_AQ_SCIENCE_VICTORY`, `TRAIT_EX_*`, `TRAIT_MO_*`).
-- Cytaty: `TypeQuotes` — osobno przy wyborze lidera i przy zwycięstwie
-  (z `QuoteAudio` wskazującym zdarzenie dźwiękowe).
+- Booleans in XML are written as `"true"` (in SQL it would be `1`).
+- A leader has **three kinds of traits**: their own ability (`TRAIT_LEADER_*_ABILITY`),
+  attributes (`TRAIT_LEADER_ATTRIBUTE_CULTURAL`, `..._SCIENTIFIC`) and victory
+  preferences per age (`TRAIT_AQ_SCIENCE_VICTORY`, `TRAIT_EX_*`, `TRAIT_MO_*`).
+- Quotes: `TypeQuotes` — separately for leader selection and for victory
+  (with `QuoteAudio` pointing at a sound event).
 
-## Nastawienie AI ✅
+## AI attitude ✅
 
 ```xml
 <AiListTypes>
@@ -101,7 +101,7 @@ modules/
     <Row ListType="Ada Lovelace Diplomacy Biases"/>
 </AiListTypes>
 <AiLists>
-    <!-- UWAGA: kolumna nazywa się LeaderType, ale trzyma TRAIT, nie LEADER -->
+    <!-- NOTE: the column is called LeaderType, but it holds a TRAIT, not a LEADER -->
     <Row ListType="Ada Lovelace Yield Biases"
          LeaderType="TRAIT_LEADER_ADA_LOVELACE_ABILITY" System="YieldBiases"/>
     <Row ListType="Ada Lovelace Pseudoyield Biases"
@@ -116,19 +116,19 @@ modules/
     <Row ListType="Ada Lovelace Diplomacy Biases" Item="DIPLOMACY_ACTION_BECOME_SUZERAIN" Value="50"/>
 </AiFavoredItems>
 ```
-⚠️ **Pułapka nazewnicza:** `AiLists.LeaderType` przechowuje **typ cechy**, nie lidera.
-Systemy: `YieldBiases`, `PseudoYieldBiases`, `DiplomaticGroupBiases`.
+⚠️ **A naming trap:** `AiLists.LeaderType` holds a **trait type**, not a leader.
+Systems: `YieldBiases`, `PseudoYieldBiases`, `DiplomaticGroupBiases`.
 
-## Model 3D lidera — bariera ❗ ✅ (potwierdzone)
+## The leader's 3D model — a barrier ❗ ✅ (confirmed)
 
-W `.modinfo` DLC:
+In the DLC's `.modinfo`:
 ```xml
 <UpdateArt>
     <Item>ada-lovelace-shell</Item>
     <Item>ada-lovelace</Item>
 </UpdateArt>
 ```
-To **nie są ścieżki plików**, tylko nazwy **paczek zasobów** zadeklarowanych w
+These are **not file paths**, but the names of **asset packages** declared in
 `DLC\ada-lovelace\ada-lovelace.dep`:
 
 ```xml
@@ -141,27 +141,27 @@ To **nie są ścieżki plików**, tylko nazwy **paczek zasobów** zadeklarowanyc
 </AssetObjects..GameDependencyData>
 ```
 
-**Wniosek praktyczny:** pełny model 3D lidera wymaga zbudowanej paczki zasobów z GUID-ami
-i zależnościami bibliotek materiałów — to produkt pipeline'u artystycznego Firaxis.
-Społeczność **nie ma** publicznego narzędzia do tworzenia `.dep`.
+**Practical conclusion:** a full 3D leader model requires a built asset package with GUIDs
+and material-library dependencies — that is a product of the Firaxis art pipeline.
+The community **has no** public tool for creating a `.dep`.
 
-❓ Otwarte: czy da się zrobić lidera bez własnego modelu — np. przez `VisualRemaps`
-(w modzie Polska działało dla `UNIT`/`BUILDING`/`CONSTRUCTIBLE`, ale `LEADER` się nie
-pojawił) albo przez wskazanie istniejącej paczki artu innego lidera.
-**To jest pierwsza rzecz do przetestowania, jeśli będziesz robić lidera.**
+❓ Open: whether a leader can be made without a model of your own — e.g. via `VisualRemaps`
+(it worked in the Poland mod for `UNIT`/`BUILDING`/`CONSTRUCTIBLE`, but `LEADER` did not
+show up) or by pointing at another leader's existing art package.
+**That is the first thing to test if you are going to make a leader.**
 
-Realistyczna strategia na start: lider „re-skin" — nowe dane, cechy i modyfikatory,
-ale wizualnie korzystający z istniejącego lidera.
+A realistic strategy to start with: a "re-skin" leader — new data, traits and modifiers,
+but visually reusing an existing leader.
 
-## Pozostałe elementy lidera
+## The leader's remaining pieces
 
-| Plik/tabela | Rola |
+| File/table | Role |
 |---|---|
-| `loading-info.xml` → `LoadingInfo_Leaders` | ekran ładowania |
-| `playercolors.xml` (`UpdateColors`) | kolory gracza |
-| `icons/leader-icons.xml` (`UpdateIcons`) | ikona/portret |
-| `movies.xml` | filmy (intro/zwycięstwo) |
-| `mementos.xml` + `-gameeffects.xml` | pamiątki lidera |
-| `metaprogression.xml` | odblokowania w profilu gracza |
-| `unlocks-syncretism.xml` | które cywilizacje lider odblokowuje |
-| `config/config.xml` | widoczność w menu wyboru (scope `shell`) |
+| `loading-info.xml` → `LoadingInfo_Leaders` | the loading screen |
+| `playercolors.xml` (`UpdateColors`) | player colors |
+| `icons/leader-icons.xml` (`UpdateIcons`) | icon/portrait |
+| `movies.xml` | movies (intro/victory) |
+| `mementos.xml` + `-gameeffects.xml` | the leader's mementos |
+| `metaprogression.xml` | unlocks in the player profile |
+| `unlocks-syncretism.xml` | which civilizations the leader unlocks |
+| `config/config.xml` | visibility in the selection menu (scope `shell`) |
