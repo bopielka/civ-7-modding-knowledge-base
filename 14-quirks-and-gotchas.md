@@ -1196,6 +1196,219 @@ każde wywołanie ma pokrycie. To ta sama kontrola, która przy przebudowie stru
 ⚠️ Kontrola składni **nie zastępuje** tego sprawdzenia. Wykrywa zepsuty plik, nie zepsuty
 moduł.
 
+## 59. Autolock tooltipa `ui-next` działa TYLKO dla zagnieżdżonych ✅
+
+**2026-08-28.** Gra ma pełny mechanizm samoczynnego blokowania tooltipa po przytrzymaniu
+kursora — pasek postępu wypełniający się na dole ramki, dźwięk, przejęcie kontekstu
+wejścia — i podpina go do **jednego** przypadku. W
+`core/ui-next/components/tooltip-model.js` `tryStartAutoLock` ma dokładnie jedno miejsce
+wywołania: wewnątrz `triggerTooltip`, w gałęzi `shouldNest`.
+
+```js
+if (!shouldNest) { setActive([name]); }
+else { … ; tryStartAutoLock(name); }
+```
+
+A `shouldNest` wymaga, żeby rodzic **był już zablokowany**:
+
+```js
+shouldNest = isRaisingSiblingTooltip
+    || (currentTopList.includes(name) && (isLocked(currentTop) || IsTouchActive()));
+```
+
+❗ **Wniosek: tooltip główny nigdy nie blokuje się sam.** Blokuje go wyłącznie akcja
+wejścia `keyboard-inspect-tooltip` / `toggle-tooltip`, obsłużona w
+`TooltipContentComponent.onEngineInput` → `tooltipModel.lock()`. Autolock dotyczy dopiero
+dziecka otwartego wewnątrz zablokowanego rodzica.
+
+Żeby dodać to zachowanie własnemu tooltipowi (Better City UI robi tak w
+`ui/screen/tooltip-autolock.js`), nie ruszaj modelu — jest singletonem współdzielonym przez
+całą grę, a jego `tryStartAutoLock` jest prywatny. Zamiast tego, w komponencie osadzonym
+wewnątrz własnego `<Tooltip>`:
+
+```js
+const ctx = useContext(TooltipContext);          // eksportowany z components/tooltip.js
+const model = TooltipModel.get();
+// po upływie Configuration.getUser().tooltipAutolock:
+if (top === ctx.name && !model.isLocked(ctx.name) && ctx.childTooltipList().length > 0) {
+    model.lock();                                 // sam gra dźwięk i przejmuje input
+}
+```
+
+⚠️ **`lock()` odmawia tooltipowi bez dzieci.** Sprawdza
+`childTooltipTable()[name]().length > 0` i zwraca `false` — nie ma po co blokować czegoś, w
+co nie da się wejść. Tak samo kończy się timeout autolocka. Nie startuj paska postępu, który
+nigdy nie dobiegnie do końca.
+
+⚠️ **Bramkuj ustawieniami GRACZA, nie własnymi.** `model.isAutolockAvailable()` zawiera już
+`Configuration.getUser().tooltipAutolockEnabled`, `UI.isMouseAvailable()` i odrzucenie
+dotyku; `Configuration.getUser().tooltipAutolock` to suwak opóźnienia, a wartość `<= 0`
+znaczy „zablokuj natychmiast".
+
+⚠️ **Pasek postępu jest elementem gry i nie ma na sobie żadnego `data-l10n-id`.**
+`Tooltip.Frame` dokleja `Tooltip.InspectHint` jako ostatnie dziecko, a pasek jest ostatnim
+dzieckiem tej podpowiedzi — czyli `frame.lastElementChild.lastElementChild`. Renderuje się
+tylko przy `tooltipCount() > 0`. Animację włącza klasa `tooltip-autolock-progress` z
+`core/ui/tooltips/tooltip-manager.css` plus `style.animationDuration`. Zabezpiecz się
+sprawdzeniem klasy (`bg-secondary`), żeby po łatce gry nie animować przypadkowego elementu.
+
+⚠️ **`@keyframes tooltip-autolock-frame` jest PUSTE** w wysyłanym CSS — klasa
+`tooltip-autolock-frame`, którą gra dokłada do ramki na ostatnie 300 ms, nie robi nic
+widocznego. Nie ma czego odtwarzać.
+
+⚠️ **Nie szukaj ramki przez `ref` na `Tooltip.Frame`.** `spread` w Solid formalnie
+obsługuje `ref` będący funkcją, ale przez `ComponentRegistry` ta referencja po cichu nie
+dociera — blokada działała, a pasek nie pojawił się ani razu i nic tego nie zgłosiło.
+Renderuj własny ukryty element w `children` ramki i idź po `parentElement`: element
+narysowany w środku nie może się pomylić co do tego, gdzie jest.
+
+⚠️ **Pasek bywa nieobecny, choć wszystko jest poprawnie.** `Tooltip.InspectHint` renderuje
+go dopiero, gdy tooltip MA zagnieżdżone dzieci, a te montują się klatkę po samej ramce.
+Potrzebna jedna ponowna próba w `requestAnimationFrame`, z odjęciem już zużytego czasu —
+pasek startujący od zera po rozpoczęciu odliczania obiecuje więcej czasu, niż zostało.
+
+## 60. `SpriteGrid.addSprite` przyjmuje `alpha` — wbrew temu, co widać w większości kodu ✅
+
+**2026-08-28.** Prawie każde wywołanie `addSprite` w grze wygląda tak:
+
+```js
+this.yieldVisualizer.addSprite(district.location, iconURL, { x, y: 24, z: 0 }, { scale: 0.9 });
+```
+
+— i łatwo z tego wyciągnąć wniosek, że parametry to tylko `offset` i `scale`. **To nieprawda.**
+`base-standard/ui/lenses/layer/worker-yields-layer.js` przygasza zablokowany pip specjalisty:
+
+```js
+{ scale: offsetAndScale.scale, alpha: info.IsBlocked ? SPECIALIST_PIP_BLOCKED_ALPHA : 1 }
+// SPECIALIST_PIP_BLOCKED_ALPHA = 0.5
+```
+
+⚠️ **Nie ma za to tintu ani obrotu** — w całej bazie gry i we wszystkich zainstalowanych modach
+sprite nie dostaje koloru. Kolor przyjmuje `addText` (`fill`, `stroke`) oraz
+`YieldChangeVisualizer.addYieldChange(data, location, offset, color)`, gdzie kolor to ARGB
+(`0xff52ff46` dla rekomendowanego kafla, `0xffffffff` dla zwykłego). Sprite — nie.
+
+**Konsekwencja praktyczna:** „cień" pod ikoną nie może być przyciemnioną kopią tej ikony. Da się
+zrobić tylko podkładkę z istniejącego assetu, przygaszoną `alphą`. A `BUILDING_EMPTY` — jedyna
+naturalna podkładka pod ikony budynków — jest **pierścieniem, nie wypełnionym kołem**: narysowany
+wyraźnie większy, przesunięty i nieprzezroczysty, czyta się jako druga obwódka wokół ikony, a nie
+jako głębia pod nią.
+
+⚠️ Wartości referencyjne z gry (`building-placement-layer.js`, `realizeBuildSlots`): ikona budynku
+`scale: 0.9`, pusty slot `scale: 0.8`, `buildSlotSpritePadding = 16`, pozycja `{ x, y: 24, z: 0 }`.
+
+⚠️ **Mapy źródeł są na dysku i zawierają oryginalny TypeScript.** Każdy `*.js.map` w
+`Base/modules/` ma `sourcesContent` z pełnym, skomentowanym źródłem `.ts` — czyta się je o rząd
+wielkości lepiej niż skompilowany wynik:
+
+```bash
+python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['sourcesContent'][0])" plik.js.map
+```
+
+## 61. Dekorator MUSI mieć wszystkie cztery hooki cyklu życia ❗✅
+
+**2026-08-28.** `Controls.decorate` przyjmuje obiekt, a `component-support.js` woła na nim
+**wszystkie cztery** metody bezwarunkowo:
+
+```js
+d.beforeAttach();   // component-support.js, doAttach()
+d.afterAttach();
+d.beforeDetach();
+d.afterDetach();
+```
+
+Dekorator z samym `afterAttach` rzuca:
+
+```
+TypeError: d.beforeAttach is not a function
+    at c.doAttach (fs://game/core/ui/component-support.js:289:11)
+    at connectedCallback (fs://game/core/ui/component-support.js:332:14)
+```
+
+❗ **Wyjątek leci w trakcie podpinania panelu i przerywa CAŁĄ jego inicjalizację** — nie tylko
+Twoją dekorację. W Better City UI zabrało to całą listę produkcji: sekcje puste, wróciły
+vanillowe zakładki Produkcja/Zakup, żadnego komunikatu od moda w `UI.log` poza tym jednym
+`JS Error`. Wygląda jak błąd danych, a jest błędem kontraktu.
+
+⚠️ Puste metody wystarczą i **nie da się ich pominąć**:
+
+```js
+class MyDecorator {
+    constructor(component) { this.component = component; component.myMod = this; }
+    beforeAttach() { }
+    afterAttach() { /* … */ }
+    beforeDetach() { }
+    afterDetach() { }
+}
+```
+
+⚠️ `try`/`catch` wokół własnego `installX()` tego **nie złapie** — instalacja
+(`Controls.decorate`) kończy się sukcesem, a wyjątek pojawia się dopiero przy pierwszym
+podłączeniu elementu, w kodzie gry. Szukaj po `JS Error:` w `UI.log`, nie po prefiksie moda.
+
+## 62. `localStorage` w modzie: nie przetrwa przeładowania, a City Hall czyści cały magazyn ❗✅
+
+**2026-08-28.** Dwa niezależne powody, żeby `localStorage` **nigdy nie był źródłem prawdy** dla
+stanu moda:
+
+1. sam z siebie nie przetrwał przeładowania — sprawdzone przy priorytetach osad w Better Commerce
+   Screen UI;
+2. `bz-city-hall` czyści magazyn **w całości**, więc kasuje przy okazji wpisy każdego innego moda.
+
+⚠️ Kanałem trwałym jest `UI.setOption('user', 'Mod', klucz, LICZBA)` + `saveCheckpoint()` — patrz
+quirk 50. `localStorage` trzymaj jako lustro, z którego się czyta dopiero wtedy, gdy kanał opcji
+nie odpowiada.
+
+⚠️ **Kanał opcji przyjmuje tylko LICZBY.** Konsekwencja, o której łatwo zapomnieć: kluczy
+**nie da się wyliczyć** (nie ma „daj mi wszystkie moje wpisy"). Każde pytanie musi dotyczyć
+klucza, który już się ma w ręku. W praktyce to wystarcza, bo pyta się o to, co ekran właśnie
+pokazuje.
+
+⚠️ `Catalog` / `SerialObject` przyjmuje stringi, ale **pisze do zapisu gry** — dla moda z
+`AffectsSavedGames = 0` to nie jest opcja.
+
+## 63. `getCityYieldDetails()` przycina całe gałęzie drzewa dochodów ❗✅
+
+**2026-08-28.** `CityYields.getCityYieldDetails()` ma własne `removeBlankChildren`: jeżeli
+którykolwiek krok w gałęzi nie ma etykiety, **znika cała gałąź**. Dla Żywności i Wpływu wynik jest
+pusty — nie dlatego, że nic ich nie daje, tylko dlatego, że po drodze jest krok bez nazwy.
+
+⚠️ Drugie źródło, `CityDetails.yields`, **nie jest wypełniane** — zmierzone w grze: długość 0 przy
+zaznaczonej osadzie. Poleganie na nim to zależność od tego, czy inny model zdążył się odświeżyć.
+
+⚠️ Działające podejście: przejść ścieżki `CityYieldNodes` samemu, tak jak robi to
+`model-city-details.js` (`addYieldSteps` / `addYieldsToHierarchy`), łącznie z gałęzią „wszystkie
+podkroki mają id rodzica". Bez przycinania, bez cudzego modelu, bez współdzielonego stanu.
+
+## 64. Wyszukiwanie po `GameInfo.Modifiers` łatwo robi się kwadratowe ❗✅
+
+**2026-08-28.** Naturalny kształt kodu, który czyta modyfikatory, jest kwadratowy i wygląda
+niewinnie:
+
+```js
+for (const modifier of GameInfo.Modifiers) {                       // tysiące wierszy
+    const dynamic = GameInfo.DynamicModifiers                      // ...razy tysiące
+        .find((row) => row.ModifierType === modifier.ModifierType);
+    const args = GameInfo.ModifierArguments                        // ...i jeszcze raz
+        .filter((row) => row.ModifierId === modifier.ModifierId);
+}
+```
+
+To samo dotyczy `RequirementSetRequirements` → `Requirements`. Każdy zainstalowany mod dokłada
+wierszy do obu stron mnożenia.
+
+⚠️ Poprawka jest zawsze ta sama: **jedno liniowe przejście na tabelę**, wynik do `Map`, zbudowane
+raz. W Better City UI to `ui/engine/modifier-index.js`
+(`ModifierId → efekt`, `ModifierId → argumenty`, `RequirementSetId → typy wymagań`,
+`ConstructibleType → ModifierId[]`).
+
+⚠️ **`Modifiers` NIE MA kolumny `EffectType`.** Efekt siedzi w `DynamicModifiers`, mapowany po
+`ModifierType`. Odczyt `modifier.EffectType` zwraca `undefined` i **każdy** lookup wychodzi pusty
+po cichu — bez wyjątku, bez wpisu w `UI.log`, po prostu zero wyników.
+
+⚠️ Wszystko, co zbudowane z `GameInfo`, trzeba kluczować **wiekiem** (`Game.age`): przejście do
+kolejnej ery podmienia tabele pod każdym indeksem.
+
 ---
 
 ## 59. `sendRequest` KOLEJKUJE — `canStart` zaraz po nim kłamie ❗✅

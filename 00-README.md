@@ -22,23 +22,6 @@ Dotyczy to zarówno agenta AI, jak i użytkownika. Szczegółowa procedura:
 
 **Kiedy:** od razu po ustaleniu faktu, nie „później". Później nie ma.
 
-## ⚠️⚠️ ZASADA: budujemy na NOWYM systemie UI (`ui-next` / Solid)
-
-**Polecenie użytkownika, 2026-08-27.** Dotyczy wszystkich modów w `mod-projects/`.
-
-Gra ma **dwa** frameworki UI naraz i Firaxis przenosi ekrany ze starego na nowy, po jednym.
-**Wszystko, co mod buduje od zera, powstaje w `ui-next`.** Stary framework nie ma zagnieżdżonych
-ani blokowanych tooltipów, a każdy ekran, który na nim został, może zostać przeniesiony — i wtedy
-po cichu przestaje działać wszystko, co wisiało na jego starych uchwytach. Tak `f1rstdan-cool-ui`
-straciło swoją sztandarową funkcję i nie odzyskało jej przez dwa wydania.
-
-⚠️ **Jedyny uczciwy wyjątek:** panel, który gra nadal definiuje przez `Controls.define`, da się
-zacząć wyłącznie przez `Controls.decorate` albo patch prototypu — nie ma dla niego drogi
-`ui-next`, bo nie jest komponentem `ui-next`. Czyli: **zaczepienie** — czym się da;
-**budowanie** — zawsze `ui-next`.
-
-Szczegóły, API tooltipów i most `defineLegacyComponent`: [25-ui-next-solidjs.md](25-ui-next-solidjs.md).
-
 ## Konwencja oznaczeń
 
 W całej bazie wiedzy stosuję znaczniki wiarygodności — to ważne, żeby przyszłe sesje
@@ -96,10 +79,6 @@ nie traktowały domysłów jak faktów:
 **Mapy konkretnych ekranów**
 - [26-commerce-screen.md](26-commerce-screen.md) — ekran Handlu (zasoby + szlaki handlowe),
   czyli `screen-resource-allocation` napisany w `ui-next`
-- [28-city-screen.md](28-city-screen.md) — ✅ **ekran miasta**: lista produkcji, szczegóły miasta,
-  panel wzrostu, tryby stawiania budynków, warstwy soczewek. ⚠️ To **stary** framework `ui/`,
-  więc `Controls.decorate` tu **działa** (odwrotnie niż na ekranie Handlu). Zawiera też wzorce
-  patchowania sprawdzone w modzie `bz-city-hall` i listę plików, których nie wolno podmieniać.
 
 **Materiał referencyjny**
 - [27-resources.md](27-resources.md) — ⚠️ **co daje który zasób i pod jakim warunkiem**, per epoka;
@@ -120,7 +99,7 @@ nie traktowały domysłów jak faktów:
 1. **[24-kb-maintenance.md](24-kb-maintenance.md)** — zasada aktualizowania tej bazy
 2. **[19-workflow-and-debugging.md](19-workflow-and-debugging.md)** — logi i pętla pracy;
    `console.log` **nie** trafia do `UI.log`, używaj `console.error`
-3. **[14-quirks-and-gotchas.md](14-quirks-and-gotchas.md)** — 70 pułapek; przejrzyj, zanim
+3. **[14-quirks-and-gotchas.md](14-quirks-and-gotchas.md)** — 31 pułapek; przejrzyj, zanim
    zaczniesz debugować cokolwiek „dziwnego"
 4. Mod „Better Specialists UI" — źródła i stan projektu:
    `../mod-projects/najane-common-specialists-yields/README.md`
