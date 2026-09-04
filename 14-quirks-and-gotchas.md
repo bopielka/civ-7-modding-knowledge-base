@@ -1353,7 +1353,53 @@ mod's state:
 
 1. on its own it did not survive a reload — verified with settlement priorities in Better Commerce
    Screen UI;
-2. `bz-city-hall` clears the store **entirely**, so it wipes out every other mod's entries along the way.
+2. several mods clear the store **entirely**, wiping out every other mod's entries along the way.
+
+### ⚠️ CORRECTION, 2026-09-03: the trigger is YOUR OWN key, and the fix is `modSettings`
+
+The wipe is not arbitrary and it is not only City Hall. The published pattern is:
+
+```js
+save(modID, optionID, value) {
+    UI.setOption("user", "Mod", `${modID}.${optionID}`, value);
+    Configuration.getUser().saveCheckpoint();
+    if (localStorage.length > 1) {                  // <-- ANY second top-level key
+        console.warn(`ModOptions: erasing storage (${localStorage.length} items)`);
+        localStorage.clear();                       // <-- takes modSettings with it
+    }
+    const options = JSON.parse(localStorage.getItem("modSettings") || "{}");
+    options[modID] ??= {};
+    options[modID][optionID] = value;
+    localStorage.setItem("modSettings", JSON.stringify(options));
+}
+```
+
+✅ Read verbatim in `bz-city-hall`'s `ui/options/mod-options.js` and in Leugi's
+`core/settings.js`; reported in the wild for Memento Editor, More Diplo Ribbon, Policy Yields
+Preview, Enhanced Town Focus Info and Advanced Options Menu Tweaks too.
+
+⚠️ **So a private top-level key is not "keeping out of the way" — it is the trigger.** The
+condition is `length > 1`, so ONE key of your own is enough: the next time any of those mods saves
+anything, it erases `modSettings` and every mod that cooperates loses its settings. The mod that
+gets blamed is not the one that called `clear()`.
+
+⚠️ **The convention is one shared key with a namespace per mod**, and every write must
+read-merge-write:
+
+```js
+const shared = JSON.parse(localStorage.getItem('modSettings') || '{}');
+shared[MOD_ID] = { ...(shared[MOD_ID] ?? {}), ...mine };
+localStorage.setItem('modSettings', JSON.stringify(shared));
+```
+
+Never `setItem('modSettings', mine)` — replacing the object destroys the other mods the same way
+`clear()` does, just more quietly.
+
+⚠️ **Migrating off an old private key: DELETING it is the half that matters.** Carrying the values
+across is a courtesy; a leftover key goes on making `length > 1` for ever.
+
+Found the expensive way: `better-city-ui` shipped three private keys and
+`better-commerce-screen-ui` two, all five now folded into `modSettings`.
 
 ⚠️ The durable channel is `UI.setOption('user', 'Mod', key, A NUMBER)` + `saveCheckpoint()` — see
 quirk 50. Keep `localStorage` as a mirror that is only read when the options channel

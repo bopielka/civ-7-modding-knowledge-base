@@ -227,6 +227,34 @@ in `UpdateText` you will see the raw key in the options instead of a heading.
 For `Dropdown` there is also `dropdownItems: [{label, value}, ...]`, and `initListener`
 sets `info.selectedItemIndex`.
 
+### 2b. `OptionType.Slider` ✅ (verified against `core/ui/options/`, 2026-09-03)
+
+```js
+Options.addOption({
+    type: OptionType.Slider,
+    id: "my-mod-scale",
+    min: 50, max: 200,
+    steps: 15,                       // INTERVALS, not step size: fxs-slider divides the range
+    initListener:  (info)        => info.currentValue = MyOptions.scale,
+    updateListener: (info, value) => info.currentValue = MyOptions.setScale(value),
+    label: "LOC_…", description: "LOC_…_DESCRIPTION",
+});
+```
+
+- `steps` is the **number of intervals**, so the step size is `(max - min) / steps`
+  (`fxs-slider.js`: `stepSize = 1 / this.steps * this.range`). `steps: 0` is continuous.
+- `screen-options-category.js` puts a **number beside the slider** and fills it from
+  `option.formattedValue ?? \`${option.currentValue}%\`` — and it reads that **after**
+  `updateListener` returns. ⚠️ So the listener must write the value back into
+  `info.currentValue`, or the figure never moves; write the **snapped** value there and the
+  label reads `130%` instead of `129.99998%`. The `%` sign is hardcoded unless you set
+  `formattedValue`.
+- ⚠️ **`updateListener` fires on every mouse-move of a drag.** Anything expensive in it —
+  `UI.setOption` + `Configuration.getUser().saveCheckpoint()` is a **disk flush** — runs
+  dozens of times per second. Snap to the step and write only when the snapped value changes.
+- `OptionType.Stepper` is the discrete cousin: `min`/`max`, value read off the component in a
+  `component-value-changed` listener, no `steps`.
+
 ⚠️ `addInitCallback` **throws** if the options have already been initialized —
 register at script load time, not later.
 
@@ -354,6 +382,83 @@ combination. The consequences:
   `Input.restoreDefault()`, which resets the bindings of **all** mods
 
 Use an ordinary key (`KEY_TAB` was free both in the base game and in all 49 mods).
+
+## Integrating with ANOTHER MOD, optionally ✅ (verified 2026-09-03)
+
+Reading another mod's data when it is installed, and behaving normally when it is not.
+Verified against `detailed-map-tacks` from `better-city-ui`.
+
+### 1. `<References>`, never `<Dependencies>`
+
+```xml
+<References>
+    <Mod id="detailed-map-tacks" title="LOC_MOD_DETAILED_MAP_TACKS_NAME" />
+</References>
+```
+`<Dependencies>` is the **hard** form — the game refuses to apply your components when the other
+mod is missing. Use it only for an add-on that has no reason to exist alone. `<References>` is
+advisory: it tells the mod manager the two go together and changes nothing at runtime.
+
+### 2. ⚠️ NEVER `import` another mod's module statically
+
+A static `import '/other-mod/ui/thing.js'` of a path that is not there **fails at load time and
+takes your whole mod down with it**, entry point included. Always dynamic and always caught:
+
+```js
+let thing = null;
+import('/other-mod/ui/thing.js')
+    .then((m) => { thing = m?.default ?? null; })
+    .catch((e) => warn(`could not load it: ${e}`));
+```
+
+⚠️ **Module identity is the resolved URL**, so this gives you the module — and therefore the
+singleton — that the other mod is itself using. Mutating it patches the running mod rather than a
+private copy. That only holds for the **exact** path spelling; a different spelling of the same
+file is a second module with a second instance.
+
+⚠️ **Dynamic means a later microtask.** If a synchronous draw path needs the data, kick the import
+off at mod boot — a load started *by* the first draw still misses that draw.
+
+### 3. Is it running?
+
+```js
+Controls.isDefined('other-mod-component')          // its scripts have actually RUN - a map lookup
+Modding.getInstalledMods().some(m => m.id === ID)  // fallback: installed, whatever the load order
+```
+Ask `Controls.isDefined` first: it answers the question that matters. The installed list cannot be
+the primary test, because a mod that is installed but whose scripts failed would look present
+forever. Cache the answer — scripts load once per session.
+
+### 4. Keep the other mod's name in ONE file
+
+Its id, its module paths and its component names go in a single translation module that nothing
+else duplicates, so a Workshop update to it breaks in one place. Two mods in this folder do this
+(`better-city-ui/ui/engine/map-tacks.js`, and the fuller `host/` layer in
+`detailed-map-tacks-fixes-by-najane`).
+
+### 5. ⚠️ Another mod's "types" may not be the game's types
+
+`detailed-map-tacks` is the worked example: its tacks are usually real `ConstructibleType`s, but it
+also ships **generic** ones (`DMT_BUILDING_FOOD`, `DMT_WONDER`, `DMT_IMPROVEMENT`, …) that exist
+only inside it. `GameInfo.Constructibles.lookup` returns nothing for those, so art and names have
+to come from its own helpers (`MapTackUIUtils.getMapTackIconBgImage` / `getMapTackName`), which
+handle both kinds. Asking the game and falling back to the raw string prints `DMT_BUILDING_FOOD` on
+screen.
+
+### 6. Standing another mod's element down
+
+To hide something it draws, prefer **`visibility: hidden`** over `display` and `opacity`. A
+world-anchored element carries `data-bind-style-opacity` and `data-bind-style-transform2d`, so
+opacity belongs to the engine, and `display:none` pulls the element out of layout while those
+bindings still point at it. Restore from a single choke point, or you will leave it hidden and the
+player will report it as the *other* mod losing things.
+
+### 7. Rendering a yield figure the way the game does
+
+`Locale.stylize("+2[icon:YIELD_FOOD]")` returns **markup**, not text — a yield is an icon plus a
+number, so it has to go in through `innerHTML`. Several yields are joined with `[N]`, which is a
+line break, so the container must not be `white-space: nowrap`. ⚠️ `stylize` is an engine call:
+memoise on the composed string, since a whole empire yields a handful of distinct ones.
 
 ## Modifier keys (Shift/Ctrl/Alt) ❗
 

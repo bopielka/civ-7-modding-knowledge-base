@@ -123,6 +123,38 @@ for defense, they gather experience and carry across ages.
 Cities have HP and wall strength, modifiable by traits and buildings
 (`Buildings.OuterDefenseStrength`, `OuterDefenseHitPoints`, `DefenseModifier` ✅).
 
+## Constructibles a settlement can hold MORE THAN ONE of ✅ (verified 2026-09-03)
+
+**35 of them, and the column that says so is `CostProgressionModel`.**
+
+```sql
+SELECT ConstructibleType FROM Constructibles
+WHERE CostProgressionModel = 'COST_PROGRESSION_PREVIOUS_COPIES_CITY'
+```
+
+That model means "each further copy **in this settlement** costs more", so it is the game's own
+marker for repeatable-within-a-city. Nothing else marks it: plain `COST_PROGRESSION_PREVIOUS_COPIES`
+(119 rows) is units and projects only, and `COST_PROGRESSION_PREVIOUS_BUILDINGS_CITY` (74) is the
+ordinary "buildings get dearer as the city fills" curve, not repeatability.
+
+The 35 are:
+
+- **3 walls**, which every civilization gets and which go in *every* district —
+  `BUILDING_ANCIENT_WALLS`, `BUILDING_MEDIEVAL_WALLS`, `BUILDING_DEFENSIVE_FORTIFICATIONS`
+- **32 unique improvements**, one or two per civilization — `IMPROVEMENT_HAN_GREAT_WALL`,
+  `IMPROVEMENT_MING_GREAT_WALL`, `IMPROVEMENT_TERRACE_FARM`, `IMPROVEMENT_ZIGGURAT`,
+  `IMPROVEMENT_KASBAH`, `IMPROVEMENT_MONASTERY`, `IMPROVEMENT_STEPWELL`, `IMPROVEMENT_SOUQ`, …
+
+⚠️ **WHY IT MATTERS FOR UI CODE.** Any code that answers "where is this constructible" and then
+acts on that plot is wrong for all 35 the moment one copy is finished: the answer is a tile that is
+already occupied, and a build or purchase aimed at it is dropped by the engine **silently** — no
+error, no log line, a button that does nothing. Ask "where is a copy *pending*" (build queue, or
+in progress) separately from "where is a copy, finished included"; they are different questions.
+Found the expensive way in `better-city-ui` — see its 1.5 changelog.
+
+⚠️ The two Great Walls also carry `BuildInLine="true"` (they chain to adjacent copies). That is a
+placement rule, not a repeatability marker — only those two have it.
+
 ## Consequences for mod design
 
 1. **A civilization is tied to one age** — design for it and handle the transition
