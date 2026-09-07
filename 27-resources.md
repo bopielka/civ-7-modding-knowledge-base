@@ -267,6 +267,47 @@ wynik przez wielkość imperium.
 
 ---
 
+## 6a. ✅ Gra sama wpina nowo ulepszony zasób do osady, która go ulepszyła
+
+**Obserwacja użytkownika w grze, 2026-09-05.** Gdy osada ulepszy pół z zasobem, a ma wolny slot,
+zasób ląduje **od razu w tej osadzie** — bez pytania i bez żadnego kroku w UI. Do puli
+nieprzydzielonych trafia tylko wtedy, gdy nie ma gdzie go wpiąć.
+
+⚠️ **W plikach gry tego nie widać** — to zachowanie silnika (C++), nie modyfikator ani
+`PlayerOperation` z UI. Jedyne, co jest w danych, to powiadomienie
+`NOTIFICATION_ASSIGN_NEW_RESOURCES` (`base-standard/data/notification.xml`, `SeverityType="HIGH"`,
+`ExpiresEndOfTurn="False"`), a ono mówi tylko „można przypisać zasoby". Wcześniejsza sesja
+wywnioskowała z tego, że gra niczego sama nie wpina — **błędnie**.
+
+⚠️ **`ResourceAssigned` NIE WYSTARCZY, żeby to wykryć.** Sprawdzone w grze 2026-09-05: mod
+podpięty pod to zdarzenie nie zrobił nic — silnik wpina zasób, nie podnosząc go tam, gdzie UI je
+widzi. ❗ **Trzeba czytać STAN planszy**, a zdarzenia traktować tylko jako sygnał „zajrzyj":
+
+```js
+// resourceValue -> osada, dla wszystkiego, co gracz ma wpięte
+const byValue = new Map();
+for (const city of Players.get(GameContext.localPlayerID)?.Cities?.getCities() ?? []) {
+    for (const resource of city.Resources?.getAssignedResources() ?? []) {
+        byValue.set(resource.value, city.id);   // .value to indeks płytki
+    }
+}
+// cofnięcie: PlayerOperationTypes.ASSIGN_RESOURCE + Action: Deactivate
+requestUnassign(byValue.get(resourceValue), resourceValue);
+```
+
+⚠️ **Trzeba odróżnić wpięcie gracza od wpięcia silnika, a nie da się zapytać „kto to wysłał".**
+Działające rozwiązanie: trzymać zbiór wartości, które gracz **na pewno** wpiął — stan przy
+wczytaniu gry plus każde `ResourceAssigned` przy **otwartym** ekranie Handlu (gracz nie ma innej
+drogi). Co jest wpięte i nie ma go w tym zbiorze, wpiął silnik.
+
+⚠️ **Zdobyta osada przychodzi z zasobami JUŻ wpiętymi**, tak samo przejście epoki i wczytanie
+zapisu. Te momenty muszą **adoptować** stan (dopisać go do zbioru „gracza"), a nie go pomijać —
+pominięcie zostawia te zasoby nieoznaczone i wyrywa je przy następnym sprawdzeniu.
+
+Implementacja: `better-commerce-screen-ui/ui/planner/hands-off.js`.
+
+---
+
 ## 7. Uwagi metodologiczne
 
 - **Nazwa w danych to hipoteza, pomiar w działającej grze to fakt.** Kilka błędów w tej

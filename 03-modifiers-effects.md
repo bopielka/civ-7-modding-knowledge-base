@@ -215,3 +215,48 @@ przypięte do zasobów): trzymanie mapy dla wszystkich modyfikatorów to tysiąc
 2026-08-25): pełny indeks `Modifiers` + `DynamicModifiers` + graf `Requirements` w mapach JS to
 **~6,8 MB żywej sterty** trzymanej przez całą sesję. Indeks ograniczony do modyfikatorów zasobów
 kosztuje w praktyce zero. Silnik gry to nie Node, więc traktuj to jako rząd wielkości, nie wyrocznię.
+
+## ⛔ Czego z modyfikatora NIE da się odczytać: jego bieżącego wkładu w dochód
+
+Sprawdzone 2026-09-03, przy próbie rozpisania wiersza „Inne" w dochodach osady na umiejętności
+przywódcy. **Nie da się** — i warto wiedzieć dlaczego, bo pytanie wraca.
+
+Przykład wzorcowy, umiejętność Tecumseha (`DLC/shawnee-tecumseh/modules/data/leaders-gameeffects.xml`):
+
+```xml
+<Modifier id="TECUMSEH_MOD_SUZERAIN_PRODUCTION"
+          collection="COLLECTION_PLAYER_CITIES" effect="EFFECT_CITY_ADJUST_YIELD_PER_SUZERAIN">
+    <SubjectRequirements><Requirement type="REQUIREMENT_CITY_IS_CITY"/></SubjectRequirements>
+    <Argument name="YieldType">YIELD_PRODUCTION</Argument>
+    <Argument name="Amount" type="ScaleByGameAge" extra="100">1</Argument>
+    <Argument name="Tooltip">LOC_TRAIT_LEADER_TECUMSEH_ABILITY_NAME</Argument>
+</Modifier>
+```
+
+W grze ten modyfikator dawał **+12** produkcji. W danych stoi **1**. Różnica to dwie osobne
+mechaniki silnika, których żadna tabela nie wystawia:
+
+- `type="ScaleByGameAge"` — mnożnik z numeru ery (era 2 → ×2);
+- `_PER_SUZERAIN` w nazwie efektu — mnożnik z liczby miast-państw, których gracz jest suzerenem (×6).
+
+Policzenie tego to **przepisanie reguł gry po naszej stronie**, osobno dla każdego wariantu efektu.
+W plikach gry jest **12 093** definicji `<Modifier>`, więc nie jest to jednorazowy koszt.
+
+⚠️ **Nie ma API, które by to obeszło.** Cała gra używa w runtime dokładnie dwóch metod
+`GameEffects`: `getModifierDefinitionTextKey` i `getModifierDefinitionArgumentString` — obie
+opisują **definicję**, żadna nie odpowiada „ile ten modyfikator daje TERAZ w TEJ osadzie".
+
+⚠️ **Ani węzła dochodów.** Wszystkie 19 węzłów `CityYieldNodes` (patrz `28-city-screen.md`) nie
+zawiera żadnego dla cech przywódcy ani cywilizacji. Dlatego „Inne" jest **resztą arytmetyczną**
+(`suma węzła INCOME − suma nazwanych dzieci`), a nie pozycją, którą silnik czymkolwiek podpisał:
+nie ma pod nią żadnych `steps` do rozwinięcia.
+
+✅ **Co JEST czytelne maszynowo: nazwa.** 1 043 z 12 093 modyfikatorów niesie
+`<Argument name="Tooltip">` z kluczem lokalizacyjnym własnej zdolności. Ścieżka
+`Players → leaderType → GameInfo.LeaderTraits → GameInfo.TraitModifiers → GameInfo.Modifiers`
+pozwala więc **nazwać kandydatów** do „Innego" bez wpisywania czegokolwiek na sztywno — ale nie
+przypisać im kwot. Nazwy bez liczb są uczciwe; liczby byłyby zgadywaniem.
+
+⚠️ Odsyłacz do przestrogi, która już tu jest: `modelTownFocus` w City Hall ma premie wpisane na
+sztywno i po rebalansie gry ten panel po cichu kłamie. Statyczna mapa premii przywódców to ten
+sam wzorzec, tylko o dwa rzędy wielkości większy.

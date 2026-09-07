@@ -72,6 +72,55 @@ miasto.
   jako atrybuty `data-*`. **Ta ściana atrybutów jest szwem** — komponent Solid renderuje wyłącznie
   to, co panel mu w atrybucie poda.
 
+⚠️ **`isPurchase` NIE DA SIĘ WYŁĄCZYĆ W MIASTECZKU, i flaga przeżywa awans** (✅ sprawdzone
+2026-09-03). Setter w `panel-production-chooser.js` ma strażnika:
+
+```js
+set isPurchase(value) {
+    if (value === this._isPurchase || !value && this.city.isTown) return;
+    this._isPurchase = value;
+    this.productionPurchaseTabBar.setAttribute("selected-tab-index", value ? "1" : "0");
+    this.updateItems.call("isPurchase");     // ← setter sam przebudowuje listę
+}
+```
+
+Czyli `panel.isPurchase = false` w miasteczku to **cicha pusta operacja** — słusznie, miasteczko
+nie produkuje. Ale `_isPurchase` ustawia setter `cityID` (`city.isTown || shouldReturnToPurchase`)
+i **nic w grze go nie zeruje przy awansie miasteczka na miasto**. `onCityGovernmentLevelChanged`
+woła `updateProductionPurchaseBar`, `updateTownFocusSection` i `updateItems` — flagi nie rusza.
+
+Skutek: `updateItems` przebudowuje listę **wciąż w trybie zakupu**, więc świeżo awansowane miasto
+wyświetla wszystkie budynki wyszarzone z „w skarbcu jest za mało złota" — zamiast kosztów produkcji,
+które mógłby po prostu zapłacić młotkami.
+
+W czystej grze widzi to gracz jako zaznaczoną zakładkę „Zakup" i może przełączyć ręcznie. **Mód,
+który chowa zakładki, zamyka gracza w tym trybie bez wyjścia** — wtedy trzeba ustawić
+`isPurchase = false` z handlera `CityGovernmentLevelChanged`. To pierwszy moment, w którym
+`isTown` jest już fałszem i setter przyjmie wartość.
+
+✅ Ustawienie flagi **samo przebudowuje listę** (ostatnia linia settera), więc osobne wołanie
+`updateItems` jest tylko dla przypadku, gdy tryb był już poprawny.
+
+⚠️⚠️ **ALE `city.isTown` JESZCZE NIE JEST PRZESTAWIONE, KIEDY ZDARZENIE LECI** (✅ sprawdzone
+2026-09-03, po nieudanej pierwszej próbie poprawki). Ustawienie `isPurchase = false` prosto
+z handlera `CityGovernmentLevelChanged` trafia **w tego samego strażnika** i nie robi nic.
+
+Dowód jest w kodzie gry: jej własny handler ma `city` w ręku i **mimo to** czyta rangę z ładunku
+zdarzenia, nie z obiektu:
+
+```js
+onCityGovernmentLevelChanged({ cityID, governmentlevel }) {
+    const city = Cities.get(cityID);
+    const isTown = governmentlevel === CityGovernmentLevels.TOWN;   // NIE city.isTown
+```
+
+Nic innego nie tłumaczy tej linii. **Wniosek ogólny, nie tylko o tym jednym polu:** przy zdarzeniach
+silnika czytaj stan z ładunku zdarzenia; obiekt gry może jeszcze nieść poprzednią odpowiedź. Jeśli
+potrzebujesz obiektu przestawionego (bo wołasz API, które samo go sprawdza), **poczekaj aż się
+przestawi** — odpytuj w krótkiej, **ograniczonej** pętli, a ładunek zdarzenia mówi, na którą
+odpowiedź czekasz. Przykład: `whenSettled` w
+`mod-projects/better-city-ui/ui/screen/government-change.js`.
+
 ### `panel-city-details`
 
 Trzy zakładki, id z enuma `cityDetailTabID`:
@@ -92,6 +141,21 @@ Metody prototypu, które warto znać (wszystkie podmienialne): `renderBuildingSl
 
 Dane: `model-city-details.js` → `CityDetailsModel`, publikowany jako `g_CityDetails`
 (`engine.createJSModel`), zmiany ogłaszane zdarzeniem okna `update-city-details`.
+
+⚠️ **`panel-city-details` NIE słucha `CityGovernmentLevelChanged`** (✅ sprawdzone w kodzie gry,
+2026-09-03). Panel rejestruje tylko `InputContextChanged`, a jego model — `CitySelectionChanged`,
+`CityGrowthModeChanged` i `CityPopulationChanged`. Jedyny panel ekranu miasta, który reaguje na
+awans miasteczka do miasta, to `panel-production-chooser` (`onCityGovernmentLevelChanged` →
+`updateProductionPurchaseBar`, `updateTownFocusSection`, `updateUpgradeToCityButton`,
+`updateItems.call(...)`).
+
+Skutek dla każdego moda dekorującego zakładki: **po kliknięciu „Przekształć w miasto” panel
+szczegółów dalej opisuje miasteczko** — focus miasteczka, brak specjalistów, trasy żywności —
+aż gracz zamknie i otworzy osiedle. Trzeba własnego `engine.on('CityGovernmentLevelChanged', …)`
+(filtr właściciela najpierw) i wołania `panelu.maybeComponent?.update()`.
+
+⚠️ Którekolwiek własne cache trzymane **per osiedle** trzeba w tym samym momencie zrzucić:
+`isTown` przełącza się w locie i zmienia wynik każdego zapytania, które go czyta.
 
 ### `panel-place-population`
 
@@ -670,3 +734,298 @@ filtra „czy cokolwiek tu stoi" każdy kafelek wiejski dostanie rządek pustych
 `ExistingDistrictOnly` (mury) nie liczą się jako zabudowa — nie zajmują slotu.
 
 Kafelki osady: `city.Districts.getIds()` → `Districts.get(id)` → `.location`, `.type`.
+
+## ✅ Bonusy magazynowe (`Warehouse_YieldChanges`) — jak gra je naprawdę liczy
+
+Ustalone 2026-09-05 przy przenoszeniu sekcji „Warehouses" z moda **Trizian's City Insights**
+(day7a1) do `better-city-ui`. Model jest jego; poniżej to, co z niego wynika dla każdego moda,
+który chce pokazać „ile dałby ten magazyn".
+
+Dwie tabele, złączone po id:
+
+```
+Constructible_WarehouseYields: ConstructibleType, YieldChangeId
+Warehouse_YieldChanges:        ID, Age, YieldType, YieldChange, Overbuilt,
+                               ConstructibleInCity, TerrainInCity, FeatureInCity,
+                               FeatureClassInCity, BiomeInCity, DistrictInCity,
+                               ResourceInCity, RouteInCity, LakeInCity,
+                               MinorRiverInCity, NavigableRiverInCity,
+                               NaturalWonderInCity, TerrainTagInCity
+```
+
+`ResourceInCity`, `RouteInCity`, `LakeInCity`, `*RiverInCity`, `NaturalWonderInCity` to **flagi
+logiczne**, reszta trzyma typ. `TerrainTagInCity` jest w schemacie i **żaden wiersz** gry ani DLC
+go nie używa.
+
+### ⚠️⚠️ Link do reguły magazynowej NIE robi z budynku magazynu
+
+`Warehouse_YieldChanges` to **ogólny** mechanizm silnika „płać ten yield za każde pasujące pole
+w osadzie", i zwyczajne budynki korzystają z niego swobodnie. W samej erze Eksploracji linkują do
+niego `BUILDING_BANK`, `BUILDING_BAZAAR`, `BUILDING_CITY_HALL`, `BUILDING_MERU`,
+`BUILDING_PAVILION` i `BUILDING_TEMPLE` — **żaden** nie ma tagu `WAREHOUSE`. `BUILDING_PALACE`
+również linkuje.
+
+Lista „budynki magazynowe" wymaga **trzech** warunków naraz:
+
+```js
+info.ConstructibleClass === 'BUILDING'
+  && maLinkDoRegułyMagazynowej(info.ConstructibleType)
+  && ConstructibleHasTagType(info.ConstructibleType, 'WAREHOUSE')
+```
+
+Sam tag też nie wystarczy — otagowany budynek bez reguły to nazwa na ekranie bez treści.
+
+⚠️ **Każdy budynek magazynowy jest `AGELESS`**, więc taka lista z natury obejmuje wszystkie ery:
+osada w erze Nowoczesnej wciąż ma spichlerz ze Starożytności i wciąż z niego korzysta. To nie jest
+przeciek filtra er.
+
+### ⚠️ Jedno pole płaci JEDNĄ regułę na dany yield
+
+Pole może pasować do kilku reguł tego samego budynku — farma na terenie zalewowym łapie zarówno
+regułę `TerrainInCity="TERRAIN_FLAT"`, jak i `FeatureInCity` dla równiny zalewowej. Silnik płaci
+**raz**. Priorytet jest ten sam, który koduje `District_FreeConstructibles`:
+
+```
+zasób / konstrukt  >  cecha  >  klasa cechy  >  woda (rzeka/jezioro)  >  teren  >  reszta
+```
+
+Sumowanie wszystkich trafień zamiast jednego zawyża wynik nawet dwukrotnie.
+
+### ⚠️ Reguła terenowa to reguła O ULEPSZENIU, nie o terenie
+
+`TerrainInCity="TERRAIN_COAST"` płaci **łódź rybacką**, nie wybrzeże. Konsekwencje:
+
+- `TERRAIN_COAST` i `TERRAIN_OCEAN` mają to samo „gołe" ulepszenie
+  (`IMPROVEMENT_FISHING_BOAT`), więc reguła zapisana na wybrzeżu musi liczyć też łódź na oceanie;
+- las na płaskim to drwal, a nie farma — dopasowanie po samym terenie zapłaciłoby za pole, którego
+  cecha wysyła gdzie indziej.
+
+Mapowanie teren → gołe ulepszenie czyta się z gry, nie wpisuje na sztywno: wiersze
+`District_FreeConstructibles`, które mają `TerrainType` i **nic więcej** (bez `FeatureType`,
+`ResourceType`, `RiverType`, `BiomeType`), to właśnie warstwa domyślna.
+
+### ⚠️⚠️ `District_FreeConstructibles` to NIE jest mapa „teren → ulepszenie"
+
+Ustalone 2026-09-06, po tym jak potraktowanie jej jako takiej zepsuło liczby, nie tylko ikony.
+Tabela zawiera trzy rodzaje wierszy naraz:
+
+- **budynki**, na które dany teren pozwala — `TERRAIN_COAST` niesie latarnię, port i mury;
+- **ulepszenia unikalne cywilizacji** obok generycznego — `TERRAIN_OCEAN` ma łódź rybacką **i**
+  hawajską, `TERRAIN_MOUNTAIN` górę generyczną **i** inkaską;
+- wiersze kwalifikowane zasobem, cechą, rzeką lub biomem.
+
+Naiwne `map.set(TerrainType, ConstructibleType)` po każdym wierszu bierze ten, który akurat jest
+ostatni: ocean rozwiązywał się na łódź hawajską, a góry na ulepszenie Inków. Efekt — przystań
+przestawała liczyć pola oceanu, a huta żelaza góry, u każdego gracza.
+
+Poprawne czytanie to dwa filtry i rozstrzygnięcie remisu:
+
+```js
+const def = GameInfo.Constructibles.lookup(row.ConstructibleType);
+if (def?.ConstructibleClass !== 'IMPROVEMENT') continue;  // odsiewa budynki
+if (def.RequiresUnlock) continue;                          // odsiewa warianty unikalne
+if (row.ResourceType) continue;                            // to opis zasobu, nie gołej ziemi
+// wśród reszty wygrywa najwyższe row.Priority
+```
+
+⚠️ **`RequiresUnlock` stoi przy DEFINICJI konstruktu, nie przy wierszu tej tabeli.** Sprawdzanie
+go na wierszu nie odsiewa niczego — wiersze wariantów unikalnych wyglądają identycznie jak
+generyczne.
+
+⚠️ Ulepszenia unikalne cywilizacji noszą też tag `UNIQUE_IMPROVEMENT` (Terrace Farm Inków) —
+ale nie wszystkie: łódź hawajska i góra inkaska mają wyłącznie `RequiresUnlock`. Potrzebne są
+oba sygnały.
+
+### ⚠️ Klasa cechy → ulepszenie: cuda natury trzeba wykluczyć
+
+`FeatureClassInCity` rozwiązuje się przez kolumnę `FeatureClassType` na każdej cesze. Pułapka:
+**cuda natury mają zwyczajne klasy cech** — Wielka Rafa Koralowa i Las Sekwojowy to
+`FEATURE_CLASS_VEGETATED` — a stają się `IMPROVEMENT_EXPEDITION_BASE`. Bez wykluczenia każda
+reguła na klasie roślinnej twierdzi, że płaci za bazy wypadowe.
+
+### ⚠️⚠️ `Constructible_WarehouseYields.RequiresActivation` — bonusy cywilizacyjne w cudzym budynku
+
+Ustalone 2026-09-06, z logu działającej gry, po czterech błędnych hipotezach postawionych na
+czytaniu XML-i. Tabela łącząca budynek z regułami magazynowymi ma kolumnę **`RequiresActivation`**,
+a obok prawdziwych reguł budynku trzyma **bonusy cywilizacyjne podpięte warunkowo**:
+
+```
+{ConstructibleType:"BUILDING_SAW_PIT", YieldChangeId:"NepalSawPitMountainProduction",
+ RequiresActivation:true}
+```
+
+Nepal daje tartakowi „+1 produkcji z gór". **Każdy** z dziesięciu budynków magazynowych ma jeden
+taki link i wszystkie celują w góry. Wzięte za dobrą monetę dają każdemu magazynowi regułę górską —
+zawyżając liczby i dorysowując ulepszenie `IMPROVEMENT_MOUNTAIN`.
+
+⚠️ Czy taki bonus jest aktywny, to **stan gracza, nie dane tabeli** — nie ma odczytu `GameInfo`,
+który by na to odpowiedział. Odrzucenie tych linków zaniża wynik dla jednej cywilizacji; wliczanie
+ich obiecuje bonus wszystkim. Zaniżanie jest mniej złe.
+
+### ⚠️ `IMPROVEMENT_MOUNTAIN` nazywa się „Expedition Base"
+
+`LOC_IMPROVEMENT_MOUNTAIN_NAME` → „Expedition Base" (pl. „Baza wypadowa"), a jego ikona to
+`blp:impicon_expeditionbase` — ta sama, co `IMPROVEMENT_EXPEDITION_BASE`. Dwa różne typy, jedna
+nazwa i jedna grafika. Przy sortowaniu po nazwie po polsku ląduje na literze B, czyli pierwsze.
+
+⚠️ Ogólnie: **`ConstructibleType` nie jest tożsamością wizualną.** `IMPROVEMENT_MINE_RESOURCE`
+i `IMPROVEMENT_MINE` też dzielą nazwę i grafikę. Deduplikuj po `Name`, nie po typie.
+
+### ✅ `GameInfo.Feature_NaturalWonders` JEST dostępna w kontekście UI
+
+⚠️ **Korekta wcześniejszego wpisu z tej samej sesji, który twierdził odwrotnie.** Zmierzone
+w działającej grze: tabela zwraca 22 wiersze z panelu UI. Wcześniejsze „nie istnieje w UI" było
+hipotezą postawioną w trakcie gonienia innego błędu i zapisaną jako fakt — czego nie należy robić.
+
+Niezależny test na samym wierszu cechy (cud natury to jedyna cecha, o której gra pisze prozę —
+ma `Description` i `Tooltip`, zwykłe cechy nie mają) znajduje **te same 22 z 48**. Oba sygnały
+się zgadzają.
+
+### ✅ Log gry rozstrzyga szybciej niż czytanie danych
+
+Cztery kolejne hipotezy postawione na plikach XML były błędne, bo pliki nie mówią, co silnik
+faktycznie zwraca: brakującej kolumny w źródle nie widać, a `JSON.stringify(row)` na działającym
+wierszu pokazuje **wszystkie** kolumny z wartościami. Przy rozbieżności „dane mówią X, gra pokazuje
+Y" jednorazowy zrzut przez `console.error` do `UI.log` kończy sprawę w jednym cyklu przeładowania.
+
+### ✅ Opis budynku jest jedynym testem, jaki masz
+
+`LOC_BUILDING_*_DESCRIPTION` to **ręcznie napisana proza**, nie tekst generowany z reguł — np.
+„+1 Production on Clay Pits, Mines, and Quarries". Reguły są *implementacją* tego zdania (kopalnia
+to `TERRAIN_HILL`, glinianka to `FEATURE_CLASS_WET`), więc porównanie wyniku własnych obliczeń
+z tym tekstem jest jedynym sposobem sprawdzenia, czy model jest poprawny. Dla wszystkich dziesięciu
+budynków magazynowych da się uzyskać zgodność co do jednego.
+
+### ⚠️ „Pole ulepszone" bierze się z DZIELNICY WIEJSKIEJ, nie z flagi `complete`
+
+Konstrukt wystawia zdarzenie, gdy `complete === false` przez moment, a ulepszenie powstałe ze
+wzrostu osady jest natychmiastowe i **może nigdy nie wysłać `ConstructibleBuildCompleted`**. Oba
+przypadki klasyfikują pole ulepszone w tej turze jako nieulepszone. `DISTRICT_RURAL` pojawia się
+w chwili ulepszenia pola i znika razem z nim — to jest sygnał autorytatywny.
+
+⚠️ Pole może nieść **więcej niż jedno** ulepszenie naraz: unikalne ulepszenie (Piramida Schodkowa)
+buduje się NA istniejącym. Mapa „lokalizacja → jedno ulepszenie" gubi to wcześniejsze i reguła
+`ConstructibleInCity` wskazująca na nie przestaje widzieć pole jako ulepszone. Trzymaj `Set`.
+
+## ⚠️ `GameplayMap.getOwner` kontra `getOwningCityFromXY` na polu niczyim
+
+Dla pola **w granicach mapy, ale niczyjego** `getOwningCityFromXY` zwraca `ComponentID`, który
+jest **prawdziwy w sensie JS, a nieprawidłowy w sensie gry** — czyli przechodzi każdy `if`.
+Filtrowanie zasięgu osady tym sposobem cicho wyrzuca wszystkie pola nieprzejęte i zwija „co osada
+może kiedyś obrabiać" z powrotem do „co ma teraz".
+
+`GameplayMap.getOwner(x, y)` zwraca ujemny wartownik (`NO_PLAYER`) dla pola niczyjego i to jest
+właściwe narzędzie. Zasięg docelowy osady to `GameplayMap.getPlotIndicesInRadius(x, y, 3)` minus
+pola cudzych graczy (~37 pól).
+
+## ✅ Ładunek zdarzeń: darmowy filtr po właścicielu
+
+Zdarzenia silnika lecą dla **wszystkich graczy** — jedna tura AI to tysiące sztuk. Te dwa niosą
+właściciela w ładunku, więc filtr nie kosztuje ani jednego wywołania do gry:
+
+| Zdarzenie | Pole | Znaczy |
+|---|---|---|
+| `DistrictAddedToMap` | `data.cityID.owner` | pole ulepszone / dzielnica postawiona |
+| `PlotOwnershipChanged` | `data.owner`, `data.priorOwner` | granice się przesunęły |
+
+⚠️ `model-city-details.js` słucha **tylko** `CitySelectionChanged`, `CityGrowthModeChanged`
+i `CityPopulationChanged`. Wzrost osady zgłasza populację **zanim** pole zostanie ulepszone, więc
+cokolwiek liczy pola, musi dobrać powyższe dwa albo pokaże stan sprzed chwili.
+
+## ✅ Obrysy pól: `CultureBorder_Closed` to jedyny styl, który słucha kolorów
+
+```js
+const group = WorldUI.createOverlayGroup('nazwa', OVERLAY_PRIORITY.PLOT_HIGHLIGHT);
+const border = group.addBorderOverlay({
+    style: 'CultureBorder_Closed',
+    primaryColor: 0xFFFFFFFF,     // 0xAARRGGBB
+    secondaryColor: 0xFF000000,   // otoczka — czyta się na każdym terenie
+});
+border.setThicknessScale(4);
+border.setPlotGroups(plotIndex, i);   // ⚠️ osobna grupa na KAŻDE pole
+group.setVisible(true);
+```
+
+⚠️ Grubsze style (`MovementRange`, skirty jednostek) **ignorują** podane kolory i rysują stałą
+białą linię — rozróżnienie dwukolorowe jest przez to niewykonalne.
+
+⚠️ Pola w **tej samej grupie** rysują się jako jeden wspólny obrys. Żeby każdy kafelek miał własną
+obwódkę, każdy dostaje własny numer grupy.
+
+⚠️ Obrys, nie wypełnienie: ekran miasta sam barwi swoje pola i półprzezroczyste wypełnienie na
+tym zlewa się w kolor, który nic nie znaczy.
+
+## Kolejka budowy przycina wszystko po LEWEJ ✅ (2026-09-07)
+
+Karty kolejki (`build-queue__item-container-queued`) leżą w `fxs-scrollable`, którego okno ma
+`overflow-y-scroll`. Wg CSS niewidoczny overflow na jednej osi wymusza go na drugiej — więc
+**element wystający poza lewą krawędź karty znika bez śladu**: bez błędu, bez wpisu w `UI.log`.
+
+⚠️ Gra sama tego nie zauważa, bo jej własny kosz (`build-queue__close-button`) wisi na
+`absolute -right-2 -top-2`, a scrollable ma `pr-2` — dokładnie te 0,5 rem, o które kosz wystaje.
+Po lewej takiego zapasu nie ma.
+
+Wniosek dla własnych kontrolek w rogach karty kolejki: **oba rogi po prawej**
+(`-right-2 -top-2` i `-right-2 -bottom-2`), nigdy `-left-*`.
+
+## Osada kupuje JEDNĄ JEDNOSTKĘ na turę (budynki bez limitu) ✅ (2026-09-07)
+
+Po jednym zakupie za złoto w danej osadzie każdy kolejny wiersz z `GetProductionItems` wraca jako
+`disabled: true`, **bez** `insufficientFunds` i bez `error` mówiącego o złocie. Z punktu widzenia
+danych wygląda to identycznie jak realna blokada („brak ustroju", „za mała populacja") — a jest
+blokadą, którą zdejmuje następna tura.
+
+⚠️ `Game.CityCommands.canStart(..., PURCHASE, ...)` w tym stanie zwraca też **`Cost: 0`**. Czyli
+odmowa kasuje cenę: UI, które czyta cenę z tego zapytania, po zakupie pokazuje pustkę zamiast
+liczby. Odmowa nie jest przecenieniem — trzymaj ostatnią znaną cenę.
+
+⚠️ **Limit dotyczy JEDNOSTEK.** Budynków można kupić w jednej turze więcej niż jeden, jeśli starcza
+złota — kod bramkujący „jeden zakup na osadę na turę" bez rozróżnienia zabiera graczowi zakupy,
+na które gra pozwala.
+
+⚠️⚠️ **`canStart` NIE PILNUJE TEGO LIMITU W OBRĘBIE JEDNEJ KLATKI.** Wyślij `sendRequest`, zapytaj
+`canStart` o drugą rzecz w tym samym ticku — dostaniesz `Success: true`, bo pierwsze żądanie jest
+dopiero **zakolejkowane**. Silnik zastosuje jedno, resztę porzuci bez słowa i bez wpisu w logu. Kod,
+który w jednym przebiegu kupuje wiele rzeczy w tej samej osadzie, musi liczyć limit **sam** i
+oznaczać zakup w chwili WYSŁANIA, nie po potwierdzeniu (potwierdzenie przychodzi po ticku).
+
+⚠️ To ta sama pułapka co z saldem złota: `Treasury.goldBalance` też nie zna wydatków zakolejkowanych
+w tym ticku.
+
+⚠️ Silnik nie ma zapytania „czy ta osada już kupowała w tej turze". Jedyny sygnał to zdarzenie
+**`CityMadePurchase`** (payload `{ cityID }`, podnoszone dla każdego gracza — filtruj po
+`cityID.owner`), czyszczone na `LocalPlayerTurnBegin`.
+
+⚠️⚠️ **Jednostki i budynki zachowują się przy tym RÓŻNIE.** `getUnits` zostawia wiersz tylko wtedy,
+gdy silnik mówi „tak" albo „brakuje wyłącznie złota":
+
+```js
+if (!viewHidden && !result.Success && !(result.InsufficientFunds && result.FailureReasons?.length == 1)) continue;
+```
+
+Czyli po zakupie w danej osadzie **jednostki znikają z listy zakupowej całkowicie** — nie wracają
+jako „zablokowane", tylko ich w ogóle nie ma. Gałąź konstruktów jest napisana inaczej i wiersze
+zostają. Kod, który czyta stan z listy zakupowej, musi mieć odpowiedź na wiersz, o którym ta lista
+w ogóle nie wspomina.
+
+⚠️⚠️ **Zdarzenie nie wystarcza po wczytaniu zapisu.** Kontekst UI startuje od zera, twój zbiór jest
+pusty, a silnik dalej odmawia — więc objaw wraca po każdym load. Drugi, niezależny sposób
+rozpoznania: blokada obejmuje **całą listę naraz**, więc nic nie jest ani kupowalne, ani „za mało
+złota". Gracz bez pieniędzy ma listę pełną „insufficientFunds"; gracz wypłacalny ma choć jedną
+pozycję kupowalną. Warto dołożyć próg (np. min. 3 wycenione pozycje), żeby krótka lista nie wpadła
+w to przypadkiem.
+
+## Trwałość stanu moda a wczytywanie starszych zapisów ✅ (2026-09-07)
+
+`Configuration.getGame().gameSeed` **nie zmienia się po wczytaniu zapisu** — również starszego. Więc
+stan trzymany w `modSettings` pod kluczem seeda przeżywa cofnięcie się w czasie i mod działa na
+zamiarach z przyszłości, która już nie istnieje.
+
+⚠️ Mod z `AffectsSavedGames = 0` nie może pisać do save'a, więc nie ma pewnego identyfikatora
+gałęzi. Jedyny dostępny dowód to **numer tury** (`Game.turn`): stempluj nim zapis i odrzucaj stan
+z tury PÓŹNIEJSZEJ niż grana. Szybki zapis + wczytanie działa, skok w tył czyści stan. Dwa zapisy
+z tej samej tury są nierozróżnialne — to ograniczenie, nie błąd.
+
+⚠️ Rozróżnienie, co w ogóle wolno utrwalać: **preferencje** (co ukryte, czy naprawiać) znaczą to
+samo w każdej gałęzi i mają przeżywać wszystko. **Stan gry** (kolejka zakupów: co, gdzie, kiedy
+postanowione) wymaga stempla tury.

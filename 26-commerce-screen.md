@@ -1529,6 +1529,57 @@ liczy, ale **mówi o tym w tooltipie** zamiast po cichu pokazywać zaniżoną li
 Uwaga na sprzeczne teksty gry: `AdvisorText` mówi „2 points of GDP", `VictoriesText` „+3
 GDP". Tabela mówi 3 — i to ona jest źródłem prawdy.
 
+### ⚠️❗ `RequiresActivation="true"` — tracker nie płaci nic, dopóki nie odkryjesz technologii ✅
+
+**Zgłoszenie użytkownika, 2026-09-06.** Wszystkie ekonomiczne wiersze `VictoryScorings`, które
+liczy ekran Handlu, mają `RequiresActivation="true"` — punkty **zaczynają się naliczać dopiero
+po odkryciu** odpowiedniego węzła, nie od razu. Czytanie samego `Points` daje graczowi na turze
+pierwszej obietnicę PKB, którego nie może zdobyć.
+
+| ScoringId | Odblokowuje |
+|---|---|
+| `VICTORY_TRACKER_SLOTTED_BONUS` / `..._SLOTTED_CITY` | `NODE_TECH_AQ_WHEEL` (Koło) |
+| `VICTORY_TRACKER_GOLD_BUILDINGS_ANTIQUITY` | `NODE_TECH_AQ_CURRENCY` (Waluta) |
+| `VICTORY_TRACKER_IMPORTED_RESOURCES` | `NODE_CIVIC_AQ_MAIN_SKILLED_TRADES` (Rzemiosło — **idea**, nie technologia) |
+| `VICTORY_TRACKER_SLOTTED_FACTORY` | `NODE_TECH_MO_MASS_PRODUCTION` (Produkcja masowa) |
+
+**Jak to wyliczyć z danych, a nie wpisać na sztywno:**
+
+```js
+// 1. modyfikator -> nazwa trackera; modyfikator -> co dołącza (jeden przebieg po ModifierArguments)
+GameInfo.ModifierArguments.forEach((a) => {
+    if (a.Name === 'TrackerName') trackerOf.set(a.ModifierId, a.Value);
+    else if (a.Name === 'ModifierId') attachesOf.set(a.ModifierId, String(a.Value).split(','));
+});
+// 2. węzeł drzewa -> tracker
+GameInfo.ProgressionTreeNodeUnlocks.forEach((u) => {
+    if (u.TargetKind !== 'KIND_MODIFIER') return;
+    for (const id of [u.TargetType, ...(attachesOf.get(u.TargetType) ?? [])]) { /* trackerOf.get(id) */ }
+});
+// 3. czy odblokowany
+const node = GameInfo.ProgressionTreeNodes.lookup(nodeType);
+const civic = GameInfo.ProgressionTrees.lookup(node.ProgressionTree)?.SystemType === 'SYSTEM_CULTURE';
+(civic ? player.Culture : player.Techs).isNodeUnlocked(nodeType);
+```
+
+⚠️ **Argument `TrackerName` jest wystarczającym znacznikiem.** Sprawdzone skryptem po całym
+`Base` i `DLC`: występuje **wyłącznie** przy `EFFECT_PLAYER_ACTIVATE_VICTORY_POINT_TRACKER`.
+Ustalanie efektu każdego kandydata to skan 12-tysięcznej tabeli `Modifiers` po to, co nazwa
+argumentu już mówi.
+
+⚠️ **Trzeba zejść o jeden poziom dołączenia.** Węzeł Koła wskazuje `MOD_AQ_CITY_RESOURCE_GDP`,
+który sam nic nie aktywuje — to `EFFECT_ATTACH_MODIFIERS` wskazujący dwa, które aktywują.
+Odczytanie samego modyfikatora węzła nie znajduje żadnego z nich. Głębiej dane nie zagnieżdżają.
+
+⚠️ **BRAK węzła w tej epoce oznacza ODBLOKOWANE, nie zablokowane.** `GameInfo` trzyma tylko
+graną epokę, a od epoki eksploracji cecha każdej cywilizacji (`TRAIT_EXPLORATION_CIV`,
+`TRAIT_MODERN_CIV` w `civilizations-*.xml`) aktywuje cztery starożytne trackery wprost. Domyślne
+„nie znaleziono = zablokowane" wygasiłoby cały licznik każdemu graczowi po starożytności.
+
+⚠️ Czerwony tekst w tooltipie: `[STYLE:text-negative]…[/STYLE]` (`#dc1e46` w
+`core/ui/themes/default/default.css`). Działa i w ramkowanym tooltipie (`L10n.Stylize`), i w
+zwykłym `data-tooltip-content` — `tooltip-controller.js` przepuszcza go przez `Locale.stylize`.
+
 ### Ikony spoza `UI.getIcon(yield)`
 
 ```
@@ -1609,7 +1660,7 @@ Ta sama pułapka co przy panelach szlaków handlowych i kartach konwojów: eleme
 
 ---
 
-## Procent dochodu na liczby bezwzględne — pułapka podwójnego liczenia ❗✅
+## Procent dochodu na liczby bezwzględne — procenty się DODAJĄ ❗✅
 
 „+30% nauki" nic nie mówi bez wiedzy, ile się ma nauki. Dochód imperium na turę (ten z
 górnego panelu):
@@ -1618,23 +1669,44 @@ górnego panelu):
 Players.get(GameContext.localPlayerID)?.Stats?.getNetYield(YieldTypes[yieldType]);
 ```
 
-⚠️ **`net × procent / 100` ZAWYŻA wynik.** Dochód netto **już zawiera** premię od wpiętych
-zasobów, a 30% liczy się od stanu **przed** sobą, nie po. Trzeba ją wycofać:
+✅ **GRA DODAJE PROCENTY, NIE MNOŻY ICH.** Zgłoszenie gracza ze Steam, 2026-09-05,
+potwierdzone liczbami: baza 1000 nauki, +25% z projektu dyplomatycznego, +15% z pięciu wpiętych
+herbat → gra płaci **1000 + 250 + 150 = 1400**. Herbata jest warta 150 — 15% **bazy**, a nie 15%
+z 1250, które było na panelu przed nią.
 
-```
-przed  = net / (1 + zastosowane/100)
-warto  = przed × procent/100  =  net × procent / (100 + zastosowane)
+⚠️ **Dlatego liczba z górnego panelu NIE MOŻE być bazą.** Wycofanie z niej samego procentu
+fabrycznego (`net × procent / (100 + zastosowane)`) też nie pomaga — w tej liczbie siedzą także
+wszystkie inne procenty imperium, a tych z panelu nie widać. Ten właśnie wzór był w
+`better-commerce-screen-ui` do 1.13 i zawyżał o tyle, ile gracz miał innych premii procentowych.
+
+Bazą jest **suma dochodów netto OSAD**:
+
+```js
+let pula = 0;
+for (const city of Players.get(GameContext.localPlayerID)?.Cities?.getCities() ?? []) {
+    pula += city.Yields?.getNetYield(YieldTypes[yieldType]) ?? 0;
+}
+const warto = Math.round((pula * procent) / 100);
 ```
 
-gdzie `zastosowane` to **łączny** procent fabryczny dla tego dochodu ze wszystkich już
-wpiętych sztuk (nie tylko z tego jednego zasobu). Ten sam mianownik obsługuje oba pytania:
+⚠️ Efekty fabryczne to `COLLECTION_ALL_PLAYERS`
+(`EFFECT_ADJUST_PLAYER_YIELD_PER_SLOTTED_RESOURCE`, `PercentMultiplier=true`), więc dochodzą
+**po** zsumowaniu osad — dlatego liczby z osad są stanem „przed", a `player.Stats.getNetYield`
+stanem „po". Ten sam wzór obsługuje oba pytania, bez żadnego mianownika:
 
 - „ile z obecnej nauki daje herbata" → `procent` = to, co daje herbata
-- „ile dołoży wpięcie leżących sztuk" → `procent` = to, co dołożą, a mianownik bez zmian
+- „ile dołoży wpięcie leżących sztuk" → `procent` = to, co dołożą
 
-To jest dokładne, jeśli gra **mnoży** procenty, i przybliżone, jeśli **dodaje** je do
-procentów z innych źródeł — czego z UI nie da się sprawdzić. Dlatego liczba idzie na ekran
-jako **„≈"** i tooltip mówi wprost, że to szacunek.
+Liczba nadal idzie na ekran jako **„≈"**: część dochodów trafia do imperium z pominięciem osad
+i puli nie powiększa.
+
+### Rozbicie dochodu osady na bazę i procenty ✅
+
+`city.Yields.getYields()[i]` (indeks jak w `GameInfo.Yields`) zwraca atrybut z `.base.value`
+i `.modifier.value`, gdzie `wartość = base + base × modifier/100` — tak liczy to
+`model-city-details.js`. `CityYields.getCityYieldDetails(cityID)` z
+`base-standard/ui/utilities/utilities-city-yields.js` buduje z tego gotowe drzewko do tooltipa.
+⚠️ To jest rozbicie **na poziomie osady**; procentów z poziomu gracza w nim nie ma.
 
 **Da się policzyć tylko dla dochodów, które mają jedną liczbę w panelu** — nauka (herbata),
 kultura (kaolin), zadowolenie (kakao). Reszta zasobów fabrycznych mnoży produkcję w stronę

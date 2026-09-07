@@ -301,3 +301,22 @@ for id_, key, val in c.execute('select id, key, value from "Values"'):
 ```
 
 ⚠️ Otwieraj **tylko do odczytu** (`mode=ro`) i najlepiej przy wyłączonej grze.
+
+## ⚠️⚠️ ZASADA: nie zgaduj przy bugu — załóż logger i wnioskuj z logu
+
+**Polecenie użytkownika, 2026-09-07**, po pięciu błędnych domysłach z rzędu przy jednym bugu.
+Dotyczy wszystkich modów w `mod-projects/`.
+
+Kiedy coś nie działa, a przyczyny **nie widać w kodzie**, następnym krokiem jest `warn()` w miejscu
+decyzji, deploy i odczyt `UI.log` — **nie** kolejna hipoteza.
+
+- **Loguj w miejscu decyzji, nie na wejściu.** Pytanie zawsze brzmi „którą gałęzią poszło i z jakimi
+  wartościami" — więc wypisz to, na czym gałąź się rozstrzyga.
+- **Filtruj do przypadku, który ZAWODZI.** Ślad wypisujący pierwszy wiersz wypisuje coś, co działa,
+  i nie mówi nic.
+- **`log()` bywa wyciszony.** Mody z tej rodziny mają `DIAGNOSTICS = false` w `support/diagnostics.js`
+  — tymczasowa sonda musi iść przez `warn()`, inaczej nie trafi do pliku w ogóle.
+- **`console.log` nigdy nie trafia do `UI.log`** — tylko `console.error`.
+- **Sprawdź linię `loaded, build <stamp>`**, żeby mieć pewność, że gra ma ten build, który wdrożyłeś.
+- **Usuń sondy, gdy odpowiedź jest**, i zapisz ją w komentarzu `⚠️` przy kodzie, żeby następna sesja
+  nie wyprowadzała jej od nowa.

@@ -1684,3 +1684,19 @@ child.style.cssText = CHILD_CSS;
 
 Ta sama zasada dotyczy każdego elementu, na którym gra trzyma inline'owy styl — m.in. wszystkiego,
 co ma `data-bind-style-*` (bindingi też piszą inline).
+
+## Świeżo wstawiony element ma prostokąt 0x0 w tej samej klatce ✅ (2026-09-07)
+
+`getBoundingClientRect()` na węźle dodanym do DOM w tej samej klatce zwraca `0,0-0,0` — silnik nie
+przeliczył jeszcze układu. Gest myszy, który przebudowuje listę i **od razu** próbuje sprawdzić, w
+który wiersz trafił kursor, nie trafi w żaden: pierwsze kliknięcie „nie działa", drugie działa.
+
+⚠️ Objaw myli, bo wygląda na błąd liczenia albo na przechwycone zdarzenie. Rozstrzyga wypisanie
+prostokątów do `UI.log` — same zera mówią wszystko.
+
+⚠️ Rozwiązanie: przełóż pomiar na najbliższy `mousemove` (albo `requestAnimationFrame`), pamiętając
+punkt naciśnięcia. Ten sam mod złapał się na tym trzy razy: przy pomiarach magazynów i przy
+przeciąganiu listy zaplanowanych zakupów.
+
+⚠️ Pokrewne: `fxs-vslot` zgłasza `0x0` **zawsze**, niezależnie od klatki — nie da się przez niego
+mierzyć niczego.

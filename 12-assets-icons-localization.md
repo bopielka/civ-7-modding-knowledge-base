@@ -39,6 +39,20 @@ Podpięcie w `.modinfo`:
 ⚠️ `blp:` pozwala **użyć istniejącej grafiki gry bez dołączania własnej** — bardzo przydatne.
 Żeby znaleźć dostępne nazwy: przeszukaj pliki gry pod kątem `blp:`.
 
+### Gra nie ma uniwersalnej ikony „+" ✅ (2026-09-06)
+
+Szukając plusa do własnego przycisku: w całym `Base/modules` są **tylko dwa** glify plusa —
+`fs://game/rel_add_belief_plus.png` (panel wyboru wierzeń, czysty plus na przezroczystym tle,
+nadaje się wszędzie) oraz `fs://game/shell_memento-plus.png` / `shell_memento-maj-plus.png`
+(slot memento, plus wpisany w ramkę — poza shellem wygląda obco).
+
+Odpowiednik po drugiej stronie: przycisk „usuń" na karcie kolejki budowy to nie kontrolka, tylko
+`div` z tłem `fs://game/city_queue_trash.png` (klasa `build-queue__close-button`) zawieszony przez
+`absolute -right-2 -top-2`. Własny przycisk w rogu karty robi się tak samo.
+
+⚠️ Wpisany z klawiatury `+` obok narysowanego kosza czyta się jak inny rodzaj kontrolki — jeśli
+sąsiaduje z ikoną gry, też musi być ikoną.
+
 ## `ImportFiles` — rejestracja zasobów ✅
 
 ```xml
