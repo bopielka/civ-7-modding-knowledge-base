@@ -39,6 +39,22 @@ Hooking it up in `.modinfo`:
 ⚠️ `blp:` lets you **use the game's existing artwork without shipping your own** — very useful.
 To find the available names: search the game's files for `blp:`.
 
+### The game has no universal "+" icon ✅ (2026-09-06)
+
+Looking for a plus sign for a button of my own: across the whole of `Base/modules` there are
+**only two** plus glyphs — `fs://game/rel_add_belief_plus.png` (the belief-picking panel, a clean
+plus on a transparent background, usable anywhere) and `fs://game/shell_memento-plus.png` /
+`shell_memento-maj-plus.png` (the memento slot, a plus inscribed in a frame — outside the shell
+it looks foreign).
+
+The counterpart on the other side: the "remove" button on a build-queue card is not a control at
+all, just a `div` with the background `fs://game/city_queue_trash.png` (class
+`build-queue__close-button`) suspended by `absolute -right-2 -top-2`. A button of your own in the
+corner of a card is done the same way.
+
+⚠️ A `+` typed from the keyboard next to a drawn trash can reads as a different kind of control —
+if it sits beside a game icon, it has to be an icon too.
+
 ## `ImportFiles` — registering assets ✅
 
 ```xml
