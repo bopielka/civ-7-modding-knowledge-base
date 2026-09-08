@@ -1,53 +1,53 @@
-# 14 — Pułapki i dziwactwa
+# 14 — Traps and oddities
 
-Rzeczy, które kosztują godziny, jeśli się ich nie wie. Zbierane na bieżąco.
+Things that cost hours if you do not know them. Collected as they come up.
 
-## 1. Dwie składnie modyfikatorów, łatwo pomylić ✅
+## 1. Two modifier syntaxes, easy to mix up ✅
 
 ```xml
-<!-- ✅ NOWA (GameEffects) — MAŁE litery, to jest domyślna droga w Civ VII -->
+<!-- ✅ NEW (GameEffects) — lowercase, this is the default route in Civ VII -->
 <Modifier id="..." collection="COLLECTION_PLAYER_CITIES" effect="EFFECT_CITY_ADJUST_YIELD">
 
-<!-- ⚠️ STARA (tabelowa, z Civ VI) — WIELKIE litery, w tabeli DynamicModifiers -->
+<!-- ⚠️ OLD (table-based, from Civ VI) — uppercase, in the DynamicModifiers table -->
 <Row ModifierType="..." CollectionType="COLLECTION_OWNER" EffectType="EFFECT_..."/>
 ```
-Szukanie `CollectionType=` znajdzie ~5 wyników; szukanie `collection=` znajdzie tysiące.
-**Jeśli twoje grepy zwracają podejrzanie mało wyników — sprawdź wielkość liter.**
+Searching for `CollectionType=` finds ~5 results; searching for `collection=` finds thousands.
+**If your greps return suspiciously few results — check the letter case.**
 
-## 2. `Types` — bez tego wiersza nic nie zadziała ✅
+## 2. `Types` — nothing works without that row ✅
 
-Każdy nowy obiekt musi mieć wiersz w `Types` z właściwym `Kind`, **zanim** pojawi się
-w tabeli docelowej. Brak wpisu = cicha porażka klucza obcego.
+Every new object must have a row in `Types` with the right `Kind`, **before** it appears
+in the target table. A missing entry = a silent foreign-key failure.
 
-## 3. Cywilizacja wymaga OBU scope ✅
+## 3. A civilization requires BOTH scopes ✅
 
-`shell` (menu wyboru) i `game` (rozgrywka) to osobne konteksty z osobnymi bazami.
-Mod Polska **powtarza** `ImportFiles` i `UpdateText` w obu grupach. Jeśli cywilizacja
-działa w grze, ale nie widać jej w menu — brakuje grupy `shell`.
+`shell` (the selection menu) and `game` (gameplay) are separate contexts with separate databases.
+The Poland mod **repeats** `ImportFiles` and `UpdateText` in both groups. If a civilization
+works in game but is not visible in the menu — the `shell` group is missing.
 
-## 4. Pusta karta syncretismu ✅ (udokumentowane przez autora moda)
+## 4. An empty syncretism card ✅ (documented by the mod's author)
 
-Ekran syncretismu rozwiązuje cywilizację przez tabele **legacy**, zanim sięgnie po
-`CivSelfSyncretismUnlocks`. Bez wierszy w `LegacyCivilizations`
-i `LegacyCivilizationTraits` efekt zostanie przyznany, ale **karta w UI będzie pusta**.
+The syncretism screen resolves a civilization through the **legacy** tables before it reaches for
+`CivSelfSyncretismUnlocks`. Without rows in `LegacyCivilizations`
+and `LegacyCivilizationTraits` the effect will be granted, but **the card in the UI will be empty**.
 
-## 5. `Controls.decorate` nie działa wstecz ✅
+## 5. `Controls.decorate` does not work retroactively ✅
 
-Komentarz Firaxis w `component-support.js`:
-> nie utworzy dekoratora dla istniejących instancji komponentu
+The Firaxis comment in `component-support.js`:
+> it will not create a decorator for existing instances of the component
 
-Dekorator musi być zarejestrowany **zanim** komponent powstanie → dlatego `LoadOrder`
-ma znaczenie, i dlatego mody UI często ustawiają `1000`.
+The decorator has to be registered **before** the component is created → which is why `LoadOrder`
+matters, and why UI mods often set it to `1000`.
 
-## 6. Patch prototypu trzeba zabezpieczyć strażnikiem ✅
+## 6. A prototype patch needs a guard ✅
 
-Bez `if (Klasa.patched === proto) return;` przy wielu instancjach komponentu obudujesz
-tę samą metodę wielokrotnie — każda instancja doda kolejną warstwę.
+Without `if (Class.patched === proto) return;`, with several instances of a component you will wrap
+the same method several times — each instance adds another layer.
 
-## 7. Zawsze `engine.off` ✅
+## 7. Always `engine.off` ✅
 
-306 wywołań `engine.on` vs 96 `engine.off` w modach — wielu autorów tego nie sprząta.
-Brak wyrejestrowania w `beforeDetach`/`afterDetach` = wycieki i wielokrotne handlery.
+306 `engine.on` calls vs 96 `engine.off` in mods — many authors do not clean up.
+Failing to unregister in `beforeDetach`/`afterDetach` = leaks and duplicated handlers.
 
 ## 8. `<EnglishText>` vs `<LocalizedText>` ✅
 
@@ -55,231 +55,231 @@ Brak wyrejestrowania w `beforeDetach`/`afterDetach` = wycieki i wielokrotne hand
 <EnglishText><Row Tag="LOC_X"><Text>Hello</Text></Row></EnglishText>
 <LocalizedText><Row Tag="LOC_X" Language="pl_PL"><Text>Cześć</Text></Row></LocalizedText>
 ```
-Inny tag **i** atrybut `Language` tylko w drugim. Pomylenie = brak tłumaczenia.
+A different tag **and** the `Language` attribute only on the second one. Mixing them up = no translation.
 
-## 9. Dwa różne `<LocalizedText>` ✅
+## 9. Two different `<LocalizedText>` ✅
 
-- W `<Actions>`: nie istnieje — teksty gry ładuje `<UpdateText><Item>`
-- Na poziomie `<Mod>`: `<LocalizedText><File>` — teksty **samego modinfo**
-  (nazwa moda na liście). Używa `<File>`, nie `<Item>`.
+- Inside `<Actions>`: does not exist — the game's texts are loaded by `<UpdateText><Item>`
+- At the `<Mod>` level: `<LocalizedText><File>` — the texts **of the modinfo itself**
+  (the mod's name in the list). It uses `<File>`, not `<Item>`.
 
-## 10. `ImportFiles` nadpisuje pliki gry po ścieżce ✅
+## 10. `ImportFiles` overrides game files by path ✅
 
-Jeśli twój plik ma **tę samą ścieżkę względną** co plik gry
-(np. `ui-next/tooltips/plot-tooltip/plot-tooltip.js`), zastąpi go.
-Bywa zamierzone — ale łatwo zrobić to przez przypadek, nazywając folder jak w grze.
+If your file has **the same relative path** as a game file
+(e.g. `ui-next/tooltips/plot-tooltip/plot-tooltip.js`), it replaces it.
+Sometimes that is intended — but it is easy to do by accident by naming a folder the way the game does.
 
-## 11. Pliki zasobów duplikowane bez rozszerzenia ❓
+## 11. Asset files duplicated without an extension ❓
 
-Mod Polska rejestruje każdy zasób dwa razy:
+The Poland mod registers every asset twice:
 ```xml
 <Item>Art/civ_poland.png</Item>
 <Item>Art/civ_poland</Item>
 ```
-i faktycznie ma na dysku oba pliki. Nie ustaliłem, czy to wymóg gry, czy nadmiarowość.
-**Jeśli ikony nie działają — spróbuj tego wzorca.**
+and it does have both files on disk. I have not established whether this is a game requirement or redundancy.
+**If your icons do not work — try this pattern.**
 
-## 12. Alias `fs://game/` = identyfikator moda ✅ (z wyjątkami ❓)
+## 12. The `fs://game/` alias = the mod identifier ✅ (with exceptions ❓)
 
-Zweryfikowane: `bz-map-trix`, `leugi-diploribbon-tweaks`, `detailed-map-tacks`,
-`maple-leaves-more-lens` — alias zgadza się z `<Mod id=...>`.
+Verified: `bz-map-trix`, `leugi-diploribbon-tweaks`, `detailed-map-tacks`,
+`maple-leaves-more-lens` — the alias matches `<Mod id=...>`.
 
-Ale są rozbieżności:
-| Mod ID | Używany alias |
+But there are discrepancies:
+| Mod ID | Alias used |
 |---|---|
-| `szczupakabra-poland` | `codex-poland-civilization` (25×, konsekwentnie) |
-| `f1rstdan-cool-ui` | `f1rstdans_cool_ui` (3×) obok `/f1rstdan-cool-ui/` (5×) |
+| `szczupakabra-poland` | `codex-poland-civilization` (25×, consistently) |
+| `f1rstdan-cool-ui` | `f1rstdans_cool_ui` (3×) alongside `/f1rstdan-cool-ui/` (5×) |
 | — | `RHI_mod`, `yield_influence_5` |
 
-❓ Nie wiem, czy to martwe ścieżki (i te zasoby po prostu nie działają), czy alias
-bierze się skądinąd (np. nazwy folderu przy dystrybucji spoza Workshop).
-**Bezpieczne założenie: używaj dokładnie swojego `<Mod id>`.**
+❓ I do not know whether these are dead paths (and those assets simply do not work), or whether the alias
+comes from somewhere else (e.g. the folder name in non-Workshop distribution).
+**The safe assumption: use exactly your own `<Mod id>`.**
 
-## 13. `AiLists.LeaderType` przechowuje TRAIT, nie lidera ✅
+## 13. `AiLists.LeaderType` holds a TRAIT, not a leader ✅
 
 ```xml
 <Row ListType="Ada Lovelace Yield Biases"
      LeaderType="TRAIT_LEADER_ADA_LOVELACE_ABILITY" System="YieldBiases"/>
 ```
-Nazwa kolumny myli — wartość to typ cechy.
+The column name misleads — the value is a trait type.
 
-## 14. Boolean: XML vs SQL ✅
+## 14. Booleans: XML vs SQL ✅
 
-- XML: `IsMajorLeader="true"` (Firaxis) — choć `"1"` też występuje
+- XML: `IsMajorLeader="true"` (Firaxis) — though `"1"` also occurs
 - SQL: `1` / `0`
 
-## 15. Dane epokowe tylko w grupie z `AgeInUse` ✅
+## 15. Age data only in a group with `AgeInUse` ✅
 
-Tabele i typy epoki istnieją tylko, gdy epoka jest aktywna. Wrzucenie danych
-starożytności do grupy `always` może się nie powieść.
+An age's tables and types exist only while that age is active. Putting Antiquity data
+into an `always` group may fail.
 
-## 16. `UniqueCultureProgressionTree` zmienia się per epoka ✅
+## 16. `UniqueCultureProgressionTree` changes per age ✅
 
-Mod Polska ustawia wartość w `shared.sql`, a potem **nadpisuje `UPDATE`-em**
-w pliku każdej epoki. Jedna wartość nie wystarczy.
+The Poland mod sets the value in `shared.sql` and then **overrides it with an `UPDATE`**
+in each age's file. One value is not enough.
 
-## 17. Model 3D to ślepa uliczka ✅
+## 17. The 3D model is a dead end ✅
 
-Wymaga paczki `.dep` z GUID-ami i zależnościami bibliotek materiałów — brak publicznych
-narzędzi. **Używaj `VisualRemaps`**, żeby pożyczyć istniejący model.
+It requires a `.dep` package with GUIDs and material-library dependencies — there are no public
+tools. **Use `VisualRemaps`** to borrow an existing model.
 
-## 18. `grep -r` po katalogu gry jest bardzo wolny ✅
+## 18. `grep -r` over the game directory is very slow ✅
 
-1,3 GB. Zawężaj: `Base/modules/*/data/` to tylko 14 MB i 461 plików XML.
-(Jedno takie wyszukiwanie przekroczyło u mnie 120 s i musiało lecieć w tle.)
+1.3 GB. Narrow it down: `Base/modules/*/data/` is only 14 MB and 461 XML files.
+(One such search took over 120 s here and had to run in the background.)
 
-## 19. `Package` — wielkość liter ❓
+## 19. `Package` — letter case ❓
 
-44 mody mają `<Package>Mod</Package>`, 2 mają `MOD` i działają.
-Prawdopodobnie porównanie ignoruje wielkość liter, ale trzymaj się `Mod`.
+44 mods have `<Package>Mod</Package>`, 2 have `MOD` and work.
+The comparison is probably case-insensitive, but stick to `Mod`.
 
-## 20. Dokumentacja społeczności miesza tabele z Civ VI ❗ ✅
+## 20. The community documentation mixes in Civ VI tables ❗ ✅
 
-Przewodnik o liderach na `civ7community.mintlify.app` wymienia `LeaderCivilizations`,
-`Agendas`, `HistoricalAgendas`, `RandomAgendas` — **żadna z nich nie istnieje w Civ VII**.
-Zawsze sprawdzaj nazwę tabeli w schemacie, zanim jej użyjesz:
+The leader guide on `civ7community.mintlify.app` lists `LeaderCivilizations`,
+`Agendas`, `HistoricalAgendas`, `RandomAgendas` — **none of which exist in Civ VII**.
+Always check a table name in the schema before using it:
 ```bash
-grep -c "CREATE TABLE 'NazwaTabeli'" "$G/Base/Assets/schema/gameplay/01_GameplaySchema.sql"
+grep -c "CREATE TABLE 'TableName'" "$G/Base/Assets/schema/gameplay/01_GameplaySchema.sql"
 ```
-Pełna analiza: [22-source-evaluation.md](22-source-evaluation.md).
+Full analysis: [22-source-evaluation.md](22-source-evaluation.md).
 
-## 21. Nie projektuj wokół systemów, których nie ma ✅
+## 21. Do not design around systems that do not exist ✅
 
-Brak: Wiary (Faith), Turystyki, Lojalności, Amenities, Gubernatorów.
-Zadowolenie (`YIELD_HAPPINESS`) jest **yieldem na turę**, nie pulą.
-Szczegóły: [21-gameplay-mechanics.md](21-gameplay-mechanics.md).
+Missing: Faith, Tourism, Loyalty, Amenities, Governors.
+Happiness (`YIELD_HAPPINESS`) is a **per-turn yield**, not a pool.
+Details: [21-gameplay-mechanics.md](21-gameplay-mechanics.md).
 
-## 22. ❗ Mody użytkownika NIE idą do `Documents\My Games` ✅
+## 22. ❗ User mods do NOT go into `Documents\My Games` ✅
 
-Najkosztowniejsza pułapka na starcie — mod po prostu nie pojawia się na liście
-i nie ma po nim śladu w logach.
+The most expensive trap at the start — the mod simply does not appear in the list
+and leaves no trace in the logs.
 
-**Poprawna ścieżka:**
+**The correct path:**
 ```
 C:\Users\najan\AppData\Local\Firaxis Games\Sid Meier's Civilization VII\Mods\
 ```
-`Documents\My Games\Sid Meier's Civilization VII\` zawiera **wyłącznie `Saves\`**.
-Ścieżka z `Documents` to konwencja z Civ VI — powtarza ją też dokumentacja
-społeczności, więc łatwo się na tym przejechać.
+`Documents\My Games\Sid Meier's Civilization VII\` contains **only `Saves\`**.
+The `Documents` path is a Civ VI convention — the community documentation repeats it too,
+so it is easy to be caught out.
 
-Diagnostyka: jeśli `grep -i "nazwa-moda" Modding.log` nic nie zwraca, a w logu jest
-`Discovered 0 mods.` — mod leży w złym miejscu. Gra wypisuje skanowaną ścieżkę wprost:
+Diagnosis: if `grep -i "mod-name" Modding.log` returns nothing and the log says
+`Discovered 0 mods.` — the mod is in the wrong place. The game prints the scanned path plainly:
 ```
 Discovering new mods...
 C:/Users/najan/AppData/Local/Firaxis Games/Sid Meier's Civilization VII/Mods/
 ```
 
-## 23. Panel może mieć kilka ramek — dekorujesz nie tę, którą widać ✅
+## 23. A panel can have several frames — you decorate the one you cannot see ✅
 
-`panel-place-population` buduje **trzy** niezależne ramki i przełącza je klasą `hidden`
-w zależności od stanu:
+`panel-place-population` builds **three** independent frames and switches between them with the
+`hidden` class depending on state:
 ```js
 this.subsystemFrame.classList.toggle("hidden", state != PlacePopulationSelectionState.NONE);
 this.placeImprovementFrame.classList.toggle("hidden", state != ...ADD_IMPROVEMENT);
 this.placeSpecialistFrame.classList.toggle("hidden", state != ...ADD_SPECIALIST);
 ```
-Wstrzyknięcie DOM do `subsystemFrame` jest **niewidoczne** w trybie dodawania
-specjalisty — bo wtedy ta ramka jest ukryta. Kosztowało mnie to jedną iterację
-z „mod się ładuje, ale nic nie widać".
+Injecting DOM into `subsystemFrame` is **invisible** in the add-specialist mode —
+because that frame is hidden then. This cost me one iteration
+of "the mod loads, but nothing is visible".
 
-**Diagnostyka:** jeśli dekorator działa (brak błędów w `UI.log`), a zmian nie widać —
-sprawdź, czy komponent nie ma kilku kontenerów przełączanych `hidden`, i wstrzykuj
-do tego odpowiadającego bieżącemu stanowi. Zrzut ekranu z gry mówi wprost, którą
-ramkę widzisz (tu: nagłówek „DODAJ SPECJALISTĘ" = `placeSpecialistFrame`).
+**Diagnosis:** if the decorator works (no errors in `UI.log`) but you see no changes —
+check whether the component has several containers toggled with `hidden`, and inject
+into the one matching the current state. A screenshot from the game tells you plainly which
+frame you are looking at (here: the "ADD SPECIALIST" heading = `placeSpecialistFrame`).
 
-## 24. Yieldy i utrzymanie to w UI dwie osobne listy ✅
+## 24. Yields and maintenance are two separate lists in the UI ✅
 
-`WorkerPlacementInfo` niesie **cztery** tablice: `CurrentYields`/`NextYields`
-oraz `CurrentMaintenance`/`NextMaintenance`. Gra rysuje je jako osobne grupy pigułek.
-Koszty utrzymania specjalisty (np. −2 jedzenia, −2 zadowolenia) siedzą **wyłącznie**
-w `*Maintenance`, a nie w `*Yields`.
+`WorkerPlacementInfo` carries **four** arrays: `CurrentYields`/`NextYields`
+and `CurrentMaintenance`/`NextMaintenance`. The game draws them as separate groups of pills.
+A specialist's maintenance costs (e.g. −2 food, −2 happiness) live **only**
+in `*Maintenance`, not in `*Yields`.
 
-Konwencja znaków w kodzie gry:
+The sign convention in the game's code:
 ```js
-yieldChange      = NextYields[i] - CurrentYields[i]          // dodatnie = zysk
-maintenanceChange = CurrentMaintenance[i] - NextMaintenance[i] // JUŻ ujemne gdy koszt rośnie
+yieldChange      = NextYields[i] - CurrentYields[i]           // positive = a gain
+maintenanceChange = CurrentMaintenance[i] - NextMaintenance[i] // ALREADY negative when the cost rises
 ```
-Czyli oba można po prostu **zsumować**, żeby dostać zmianę netto per yield.
-Jeśli liczysz „co daje specjalista" i pominiesz `*Maintenance`, zgubisz całą stronę
-kosztową — a to zwykle najbardziej interesuje gracza.
+So the two can simply be **summed** to get the net change per yield.
+If you compute "what a specialist gives" and skip `*Maintenance`, you lose the whole cost
+side — and that is usually what interests the player most.
 
-## 25. Warstwa soczewki rejestruje się PÓŹNIEJ niż skrypt moda ✅
+## 25. A lens layer registers LATER than the mod's script ✅
 
-`LensManager.registerLensLayer(...)` wykonuje się dopiero, gdy gra zaimportuje plik
-warstwy — a to następuje **po** wykonaniu skryptów moda, nawet przy `LoadOrder=1000`.
-Patchowanie warstwy w `engine.whenReady` **cicho nic nie robi**:
+`LensManager.registerLensLayer(...)` only runs once the game imports the layer's file —
+and that happens **after** the mod's scripts run, even with `LoadOrder=1000`.
+Patching a layer inside `engine.whenReady` **silently does nothing**:
 ```
 najane-specialists: 'fxs-worker-yields-layer' never registered, tile pills not patched
 ```
-Rozwiązanie: ponawiaj próbę patcha przy `InterfaceModeChangedEventName` (albo przy
-zdarzeniach `lens-event-layer-enabled`) i zabezpiecz flagą „już spatchowane".
-Wtedy najpóźniej przy wejściu w tryb, który używa warstwy, patch się zastosuje.
+The fix: retry the patch on `InterfaceModeChangedEventName` (or on the
+`lens-event-layer-enabled` events) and guard it with an "already patched" flag.
+Then the patch applies at the latest when you enter a mode that uses the layer.
 
-⚠️ Zawsze loguj przypadek „nie znalazłem obiektu do spatchowania" — inaczej mod
-wygląda na działający, a po prostu nic nie robi. (Patrz [19](19-workflow-and-debugging.md):
-do logu używaj `console.error`, bo `console.log` nie trafia do `UI.log`.)
+⚠️ Always log the "did not find the object to patch" case — otherwise the mod
+looks like it works while simply doing nothing. (See [19](19-workflow-and-debugging.md):
+use `console.error` for logging, because `console.log` does not reach `UI.log`.)
 
-## 26. `fxs-subsystem-frame` przestawia dzieci — wstawiaj DOM w `waitForLayout` ✅
+## 26. `fxs-subsystem-frame` rearranges its children — insert DOM inside `waitForLayout` ✅
 
-Wstawienie elementu przez `insertBefore(...)` w `afterAttach()` dekoratora **nie trafia
-tam, gdzie każesz** — ramka `fxs-subsystem-frame` po zbudowaniu przenosi swoje dzieci
-do wewnętrznego kontenera przewijania, więc Twój element ląduje na końcu.
-Objaw: sekcja miała być na górze, a jest na samym dole (bez żadnego błędu w logu).
+Inserting an element with `insertBefore(...)` in a decorator's `afterAttach()` **does not land
+where you tell it to** — once built, the `fxs-subsystem-frame` moves its children
+into an internal scroll container, so your element ends up at the end.
+Symptom: the section was supposed to be at the top and it is at the very bottom (with no error in the log).
 
-Rozwiązanie — użyj globalnego `waitForLayout()` (z `core/ui/component-support.js`,
-dostępny **bez importu**; odracza o 2 klatki animacji, `LAYOUT_FRAME_DELAY = 2`):
+The fix — use the global `waitForLayout()` (from `core/ui/component-support.js`,
+available **without an import**; it defers by 2 animation frames, `LAYOUT_FRAME_DELAY = 2`):
 
 ```js
 afterAttach() {
     waitForLayout(() => {
-        const anchor = this.component.jakisKontener;
-        anchor?.parentElement?.insertBefore(mojaSekcja, anchor);  // dopiero teraz
+        const anchor = this.component.someContainer;
+        anchor?.parentElement?.insertBefore(mySection, anchor);  // only now
     });
 }
 ```
-Tak samo robi sama gra w `panel-place-population.js` — po `buildView()` poprawia
-scrollbary właśnie wewnątrz `waitForLayout`.
+The game itself does the same in `panel-place-population.js` — after `buildView()` it fixes
+the scrollbars inside exactly this `waitForLayout`.
 
-⚠️ Zawsze celuj w `anchor.parentElement`, a nie w samą ramkę — po przestawieniu
-rodzicem kotwicy nie jest już ten element, do którego ją pierwotnie dodano.
+⚠️ Always target `anchor.parentElement`, not the frame itself — after the rearrangement
+the anchor's parent is no longer the element it was originally added to.
 
-## 27. Niespójność gry: „Utrzymanie specjalistów" znika przy zajętym polu ✅
+## 27. A game inconsistency: "Specialist maintenance" disappears on an occupied plot ✅
 
-W `model-place-population.js` linia utrzymania pokazuje się **tylko** gdy surowa
-wartość jest dodatnia:
+In `model-place-population.js` the maintenance line is shown **only** when the raw
+value is positive:
 ```js
 if (nextValue > 0) { this.showAfterSpecialistMaintenance = true; ... }
 ```
-Na polu, które **już ma specjalistę**, warunek nie przechodzi i opis znika — mimo że
-pasek „WYNIKI" nad nim poprawnie uwzględnia koszt, bo liczy się z innego pola
-(`overallChange = bonusChanges - maintenanceChanges`). Dane są, tylko nie są pokazane.
+On a plot that **already has a specialist**, the condition fails and the description disappears — even though
+the "RESULTS" bar above it correctly accounts for the cost, because it is computed from a different field
+(`overallChange = bonusChanges - maintenanceChanges`). The data is there, it is just not shown.
 
-> ❌ **PRÓBA OBEJŚCIA NIEUDANA — WYCOFANA.** Opakowałem `PlacePopulation.update`
-> i uzupełniałem brakującą linię z `NextMaintenance`/`CurrentMaintenance`. Efekt:
-> **liczby były błędne** — pokazywały ok. dwukrotność rzeczywistego kosztu i nie zgadzały
-> się z paskiem „WYNIKI" w tym samym oknie. Wycofane; lepiej nie pokazać nic niż pokazać
-> nieprawdę.
+> ❌ **AN ATTEMPTED WORKAROUND FAILED — REVERTED.** I wrapped `PlacePopulation.update`
+> and filled in the missing line from `NextMaintenance`/`CurrentMaintenance`. The result:
+> **the numbers were wrong** — they showed about twice the real cost and did not match
+> the "RESULTS" bar in the same window. Reverted; better to show nothing than to show
+> an untruth.
 
-❓ **Czego nie wiem:** co dokładnie znaczą `CurrentMaintenance` / `NextMaintenance`
-w `WorkerPlacementInfo`. Obserwacje z gry przeczą wszystkim moim hipotezom:
-- „Premia za specjalistów" pokazuje **sumy** (1 specjalista +5 kultury → 2 specjalistów +10),
-  a pasek „WYNIKI" **przyrost** (+5)
-- przy tej samej interpretacji dla utrzymania liczby się nie domykają — wartości
-  z `*Maintenance` nie odtwarzają przyrostu widocznego w „WYNIKI"
+❓ **What I do not know:** what `CurrentMaintenance` / `NextMaintenance` in
+`WorkerPlacementInfo` mean exactly. Observations in game contradict all of my hypotheses:
+- "Specialist bonus" shows **totals** (1 specialist +5 culture → 2 specialists +10),
+  while the "RESULTS" bar shows the **increment** (+5)
+- under the same interpretation for maintenance the numbers do not add up — the values
+  from `*Maintenance` do not reproduce the increment visible in "RESULTS"
 
-**Zanim ktoś spróbuje ponownie:** najpierw zrzuć realne wartości obu tablic dla pola
-z 0 i z 1 specjalistą (`console.error`, patrz [19](19-workflow-and-debugging.md)) i dopiero
-na tych danych buduj wzór. Bez tego to zgadywanie.
+**Before anyone tries again:** first dump the real values of both arrays for a plot
+with 0 and with 1 specialist (`console.error`, see [19](19-workflow-and-debugging.md)) and only
+then build a formula on that data. Without it, it is guesswork.
 
-**Lekcja ogólna (nadal aktualna):** zanim uznasz, że dane nie istnieją, sprawdź, czy nie
-chodzi tylko o warunek wyświetlania — ten sam koszt bywa liczony w dwóch miejscach
-z dwoma różnymi warunkami. Ale **nie dopisuj własnych liczb, dopóki nie rozumiesz
-jednostek** — wynik gorszy niż brak.
+**The general lesson (still valid):** before you conclude the data does not exist, check whether
+it is just a display condition — the same cost is sometimes computed in two places
+with two different conditions. But **do not add numbers of your own until you understand
+the units** — the result is worse than nothing.
 
-## 28. Keybindingi tylko w `scope="shell"` — inaczej rollback CAŁEJ akcji ✅
+## 28. Keybindings only in `scope="shell"` — otherwise the WHOLE action rolls back ✅
 
-Tabele `InputActions`, `InputActionDefaultGestures`, `InputContextConstraints` należą
-do bazy **frontendu**, nie gameplay. Wpięcie pliku z nimi w grupę `scope="game"` kończy się:
+The tables `InputActions`, `InputActionDefaultGestures`, `InputContextConstraints` belong
+to the **frontend** database, not gameplay. Hooking a file containing them into a `scope="game"` group ends with:
 
 ```
 [gameplay] ERROR: no such table: InputActions
@@ -287,152 +287,152 @@ ERROR: There were errors loading 'config/input.xml' that require a rollback.
 Warning: Apply Actions - Errors when applying action '...(UpdateDatabase)'. Rollback Required.
 ```
 
-❗ **Najgorsze jest to, że rollback wycofuje całą akcję `UpdateDatabase` tej grupy**,
-nie tylko wadliwy plik. Jeden błędnie umieszczony plik potrafi więc wyłączyć wszystkie
-pozostałe dane moda — bez widocznego objawu poza brakiem działania.
+❗ **The worst part is that the rollback reverts the group's whole `UpdateDatabase` action**,
+not just the offending file. So a single misplaced file can disable all of the mod's
+remaining data — with no visible symptom other than nothing working.
 
-Poprawnie: `config/input.xml` **wyłącznie** w grupie `scope="shell"`. Akcja i tak
-działa potem w rozgrywce, bo definicje żyją w bazie konfiguracji.
+Correctly: `config/input.xml` **only** in a `scope="shell"` group. The action still
+works in gameplay afterwards, because the definitions live in the configuration database.
 
-Wzorzec sprawdzony w `bz-map-trix` (`config/bz-input.xml`, tylko shell) — używa też
-`<Replace>` zamiast `<Row>`, co jest idempotentne przy ponownym zastosowaniu moda.
+The pattern is proven in `bz-map-trix` (`config/bz-input.xml`, shell only) — it also uses
+`<Replace>` instead of `<Row>`, which is idempotent when the mod is reapplied.
 
-## 29. Modyfikator jako skrót: `EventType="All"` ✅
+## 29. A modifier as a shortcut: `EventType="All"` ✅
 
-⚠️ **Korekta** wcześniejszego wniosku z [09](09-cookbook-ui-mod.md), że system akcji
-gry nie potrafi wyrazić „klawisz jest trzymany". Potrafi — trzeba tylko zadeklarować:
+⚠️ **A correction** to an earlier conclusion in [09](09-cookbook-ui-mod.md) that the game's action
+system cannot express "a key is being held". It can — you just have to declare it:
 
 ```xml
-<Replace ActionId="moja-akcja" DeviceType="Keyboard" EventType="All"
+<Replace ActionId="my-action" DeviceType="Keyboard" EventType="All"
          Name="LOC_..." Description="LOC_..." />
-<Replace ActionId="moja-akcja" Index="0" GestureType="KBMouse" GestureData="KEY_CONTROL"/>
+<Replace ActionId="my-action" Index="0" GestureType="KBMouse" GestureData="KEY_CONTROL"/>
 ```
-Wtedy `InputEngineEvent` zgłasza `InputActionStatuses.START` przy wciśnięciu
-i `FINISH` przy puszczeniu. Statusy: `START`, `FINISH`, `UPDATE`, `DRAG`, `HOLD`.
+Then `InputEngineEvent` reports `InputActionStatuses.START` on press
+and `FINISH` on release. The statuses: `START`, `FINISH`, `UPDATE`, `DRAG`, `HOLD`.
 
-✅ **Sam modyfikator jest poprawnym przypisaniem** — gra robi tak dla własnej akcji
-`keyboard-camera-modifier` (`GestureData="KEY_ALT"`). Dostępne m.in. `KEY_CONTROL`,
-`KEY_SHIFT`, `KEY_ALT` oraz warianty L/R. Kombinacje: `KEY_SHIFT+KEY_S`.
+✅ **A bare modifier is a valid binding** — the game does this for its own
+`keyboard-camera-modifier` action (`GestureData="KEY_ALT"`). Available are, among others, `KEY_CONTROL`,
+`KEY_SHIFT`, `KEY_ALT` and the L/R variants. Combinations: `KEY_SHIFT+KEY_S`.
 
-To rozwiązanie jest **znacznie lepsze niż nasłuch DOM**: wpis pojawia się w
-Opcje → Sterowanie, gracz może go przemapować, i nie koliduje z innymi modami
-reagującymi na ten sam klawisz.
+This solution is **much better than listening on the DOM**: the entry appears in
+Options → Controls, the player can remap it, and it does not clash with other mods
+reacting to the same key.
 
-Etykietę aktualnego przypisania do UI pobierzesz przez:
+You fetch the label of the current binding for the UI with:
 ```js
 Input.getGestureDisplayString(actionId, 0, InputDeviceType.Keyboard, InputContext.ALL)
 ```
-⚠️ Do wyświetlenia użyj `Locale.compose(key, label)` i `textContent` — atrybut
-`data-l10n-id` nie przyjmie argumentu wyliczonego w czasie działania.
+⚠️ To display it use `Locale.compose(key, label)` and `textContent` — the
+`data-l10n-id` attribute will not accept an argument computed at runtime.
 
-## 30. Patchując metodę, którą patchuje inny mod — sprawdź, co tracisz ✅
+## 30. When patching a method that another mod patches — check what you are losing ✅
 
-Realny konflikt: City Hall (`bz-city-hall`) opakowuje `updateSpecialistPlot`
-w poprawny sposób — woła poprzednią wersję, potem dorysowuje swoje ikony:
+A real conflict: City Hall (`bz-city-hall`) wraps `updateSpecialistPlot`
+correctly — it calls the previous version, then draws its own icons:
 ```js
 const prev = WYLL.updateSpecialistPlot;
 WYLL.updateSpecialistPlot = function(...a) { prev.apply(this, a); this.realizeBuildSlots(d); }
 ```
-Mój mod patchował **po nich** i **nie delegował** (celowo — zastępuje rysowanie).
-Skutek: ich ikony znikały, a wracały tylko w trybie „pokaż oryginał", bo tam
-delegowałem. Objaw wyglądał jak konflikt o klawisz, a był o kolejność patchy.
+My mod patched **after** them and **did not delegate** (deliberately — it replaces the drawing).
+The result: their icons disappeared, and came back only in "show the original" mode, because there
+I did delegate. The symptom looked like a key conflict, but it was about patch order.
 
-**Diagnostyka:** jeśli funkcja innego moda działa tylko wtedy, gdy Twój mod jest
-„wyłączony", prawie na pewno przerywasz łańcuch wrapperów.
+**Diagnosis:** if another mod's feature only works while your mod is
+"off", you are almost certainly breaking the wrapper chain.
 
-**Rozwiązanie** (gdy nie możesz delegować): wywołaj ich krok samodzielnie, z wykrywaniem
-funkcji, żeby brak tamtego moda był no-opem:
+**The fix** (when you cannot delegate): perform their step yourself, with feature
+detection, so that the absence of that mod is a no-op:
 ```js
 if (typeof this.realizeBuildSlots === "function" && this.bzGridSpritePosition) {
-    try { /* powtórz ich kroki */ } catch (e) { console.error(...); }
+    try { /* repeat their steps */ } catch (e) { console.error(...); }
 }
 ```
-⚠️ To wiąże Cię z wewnętrznymi nazwami cudzego moda. Osłoń `try/catch`, wykrywaj
-funkcje, i zapisz w komentarzu, czyj kod odtwarzasz — przy jego aktualizacji ktoś
-musi wiedzieć, gdzie szukać.
+⚠️ This ties you to the internal names of somebody else's mod. Wrap it in `try/catch`, do feature
+detection, and note in a comment whose code you are reproducing — when they update it, someone
+has to know where to look.
 
-✅ Efekt uboczny: wołając ich metody przez `this` (np. `getSpecialistPipOffsetsAndScale`),
-dostajesz też ich ulepszenia za darmo.
+✅ A side benefit: by calling their methods through `this` (e.g. `getSpecialistPipOffsetsAndScale`),
+you get their improvements for free too.
 
-## 31. Nie edytuj plików w `Program Files` ✅
+## 31. Do not edit files in `Program Files` ✅
 
-Steam nadpisze zmiany przy weryfikacji plików, a zapis wymaga uprawnień administratora.
-Mody z Workshop (`steamapps\workshop\content\1295660`) też są zarządzane przez Steam —
-Twoje zmiany zostaną nadpisane przy aktualizacji subskrypcji.
+Steam will overwrite the changes when it verifies files, and writing requires administrator rights.
+Workshop mods (`steamapps\workshop\content\1295660`) are managed by Steam too —
+your changes will be overwritten when the subscription updates.
 
-## 32. Ekran, którego nie da się udekorować — bo nie jest w starym frameworku ✅
+## 32. A screen that cannot be decorated — because it is not in the old framework ✅
 
-**Data: 2026-08-10.** Zanim napiszesz `Controls.decorate('nazwa-ekranu', …)`, sprawdź,
-czy ekran nie żyje w `ui-next/` (Solid.js). Objawem będzie „dekorator się rejestruje,
-nic się nie dzieje" — bo element tej nazwy jest wprawdzie zdefiniowany, ale jego treść
-renderuje Solid, a nie DOM z `.html.js`.
+**Date: 2026-08-10.** Before you write `Controls.decorate('screen-name', …)`, check
+whether the screen lives in `ui-next/` (Solid.js). The symptom will be "the decorator registers,
+nothing happens" — because an element of that name is indeed defined, but its content
+is rendered by Solid, not by DOM from a `.html.js`.
 
 ```bash
-find "…/Base/modules" -ipath "*ui-next*" -iname "*nazwa*"
+find "…/Base/modules" -ipath "*ui-next*" -iname "*name*"
 ```
 
-Rozpoznanie po plikach: obok `.js` leży `.js.map`, z którego wyciąga się **`.tsx`**
-(a nie `.ts`), a w kodzie widać `ComponentRegistry.register` / `createSignal`.
-Pełny opis: [25-ui-next-solidjs.md](25-ui-next-solidjs.md).
+Recognizing it from the files: next to the `.js` there is a `.js.map` from which a **`.tsx`**
+is extracted (not a `.ts`), and the code contains `ComponentRegistry.register` / `createSignal`.
+Full description: [25-ui-next-solidjs.md](25-ui-next-solidjs.md).
 
-## 33. Ten sam ekran istnieje w DWÓCH wersjach naraz ✅
+## 33. The same screen exists in TWO versions at once ✅
 
-Przy migracji do `ui-next` Firaxis **zostawia stare pliki na dysku i nadal je ładuje**.
-Ekran Handlu ma komplet w `ui/resource-allocation/` (stary) i w
-`ui-next/screens/commerce/` (nowy) — oba wpisane w `base-standard.modinfo`.
+During the migration to `ui-next`, Firaxis **leaves the old files on disk and still loads them**.
+The Commerce screen has a full set in `ui/resource-allocation/` (old) and in
+`ui-next/screens/commerce/` (new) — both listed in `base-standard.modinfo`.
 
-Wygrywa nowy, bo `defineLegacyComponent` woła `Controls.define` z `priority: 1`,
-a stary `Controls.define` domyślnie ma `0`. Mod edytujący stary plik nie zmieni nic
-widocznego. **Zawsze sprawdź, czy nie ma drugiej wersji ekranu**, zanim zaczniesz
-czytać kod „tego oczywistego" pliku.
+The new one wins, because `defineLegacyComponent` calls `Controls.define` with `priority: 1`,
+while the old `Controls.define` defaults to `0`. A mod editing the old file will change nothing
+visible. **Always check whether there is a second version of the screen** before you start
+reading the code of "the obvious" file.
 
-## 34. `overridePriority` w `ui-next` znosi problem kolejności ładowania ✅
+## 34. `overridePriority` in `ui-next` removes the load-order problem ✅
 
-W starym frameworku patch musiał trafić na już istniejący obiekt (quirk o warstwach
-soczewek). `ComponentRegistry.register` / `ModelRegistry.register` trzymają **jedną
-owiniętą fabrykę na nazwę** i tylko podmieniają w niej wskaźnik na implementację,
-gdy przychodzi wyższy priorytet — więc mod może zarejestrować się przed grą albo po
-niej, efekt jest ten sam.
+In the old framework a patch had to land on an already existing object (the lens-layer
+quirk). `ComponentRegistry.register` / `ModelRegistry.register` keep **one
+wrapped factory per name** and only swap the pointer to the implementation inside it
+when a higher priority arrives — so a mod can register before the game or after
+it, the effect is the same.
 
-⚠️ Wyjątek: to działa tylko dla komponentów faktycznie **zarejestrowanych** w rejestrze.
-Zwykły `export const Foo` bez `register` jest nietykalny. I nadpisanie modelu w
-`ModelRegistry` nic nie da, jeśli konsument woła fabrykę bezpośrednio, zamiast
-`Model.get()` — dokładnie tak robi ekran Handlu.
+⚠️ Exception: this only works for components actually **registered** in the registry.
+A plain `export const Foo` without `register` is untouchable. And overriding a model in
+`ModelRegistry` achieves nothing if the consumer calls the factory directly instead of
+`Model.get()` — which is exactly what the Commerce screen does.
 
-## 35. `overridePriority` na ekranie Handlu jest już zajęte przez Resource+ ✅
+## 35. `overridePriority` on the Commerce screen is already taken by Resource+ ✅
 
-**2026-08-10.** Mod **Resource+** (`brads-assign-all-resources`, Workshop 3756000777)
-rejestruje `CommerceResourcesContainer` z `overridePriority: 1100`. Kto chce ruszyć
-tę samą zakładkę, musi dać więcej **i delegować** do `originalFactory(props)` —
-inaczej funkcje Resource+ po prostu znikną (to samo, co quirk #30 z City Hall).
+**2026-08-10.** The **Resource+** mod (`brads-assign-all-resources`, Workshop 3756000777)
+registers `CommerceResourcesContainer` with `overridePriority: 1100`. Anyone who wants to touch
+that same tab has to give a higher number **and delegate** to `originalFactory(props)` —
+otherwise Resource+'s features simply disappear (the same as quirk #30 with City Hall).
 
-Ogólna zasada: **zanim wybierzesz `overridePriority`, sprawdź, czy nazwa nie jest już
-zajęta** przez zainstalowany mod:
+The general rule: **before you pick an `overridePriority`, check whether the name is already
+taken** by an installed mod:
 
 ```bash
 grep -rn "overridePriority" "…/steamapps/workshop/content/1295660"
 ```
 
-## 36. Nadpisując komponent `ui-next`, sprzątaj po sobie w `onCleanup` ✅
+## 36. When overriding a `ui-next` component, clean up after yourself in `onCleanup` ✅
 
-Wstrzyknięty goły DOM (przyciski, `<style>` w `document.head`, klasy dopisane do
-cudzych elementów) **nie zniknie sam** — Solid usuwa tylko to, co sam wyrenderował.
-Resource+ usuwa w `onCleanup` każdy element z osobna, odpina `MutationObserver`,
-listenery i `requestAnimationFrame`. Ekran Handlu otwiera się i zamyka wiele razy
-w partii, więc brak sprzątania = narastające duplikaty.
+Injected raw DOM (buttons, a `<style>` in `document.head`, classes added to
+other people's elements) **will not disappear on its own** — Solid removes only what it rendered
+itself. Resource+ removes every element individually in `onCleanup`, detaches its `MutationObserver`,
+listeners and `requestAnimationFrame`. The Commerce screen is opened and closed many times
+in a match, so no cleanup = accumulating duplicates.
 
-## 37. Mod „się ładuje", a jego skrypty nie ruszają — bo nie jest WŁĄCZONY ✅
+## 37. The mod "loads" but its scripts never run — because it is not ENABLED ✅
 
-**2026-08-10.** `Modding.log` pokazywał „Loading Mod – …", „Discovered 1 mods" i nazwę
-moda, a mimo to w `UI.log` nie było ani jednej linii z jego skryptu — nawet markera
-z pierwszej linii pliku wejściowego. Żadnego błędu importu też nie.
+**2026-08-10.** `Modding.log` showed "Loading Mod – …", "Discovered 1 mods" and the mod's
+name, and yet `UI.log` had not a single line from its script — not even the marker
+from the first line of the entry file. No import error either.
 
-**Discovery ≠ enabled.** Gra skanuje katalog `Mods\` przy każdym starcie, ale mod trzeba
-jeszcze włączyć w *Menu główne → Dodatkowa zawartość → Mody*. Nowy mod domyślnie
-**nie** jest włączony.
+**Discovery ≠ enabled.** The game scans the `Mods\` directory on every start, but the mod still
+has to be enabled in *Main menu → Additional Content → Mods*. A new mod is **not**
+enabled by default.
 
-Jak to sprawdzić bez zgadywania — `Modding.log` wypisuje przy „Applying mod components"
-listę **rzeczywiście włączonych** modów wraz z ich grupami akcji:
+How to check without guessing — at "Applying mod components" `Modding.log` prints
+the list of **actually enabled** mods together with their action groups:
 
 ```
 […] najane-common-specialists-yields (Better Specialists UI by Najane)
@@ -442,25 +442,25 @@ listę **rzeczywiście włączonych** modów wraz z ich grupami akcji:
 […] Applying mod components.
 ```
 
-Nie ma Twojego moda na tej liście → jest wyłączony, i żadne debugowanie kodu nie pomoże.
+Your mod is not on that list → it is disabled, and no amount of code debugging will help.
 
-Druga droga — `Mods.sqlite`, kolumna `Mods.Disabled` (⚠️ nie `Enabled`; `NULL` znaczy
-„nie wyłączony"). Rejestrację akcji można potwierdzić tak:
+The other route — `Mods.sqlite`, the `Mods.Disabled` column (⚠️ not `Enabled`; `NULL` means
+"not disabled"). Action registration can be confirmed like this:
 
 ```python
 import sqlite3
 c = sqlite3.connect('Mods.sqlite'); c.row_factory = sqlite3.Row
-for r in c.execute("select ModRowId, ModId, Version, Disabled from Mods where ModId='twoj-mod'"):
+for r in c.execute("select ModRowId, ModId, Version, Disabled from Mods where ModId='your-mod'"):
     print(dict(r))
 # ActionGroups(ActionGroupRowId, ModRowId, ActionGroupId, Scope, CriteriaRowId)
 # Actions(ActionRowId, ActionGroupRowId, ActionType)
 # ActionItems(ActionRowId, Arrangement, Item)
 ```
 
-## 38. Pliki tekstowe innych języków: `<LocalizedText Language>`, nie `<EnglishText>` ✅
+## 38. Text files for other languages: `<LocalizedText Language>`, not `<EnglishText>` ✅
 
-**2026-08-10.** `text/pl_PL/ModInfoText.xml` z blokiem `<EnglishText>` wjeżdża do bazy
-jako `en_US` — **nazwa katalogu nie ma znaczenia** — i zderza się z prawdziwym
+**2026-08-10.** A `text/pl_PL/ModInfoText.xml` with an `<EnglishText>` block goes into the database
+as `en_US` — **the directory name means nothing** — and collides with the real
 `text/en_us/…`:
 
 ```
@@ -468,52 +468,52 @@ ERROR: Database: UNIQUE constraint failed: LocalizedText.ModRowId, LocalizedText
 Database: While executing - 'INSERT INTO LocalizedText(...) VALUES(485,'LOC_…','en_US','…')'
 ```
 
-Poprawnie:
+Correctly:
 
 ```xml
 <Database>
-    <EnglishText>                                  <!-- tylko text/en_us/ -->
+    <EnglishText>                                  <!-- text/en_us/ only -->
         <Row Tag="LOC_X"><Text>English</Text></Row>
     </EnglishText>
 </Database>
 
 <Database>
-    <LocalizedText>                                <!-- każdy inny język -->
+    <LocalizedText>                                <!-- every other language -->
         <Row Tag="LOC_X" Language="pl_PL"><Text>Polski</Text></Row>
     </LocalizedText>
 </Database>
 ```
 
-Dotyczy tak samo plików z `<LocalizedText><File>` w `.modinfo`, jak i tych z `UpdateText`.
+This applies equally to files listed in `<LocalizedText><File>` in the `.modinfo` and to those in `UpdateText`.
 
-## 39. `version="0.1"` w `.modinfo` = mod cicho pomijany ❗✅
+## 39. `version="0.1"` in `.modinfo` = the mod is silently skipped ❗✅
 
-**2026-08-10, kosztowało dwie rundy debugowania.** Atrybut `version` na elemencie
-`<Mod>` jest parsowany jako **liczba całkowita**. `version="0.1"` ląduje w
-`Mods.sqlite` jako `Version = 0`, a gra takiego moda **nie stosuje** — przy czym:
+**2026-08-10, cost two rounds of debugging.** The `version` attribute on the
+`<Mod>` element is parsed as an **integer**. `version="0.1"` lands in
+`Mods.sqlite` as `Version = 0`, and the game **does not apply** such a mod — where:
 
-- `Modding.log` normalnie pisze „Loading Mod – …" i „Discovered 1 mods",
-- mod jest widoczny i **zaznaczony jako włączony** w menu Modów,
-- w `Mods.sqlite` ma `Disabled = 0`, wszystkie `ActionGroups` / `Actions` /
-  `ActionItems` zarejestrowane poprawnie,
-- **ale nie pojawia się na liście włączonych modów** wypisywanej tuż przed
-  „Applying mod components", a jego skrypty nigdy się nie wykonują —
-  **bez jednego komunikatu o błędzie**.
+- `Modding.log` normally writes "Loading Mod – …" and "Discovered 1 mods",
+- the mod is visible and **ticked as enabled** in the Mods menu,
+- in `Mods.sqlite` it has `Disabled = 0`, with all `ActionGroups` / `Actions` /
+  `ActionItems` registered correctly,
+- **but it does not appear on the list of enabled mods** printed just before
+  "Applying mod components", and its scripts never execute —
+  **without a single error message**.
 
-Dowód liczbowy z instalacji użytkownika: 93 mody w bazie, 40 zastosowanych, wszystkie
-zastosowane mają `Version >= 1`, a jedyny mod z `Version = 0` to był właśnie ten
-niedziałający.
+Numerical evidence from the user's installation: 93 mods in the database, 40 applied, all
+applied ones have `Version >= 1`, and the only mod with `Version = 0` was exactly the
+one that did not work.
 
 ```xml
-<Mod id="moj-mod" version="1" xmlns="ModInfo">     <!-- ✅ liczba całkowita >= 1 -->
+<Mod id="my-mod" version="1" xmlns="ModInfo">      <!-- ✅ an integer >= 1 -->
     <Properties>
-        <Version>0.1</Version>                      <!-- ✅ tu dowolny tekst -->
+        <Version>0.1</Version>                      <!-- ✅ any text here -->
 ```
 
-Uwaga: `version="1.3"` też „działa", ale zapisuje się jako `1` — część po kropce jest
-po prostu obcinana. Numer wersji do pokazania graczowi trzymaj w `<Properties><Version>`.
+Note: `version="1.3"` also "works", but is stored as `1` — the part after the dot is simply
+truncated. Keep the version number you want to show the player in `<Properties><Version>`.
 
-**Szybka diagnoza dowolnego „mod się nie uruchamia":**
+**A quick diagnosis for any "the mod does not start":**
 
 ```python
 import sqlite3
@@ -521,98 +521,98 @@ c = sqlite3.connect('Mods.sqlite')
 print(list(c.execute("select ModId, Version, Disabled from Mods where Version = 0")))
 ```
 
-Patrz też #37 (mod znaleziony ≠ włączony) — objawy są identyczne, przyczyny różne,
-a rozstrzyga ta sama lista w `Modding.log`.
+See also #37 (discovered ≠ enabled) — the symptoms are identical, the causes different,
+and the same list in `Modding.log` settles it.
 
-## 40. Klik z modyfikatorem nie dociera jako akcja silnika ❗✅
+## 40. A modifier-click does not arrive as an engine action ❗✅
 
-**2026-08-10, cztery rundy testów.** Silnik **nie wysyła akcji `mousebutton-right`
-(ani zapewne innych akcji myszy), gdy trzymany jest modyfikator**. Shift+PPM generuje
-wyłącznie natywne zdarzenia DOM `mousedown`/`mouseup` — i nic poza tym.
+**2026-08-10, four rounds of testing.** The engine **does not send the `mousebutton-right`
+action (nor, presumably, other mouse actions) while a modifier is held**. Shift+RMB generates
+only native DOM `mousedown`/`mouseup` events — and nothing else.
 
-Objaw mylący: wygląda to jak „nie umiem odczytać Shifta". Straciłem dwie rundy na
-podmienianie źródła stanu modyfikatora (DOM `keydown` → `Input.isShiftDown()`),
-podczas gdy **oba działały poprawnie** — po prostu nigdy nie były pytane, bo zdarzenie,
-w którym pytałem, nie przychodziło.
+A misleading symptom: it looks like "I cannot read Shift". I lost two rounds
+swapping the source of the modifier state (DOM `keydown` → `Input.isShiftDown()`),
+while **both worked correctly** — they were simply never asked, because the event
+in which I asked never arrived.
 
-**Obsługuj kliknięcia z modyfikatorem przez DOM** (`mousedown`/`mouseup`, `button === 2`,
-`event.shiftKey`), a akcję silnika przechwytuj tylko po to, żeby zdusić domyślne
-„cancel". Szczegóły i kolejność zdarzeń: [25-ui-next-solidjs.md](25-ui-next-solidjs.md).
+**Handle modifier-clicks through the DOM** (`mousedown`/`mouseup`, `button === 2`,
+`event.shiftKey`), and intercept the engine action only in order to suppress the default
+"cancel". Details and event order: [25-ui-next-solidjs.md](25-ui-next-solidjs.md).
 
-**Reguła na przyszłość:** przy trzeciej nieudanej hipotezie o wejściu **przestań
-zgadywać i podłącz podsłuch** logujący każde `engine-input` (nazwa + status +
-współrzędne) oraz natywne `mousedown`/`mouseup`/`keydown` z flagami modyfikatorów.
-Jedna runda z danymi rozstrzygnęła to, czego trzy rundy teorii nie potrafiły.
-Podsłuch musi pomijać status `InputActionStatuses.UPDATE` — powtarza się co klatkę.
+**A rule for the future:** on the third failed hypothesis about input, **stop
+guessing and attach a listener** that logs every `engine-input` (name + status +
+coordinates) plus native `mousedown`/`mouseup`/`keydown` with the modifier flags.
+One round with data settled what three rounds of theory could not.
+The listener must skip the `InputActionStatuses.UPDATE` status — it repeats every frame.
 
-## 41. `Game.PlayerOperations.sendRequest` kolejkuje — `canStart` w tym samym takcie kłamie ✅
+## 41. `Game.PlayerOperations.sendRequest` queues — `canStart` in the same tick lies ✅
 
-**2026-08-10.** Operacje gracza nie wykonują się natychmiast. Po `sendRequest` stan
-gry jeszcze się nie zmienił, więc `canStart` zapytane o **następną** operację w tej
-samej funkcji odpowiada na podstawie starego stanu.
+**2026-08-10.** Player operations do not execute immediately. After `sendRequest` the game
+state has not changed yet, so `canStart` asked about the **next** operation in the
+same function answers based on the old state.
 
-Objaw z praktyki (ekran Handlu, usuwanie wielbłąda dającego 2 sloty): mod wysyłał
-jednym ciągiem zwolnienie 2 zasobów i zwolnienie wielbłąda. Zasoby wychodziły,
-wielbłąd dostawał odmowę i **zostawał**. Kolejne kliknięcie znów zwalniało 2 zasoby —
-tym razem niepotrzebnie, bo miejsce już było.
+A symptom from practice (the Commerce screen, removing a camel that provides 2 slots): the mod sent,
+in one go, the release of 2 resources and the release of the camel. The resources went out,
+the camel was refused and **stayed**. The next click released 2 resources again —
+this time needlessly, because the room was already there.
 
-**Rozwiązanie:** rób to sekwencyjnie i po każdym kroku czekaj na potwierdzenie ze
-strony silnika (zdarzenie dziedzinowe, np. `ResourceUnassigned`), z limitem czasu na
-wypadek operacji, która przepadnie. Dodatkowo **pytaj `canStart` zamiast liczyć**,
-ile kroków przygotowawczych potrzeba: zwalniaj po jednym i przerwij, gdy właściwa
-operacja przejdzie. Wtedy nie trzeba znać reguły silnika, a skutki uboczne są minimalne.
+**The fix:** do it sequentially and after each step wait for confirmation from
+the engine (a domain event, e.g. `ResourceUnassigned`), with a timeout in case
+an operation gets lost. Additionally, **ask `canStart` instead of computing**
+how many preparatory steps are needed: release one at a time and stop once the actual
+operation succeeds. Then you do not have to know the engine's rule, and the side effects are minimal.
 
 ```js
-if (trySend(target)) return;                 // może nic nie trzeba
+if (trySend(target)) return;                 // maybe nothing is needed
 while (queue.length) {
     if (trySend(queue.shift())) await waitForEngineEvent();
     if (trySend(target)) return;
 }
 ```
 
-## 42. Podświetlając coś w cudzym UI, użyj efektu, który ten UI już ma ✅
+## 42. When highlighting something in someone else's UI, use an effect that UI already has ✅
 
-Własna żółta obwódka wyglądała jak nowy rodzaj dekoracji i użytkownik od razu ją
-odrzucił. Ekran Handlu ma już własny efekt najechania — `hover\:scale-125` w klasach
-`DraggableResource` — więc podświetlenie „to samo, co pod kursorem" powinno być
-**dokładnie tym samym powiększeniem**, a nie nową konwencją.
+A yellow outline of my own looked like a new kind of decoration and the user rejected it
+immediately. The Commerce screen already has its own hover effect — `hover\:scale-125` in the
+`DraggableResource` classes — so "the same as what is under the cursor" highlighting should be
+**exactly that same enlargement**, not a new convention.
 
-⚠️ Celuj w element renderowany w **każdej** gałęzi komponentu. W tym wypadku
-`.framed-resource` (jest zawsze), a nie `.draggable-resource` (tylko gdy zasób jest
-interaktywny).
+⚠️ Target an element rendered in **every** branch of the component. In this case
+`.framed-resource` (always present), not `.draggable-resource` (only when the resource is
+interactive).
 
-❗ **Nie nakładaj swojego efektu na element, który gra już transformuje** — `transform`
-się **mnoży**. Powielenie `scale(1.25)` gry własnym `scale(1.25)` dało na najechanym
-elemencie 1.5625, czyli wyraźnie większy od reszty podświetlonej grupy. Pomiń element,
-którym gra zajmuje się sama — i sprawdź to warunkiem, a nie założeniem, bo efekt
-najechania bywa renderowany tylko w części gałęzi komponentu:
+❗ **Do not stack your effect on an element the game already transforms** — `transform`
+**multiplies**. Duplicating the game's `scale(1.25)` with my own `scale(1.25)` gave 1.5625 on the
+hovered element, i.e. visibly bigger than the rest of the highlighted group. Skip the element
+the game handles itself — and check it with a condition, not an assumption, because the hover
+effect is sometimes rendered in only some branches of the component:
 
 ```js
 const gameHandlesIt = slotElement.querySelector('.draggable-resource') !== null;
 ```
 
-## 43. W `ui-next` `onMount` NIE gwarantuje, że treść komponentu jest już w DOM ✅
+## 43. In `ui-next`, `onMount` does NOT guarantee the component's content is in the DOM ✅
 
-**2026-08-10.** Mod szukał w `onMount` elementu wewnątrz zakładki i **za każdym razem**
-dostawał `null`, mimo że element chwilę później był na ekranie.
+**2026-08-10.** The mod looked in `onMount` for an element inside a tab and **every time**
+got `null`, even though the element was on screen a moment later.
 
-Przyczyna: `CommerceScreenBaseTabContent` opakowuje treść zakładki w
-**`<ThrobberSuspense>`**. Solidowy Suspense renderuje najpierw zastępnik, a właściwą
-treść dopiero po rozwiązaniu zasobów (wstępne ładowanie obrazów i styli przez
-`ComponentRegistry`). `onMount` biegnie na zastępniku.
+The cause: `CommerceScreenBaseTabContent` wraps the tab's content in
+**`<ThrobberSuspense>`**. Solid's Suspense renders a placeholder first and the actual
+content only after resources resolve (preloading of images and styles by
+`ComponentRegistry`). `onMount` runs on the placeholder.
 
-To odwrotność pułapki #1 ze starego frameworka („patchujesz obiekt, którego jeszcze nie
-ma"): tu obiekt istnieje, ale **jego zawartość jeszcze nie**.
+This is the inverse of trap #1 from the old framework ("you patch an object that does not
+exist yet"): here the object exists, but **its content does not**.
 
-**Rozwiązanie — szukaj, aż znajdziesz, i dopiero wtedy zawężaj:**
+**The fix — search until you find it, and only then narrow down:**
 
 ```js
 function tryAttach() {
     const target = document.querySelector('[data-name="…"]');
     if (!target) return false;
-    observer.disconnect();                    // szeroka obserwacja już niepotrzebna
+    observer.disconnect();                    // the broad observation is no longer needed
     observer = new MutationObserver(onChange);
-    observer.observe(target, { childList: true });   // wąska, tania
+    observer.observe(target, { childList: true });   // narrow, cheap
     return true;
 }
 if (!tryAttach()) {
@@ -622,84 +622,84 @@ if (!tryAttach()) {
 }
 ```
 
-⚠️ Obserwując po to, żeby **dokładać własne klasy**, ustaw **wyłącznie `childList`**.
-Przy `attributes: true` własna zmiana klasy wywoła Twój callback i zrobi się pętla.
+⚠️ When you observe in order to **add classes of your own**, set **`childList` only**.
+With `attributes: true` your own class change fires your callback and you get a loop.
 
-## 44. Ukrycie elementu gry zabiera też jego marginesy ✅
+## 44. Hiding a game element also takes away its margins ✅
 
-`display: none` na wstawce tekstowej usunęło nie tylko tekst, ale i jej `my-4` z obu
-stron — panel przykleił się do zakładek nad nim. Oddaj odstęp sąsiadowi:
+`display: none` on a text insert removed not just the text but also its `my-4` on both
+sides — the panel stuck to the tabs above it. Give the spacing back to the neighbor:
 
 ```css
-.ta-wstawka { display: none; }
-.ta-wstawka + div { margin-top: 0.8888888889rem; }   /* tyle, co jedno my-4 */
+.that-insert { display: none; }
+.that-insert + div { margin-top: 0.8888888889rem; }   /* the same as one my-4 */
 ```
 
-Selektor `+` działa normalnie na elemencie z `display: none` — on nadal jest w drzewie.
+The `+` selector works normally on an element with `display: none` — it is still in the tree.
 
-## 45. Silnik DOM Civ VII nie ma nowszych metod `ParentNode` ✅
+## 45. Civ VII's DOM engine lacks the newer `ParentNode` methods ✅
 
-**2026-08-10.** `element.replaceChildren()` rzuca
-`TypeError: replaceChildren is not a function`. Skutek był podstępny: kod działał
-w Node przy sprawdzaniu składni, wchodził do gry bez błędu ładowania, a wywalał się
-dopiero przy pierwszym użyciu — i tylko w `UI.log`.
+**2026-08-10.** `element.replaceChildren()` throws
+`TypeError: replaceChildren is not a function`. The consequence was insidious: the code worked
+in Node during a syntax check, entered the game without a load error, and only blew up
+on first use — and only in `UI.log`.
 
-Czyść i dodawaj dzieci po staremu:
+Clear and add children the old way:
 
 ```js
-while (element.firstChild) element.removeChild(element.firstChild);   // zamiast replaceChildren()
-for (const child of children) parent.appendChild(child);              // zamiast append(a, b, c)
+while (element.firstChild) element.removeChild(element.firstChild);   // instead of replaceChildren()
+for (const child of children) parent.appendChild(child);              // instead of append(a, b, c)
 ```
 
-⚠️ To samo dotyczy `append()` z wieloma argumentami — jest z tej samej generacji API
-co `replaceChildren` i nie ma powodu zakładać, że akurat ono jest.
+⚠️ The same goes for `append()` with multiple arguments — it is from the same API generation
+as `replaceChildren` and there is no reason to assume that this one happens to be there.
 
-**Reguła:** w tym UI trzymaj się `appendChild` / `removeChild` / `insertBefore` /
-`querySelector` / `classList` / `setAttribute`. Jeśli sięgasz po coś nowszego, sprawdź
-najpierw, czy któryś działający mod z Workshop tego używa — Resource+ czyści kontenery
-ręczną pętlą i teraz wiadomo dlaczego.
+**The rule:** in this UI stick to `appendChild` / `removeChild` / `insertBefore` /
+`querySelector` / `classList` / `setAttribute`. If you reach for something newer, first check
+whether some working Workshop mod uses it — Resource+ clears containers with a
+manual loop, and now we know why.
 
-## 46. `UI.getIcon(type, "YIELD")` zwraca nazwę o MIESZANEJ wielkości liter ❗✅
+## 46. `UI.getIcon(type, "YIELD")` returns a MIXED-CASE name ❗✅
 
-**2026-08-10.** `UI.getIcon('YIELD_HAPPINESS', 'YIELD')` daje **`blp:Yield_Happiness`**,
-a nie `blp:YIELD_HAPPINESS`. Kod, który wyciąga typ yieldu z nazwy ikony wyrażeniem
-regularnym `/YIELD_[A-Z_]+/`, **nigdy nie trafia** — i cicho zwraca `null`, a wszystkie
-zależne od tego wartości wychodzą 0.
+**2026-08-10.** `UI.getIcon('YIELD_HAPPINESS', 'YIELD')` gives **`blp:Yield_Happiness`**,
+not `blp:YIELD_HAPPINESS`. Code that extracts the yield type from an icon name with the
+regular expression `/YIELD_[A-Z_]+/` **never matches** — and quietly returns `null`, so every
+value depending on it comes out 0.
 
-Kosztowało to całą rundę: mechanizm sterowany zadowoleniem osad „nie działał", bo każde
-zadowolenie odczytywało się jako zero. Ten sam błąd siedzi w modzie Resource+, z którego
-funkcja została przeniesiona — czyli jego tryb „Balanced" też liczy na zerach.
+This cost a whole round: a mechanism driven by settlement happiness "did not work", because every
+happiness value read as zero. The same bug sits in the Resource+ mod, from which the
+function was taken over — so its "Balanced" mode is also computing on zeros.
 
-**Nigdy nie parsuj nazwy ikony.** Zbuduj mapę tą samą funkcją, którą zbudowano wartość:
+**Never parse an icon name.** Build a map with the same function that built the value:
 
 ```js
 const byIcon = new Map();
 GameInfo.Yields.forEach((y) => byIcon.set(`url(${UI.getIcon(y.YieldType, 'YIELD')})`, y.YieldType));
-// teraz: byIcon.get(entry.yieldIconSrc)
+// now: byIcon.get(entry.yieldIconSrc)
 ```
 
-To ta sama zasada, co przy plakietkach yieldów w [26-commerce-screen.md](26-commerce-screen.md):
-model zapisuje `url(${UI.getIcon(...)})`, więc odwrotne odwzorowanie też ma powstać
-z `UI.getIcon`, a nie z domysłu o kształcie stringa.
+This is the same principle as with the yield badges in [26-commerce-screen.md](26-commerce-screen.md):
+the model writes `url(${UI.getIcon(...)})`, so the reverse mapping must also be built
+from `UI.getIcon`, not from a guess about the shape of the string.
 
-## 47. Ten silnik CSS nie zna `:focus-visible` ✅
+## 47. This CSS engine does not know `:focus-visible` ✅
 
-**2026-08-10.** Reguła z `:focus-visible` nie jest stosowana, a do `UI.log` leci
-`Unsupported CSS pseudo class selector encountered: focus-visible` przy każdym
-przeliczeniu arkusza — czyli zaśmieca log przy każdym otwarciu ekranu.
+**2026-08-10.** A rule with `:focus-visible` is not applied, and `UI.log` gets
+`Unsupported CSS pseudo class selector encountered: focus-visible` on every
+recalculation of the stylesheet — i.e. it litters the log every time the screen opens.
 
-Używaj `:focus`. Obsługiwane są też `:hover`, `:active` i `:not(...)`; ⚠️ złożone
-selektory w `:not()` potrafią wywalić `querySelector` (patrz błąd moda holistic-qol-plus
-w logach: `Invalid CSS selector (.text-accent-1:not(.klasa))`).
+Use `:focus`. `:hover`, `:active` and `:not(...)` are also supported; ⚠️ complex
+selectors inside `:not()` can break `querySelector` (see the holistic-qol-plus mod's error
+in the logs: `Invalid CSS selector (.text-accent-1:not(.class))`).
 
-## 48. Diagnostyka ma logować także decyzję o NIEROBIENIU niczego ✅
+## 48. Diagnostics must also log the decision to DO NOTHING ✅
 
-Mechanizm z opcją włącz/wyłącz, który przy wyłączonej opcji milczy, jest nieodróżnialny
-od zepsutego. Po zgłoszeniu „nie zadziałało" log nie zawierał **niczego** i nie dało się
-stwierdzić, czy problem leży w zdarzeniu, w wykrywaniu zmiany, czy po prostu opcja jest
-wyłączona.
+A mechanism with an on/off option that stays silent when the option is off is indistinguishable
+from a broken one. After a report of "it did not work" the log contained **nothing** and there was no way
+to tell whether the problem was in the event, in change detection, or simply that the option was
+off.
 
-Każde wyjście wcześniejsze powinno zostawić ślad — z nazwą wyzwalacza i powodem:
+Every early return should leave a trace — with the trigger's name and the reason:
 
 ```
 [mod] TradeRouteAddedToMap: auto-assign is switched off (Options -> Mods)
@@ -707,23 +707,23 @@ Każde wyjście wcześniejsze powinno zostawić ślad — z nazwą wyzwalacza i 
 [mod] TradeRouteAddedToMap: 1 newly acquired resource(s)
 ```
 
-Jedna runda testu rozstrzyga wtedy wszystko naraz: czy zdarzenie w ogóle przyszło, czy
-wykrywanie zadziałało i czy opcja jest włączona.
+One test round then settles everything at once: whether the event arrived at all, whether
+detection worked, and whether the option is on.
 
-## 49. Nie inicjalizuj stanu „co już było" na pierwszym zdarzeniu ✅
+## 49. Do not initialize the "what was already there" state on the first event ✅
 
-**2026-08-10.** Mechanizm reagujący na *nowe* rzeczy musi znać stan wyjściowy. Naturalnie
-prosi się o to, żeby zapamiętać go przy pierwszym zdarzeniu — i to jest błąd:
-**pierwsze zdarzenie to zwykle dokładnie ta rzecz, na którą użytkownik czeka.**
+**2026-08-10.** A mechanism reacting to *new* things has to know the baseline state. It is natural
+to want to record it on the first event — and that is a mistake:
+**the first event is usually exactly the thing the user is waiting for.**
 
-U nas: gracz włączył opcję „przypisuj nowe zasoby", zawarł szlak handlowy, a log powiedział
-`first pass, remembering 83 resources already owned` — czyli ten właśnie szlak został
-zużyty na zbudowanie listy odniesienia i nic się nie przypisało. Z zewnątrz wygląda to
-identycznie jak zepsuty ficzer.
+For us: the player turned on the "assign new resources" option, established a trade route, and the log said
+`first pass, remembering 83 resources already owned` — i.e. that very route was
+consumed building the reference list and nothing got assigned. From the outside it looks
+exactly like a broken feature.
 
-**Inicjalizuj przy starcie, niezależnie od zdarzeń.** Skrypty moda ładują się, zanim gra
-umie odpowiedzieć (`Players.get(GameContext.localPlayerID)` bywa jeszcze puste), więc
-pytaj w pętli z ponowieniami zamiast czekać, aż coś się wydarzy:
+**Initialize at startup, independently of events.** A mod's scripts load before the game
+can answer (`Players.get(GameContext.localPlayerID)` may still be empty), so
+ask in a retry loop instead of waiting for something to happen:
 
 ```js
 function seedWithRetries(attemptsLeft) {
@@ -732,126 +732,126 @@ function seedWithRetries(attemptsLeft) {
 }
 ```
 
-Zostaw też ścieżkę awaryjną w obsłudze zdarzenia (gdyby ponowienia się wyczerpały), ale
-**zaloguj ją jako ostrzeżenie** — to znaczy, że założenie o starcie nie wyszło.
+Leave an emergency path in the event handler too (in case the retries run out), but
+**log it as a warning** — it means the startup assumption did not hold.
 
-## 50. Trwały stan moda: `UI.setOption` z LICZBĄ, nie `localStorage` ✅ ❗ **PATRZ KOREKTA NA KOŃCU WPISU**
+## 50. A mod's persistent state: `UI.setOption` with a NUMBER, not `localStorage` ✅ ❗ **SEE THE CORRECTION AT THE END OF THIS ENTRY**
 
-**2026-08-10.** Zapis własnego stanu moda (np. wyboru per miasto) wyłącznie do
-`localStorage` **nie przetrwał przeładowania gry**. Kanałem, który działa, jest ten sam,
-z którego korzystają opcje modów:
+**2026-08-10.** Saving a mod's own state (e.g. a per-city choice) to
+`localStorage` alone **did not survive a game reload**. The channel that works is the same one
+the mod options use:
 
 ```js
-UI.setOption('user', 'Mod', `${MOD_ID}.cokolwiek`, liczba);
-Configuration.getUser().saveCheckpoint();   // ⚠️ bez tego nic się nie utrwala
+UI.setOption('user', 'Mod', `${MOD_ID}.whatever`, number);
+Configuration.getUser().saveCheckpoint();   // ⚠️ without this nothing persists
 …
-const stored = UI.getOption('user', 'Mod', `${MOD_ID}.cokolwiek`);   // null gdy brak
+const stored = UI.getOption('user', 'Mod', `${MOD_ID}.whatever`);   // null when absent
 ```
 
-❗ **Wartością musi być liczba.** Każde użycie `UI.setOption` w kodzie samej gry przekazuje
-liczbę (0/1, opóźnienia, indeksy). Nie licz na to, że przejdzie JSON czy string — zakoduj
-stan liczbowo.
+❗ **The value must be a number.** Every use of `UI.setOption` in the game's own code passes
+a number (0/1, delays, indices). Do not count on JSON or a string getting through — encode the
+state numerically.
 
-Wzorzec na wyliczenie z możliwością „nie ustawiono": trzymaj **indeks + 1**, wtedy `0`,
-`null` i `undefined` znaczą to samo („nigdy nie wybrano") i nie mylą się z pierwszą
-pozycją listy. Listę kodów **tylko rozszerzaj** — przestawienie kolejności po cichu
-przekłamie wszystko, co już zapisane.
+A pattern for an enumeration with a "not set" option: store the **index + 1**, then `0`,
+`null` and `undefined` all mean the same thing ("never chosen") and cannot be confused with the first
+item of the list. **Only ever extend** the list of codes — reordering it will silently
+corrupt everything already saved.
 
-⚠️ **Stan związany z konkretną partią kluczuj przez `Configuration.getGame().gameSeed`.**
-Identyfikatory miast (`ComponentID.id`) są unikalne tylko w obrębie jednej gry — ten sam
-numer w następnej kampanii to inne miasto. Ziarno jest stałe przez całe życie partii
-i różne między partiami, więc dwa zapisy z tej samej kampanii dzielą ustawienia,
-a niepowiązane gry nie mieszają się ze sobą.
+⚠️ **Key state tied to a specific match by `Configuration.getGame().gameSeed`.**
+City identifiers (`ComponentID.id`) are unique only within one game — the same
+number in the next campaign is a different city. The seed is constant for the life of a match
+and differs between matches, so two saves from the same campaign share settings,
+while unrelated games do not mix.
 
-Do zapisu gry (`AffectsSavedGames`) **nie** trzeba przy tym sięgać — i nie należy, jeśli
-mod deklaruje `0`.
+You do **not** need to touch the game save (`AffectsSavedGames`) for this — and you should not, if the
+mod declares `0`.
 
-### UZUPEŁNIENIE 2026-08-26: jest drugi kanał — `Catalog`, i przyjmuje STRINGI ✅
+### ADDENDUM 2026-08-26: there is a second channel — `Catalog`, and it accepts STRINGS ✅
 
-Powyższe zostaje w mocy dla **opcji moda**. Ale do stanu *strukturalnego, per partia,
-per miasto* jest lepsze narzędzie, którego wcześniej nie znaliśmy:
-`Catalog` / `SerialObject` z `/core/ui/utilities/utility-serialize.js` — patrz
+The above still holds for **mod options**. But for *structured, per-match,
+per-city* state there is a better tool that we did not know about before:
+`Catalog` / `SerialObject` from `/core/ui/utilities/utility-serialize.js` — see
 [17-advanced-and-undocumented.md](17-advanced-and-undocumented.md).
 
 | | `UI.setOption` | `Catalog` |
 |---|---|---|
-| typ wartości | ❗ **tylko liczba** | ✅ **string albo liczba** |
-| zakres | użytkownik (globalny) — partię trzeba kluczować przez `gameSeed` | ✅ gracz w tej partii, z natury |
-| przeżywa restart gry | ✅ | ✅ |
-| zapis | natychmiastowy + `saveCheckpoint()` | ⚠️ **kolejkowany**, commit przez zdarzenie |
-| dotyka zapisu gry | nie | ⚠️ **tak** (`player.Tutorial.setProperty`) |
+| value type | ❗ **number only** | ✅ **string or number** |
+| scope | the user (global) — a match has to be keyed by `gameSeed` | ✅ the player in this match, by nature |
+| survives a game restart | ✅ | ✅ |
+| write | immediate + `saveCheckpoint()` | ⚠️ **queued**, committed by an event |
+| touches the game save | no | ⚠️ **yes** (`player.Tutorial.setProperty`) |
 
-⚠️ To ostatnie to realny kompromis, nie formalność: `Catalog` z `player` zapisuje **dynamiczne
-właściwości gracza do save'a**. Sam mod nadal nie zmienia zasad i `AffectsSavedGames = 0` jest
-uczciwe, ale „nie zmienia mechaniki" i „nic nie pisze do save'a" to **dwa różne zdania** i tylko
-pierwsze jest wtedy prawdziwe. Save wczytany bez moda po prostu niesie nieodczytywane
-właściwości. ❓ Nieprzetestowane w praktyce.
+⚠️ That last one is a real trade-off, not a formality: `Catalog` with `player` writes **dynamic
+player properties into the save**. The mod itself still does not change the rules and `AffectsSavedGames = 0` is
+honest, but "does not change the mechanics" and "writes nothing into the save" are **two different
+statements** and only the first is then true. A save loaded without the mod simply carries unread
+properties. ❓ Not tested in practice.
 
-Wybór: **opcje → `UI.setOption`; stan per miasto/per partia → `Catalog`.**
+The choice: **options → `UI.setOption`; per-city/per-match state → `Catalog`.**
 
-### ❗❗ KOREKTA 2026-08-27 — zmierzone na dysku, wychodzi ODWROTNIE
+### ❗❗ CORRECTION 2026-08-27 — measured on disk, it comes out the OTHER WAY ROUND
 
-Powyższe zostało napisane 2026-08-10 na podstawie obserwacji „ustawienie nie przeżyło
-przeładowania". Sprawdzenie plików użytkownika pokazuje coś innego. **Nie usuwam oryginalnego
-wpisu — poniżej jest to, co da się zweryfikować.**
+The above was written on 2026-08-10 based on the observation that "the setting did not survive
+a reload". Inspecting the user's files shows something different. **I am not removing the original
+entry — below is what can be verified.**
 
-**Gdzie co naprawdę mieszka** ✅:
+**Where things really live** ✅:
 
-| Kanał | Na dysku |
+| Channel | On disk |
 |---|---|
-| `localStorage` | `%LOCALAPPDATA%\Firaxis Games\Sid Meier's Civilization VII\LocalStorage.sqlite`, tabela `Values(id, key, value)`, `id = 'fs://game'` |
-| `UI.setOption('user', 'Mod', …)` | ❗ **nigdzie nie do znalezienia** |
+| `localStorage` | `%LOCALAPPDATA%\Firaxis Games\Sid Meier's Civilization VII\LocalStorage.sqlite`, table `Values(id, key, value)`, `id = 'fs://game'` |
+| `UI.setOption('user', 'Mod', …)` | ❗ **nowhere to be found** |
 
-1. ✅ **`localStorage` PRZEŻYWA restart gry.** `LocalStorage.sqlite` istnieje i trzyma wpisy
-   z poprzednich sesji — m.in. `najane-commerce-merchant-orders` z kluczem po ziarnie partii.
-2. ❗ **`UI.setOption('user','Mod',…)` nie zostawia śladu na dysku.** `UserOptions.txt` ma sekcje
-   `[Accessibility]`, `[Gameplay]`, `[Interface]`… i **żadnej sekcji `[Mod]`**. Przeszukanie
-   wszystkich `.txt`, `.json` i `.sqlite` w folderze użytkownika za konkretnym kluczem moda
-   trafia **wyłącznie w `LocalStorage.sqlite`** — mimo że kod wołał `UI.setOption`
-   **i** `Configuration.getUser().saveCheckpoint()`.
-3. ❗ **`UI.getOption` zwróciło null przy każdym odczycie w sesji z 2026-08-27.** `UI.log`, mod
-   `bz-map-trix` (używa współdzielonego `ModOptionsSingleton` z City Hall):
+1. ✅ **`localStorage` DOES SURVIVE a game restart.** `LocalStorage.sqlite` exists and holds entries
+   from previous sessions — among them `najane-commerce-merchant-orders` with a key based on the match seed.
+2. ❗ **`UI.setOption('user','Mod',…)` leaves no trace on disk.** `UserOptions.txt` has the sections
+   `[Accessibility]`, `[Gameplay]`, `[Interface]`… and **no `[Mod]` section**. Searching
+   all `.txt`, `.json` and `.sqlite` files in the user folder for a specific mod key
+   hits **only `LocalStorage.sqlite`** — even though the code called `UI.setOption`
+   **and** `Configuration.getUser().saveCheckpoint()`.
+3. ❗ **`UI.getOption` returned null on every read in the 2026-08-27 session.** `UI.log`, the
+   `bz-map-trix` mod (which uses the shared `ModOptionsSingleton` from City Hall):
    ```
    LOAD bz-map-trix.commanders=undefined (stored)
    LOAD bz-map-trix.commanders=2 (default)
    ```
-   Ten kod loguje `(saved)`, gdy `UI.getOption` coś zwróci, a `(stored)`, gdy schodzi do
-   `localStorage`. **`(saved)` — zero wystąpień. `(stored)` — trzy, wszystkie `undefined`.**
+   That code logs `(saved)` when `UI.getOption` returns something, and `(stored)` when it falls back to
+   `localStorage`. **`(saved)` — zero occurrences. `(stored)` — three, all `undefined`.**
 
-⚠️ **Zastrzeżenie:** te trzy odczyty są w zakresie **shell**, na starcie gry, a log miał 30 linii.
-To mocna poszlaka, nie dowód. ❓ **Do rozstrzygnięcia testem w grze** — procedura w
-`mod-projects/better-city-ui/documentation/07-feature-specs.md`, sekcja o feature 4.
+⚠️ **A caveat:** those three reads are in the **shell** scope, at game start, and the log had 30 lines.
+That is strong circumstantial evidence, not proof. ❓ **To be settled by a test in game** — the procedure is in
+`mod-projects/better-city-ui/documentation/07-feature-specs.md`, the section on feature 4.
 
-**Praktyczny wniosek na dziś:** pisz **oboma** kanałami, jak robi to
-`better-commerce-screen-ui` — ale nie zakładaj, że `UI.setOption` cokolwiek utrwala, i czytaj
-`localStorage` jako równorzędny, nie „zapasowy". I przeczytaj #62 poniżej, zanim uznasz
-`localStorage` za bezpieczny.
+**The practical conclusion for today:** write through **both** channels, the way
+`better-commerce-screen-ui` does — but do not assume `UI.setOption` persists anything, and read
+`localStorage` as an equal, not a "backup". And read #62 below before you consider
+`localStorage` safe.
 
-## 51. Wstrzyknięty element w drzewie Solid znika — potrzebny stały stróż ❗✅
+## 51. An injected element in a Solid tree disappears — you need a permanent watchdog ❗✅
 
-**Objaw:** `insertBefore` na kontenerze renderowanym przez Solid działa (element
-faktycznie trafia do DOM, brak błędu w logu), ale gracz go nie widzi. W logu widać
-komplet wpisów z `onMount`, więc nic nie rzuciło wyjątku.
+**Symptom:** `insertBefore` on a container rendered by Solid works (the element
+really does get into the DOM, no error in the log), but the player does not see it. The log shows
+a full set of `onMount` entries, so nothing threw.
 
-**Dwie przyczyny, obie występują naraz:**
+**Two causes, both present at once:**
 
-1. **Solid przerysowuje kontener** i przy zamianie potomków potrafi usunąć także
-   węzły, których sam nie tworzył.
-2. **Komponent montuje się wielokrotnie** w trakcie jednej wizyty na ekranie
-   (`right-click unassign active` pojawia się w logu po kilka razy). Nowy `onMount`
-   potrafi wykonać się **przed** `onCleanup` poprzedniego — więc świeżo wstrzyknięty
-   element zostaje natychmiast usunięty przez sprzątanie starego montowania.
-   Dodatkowo `stop*()` operujące na modułowych singletonach (`observer`, `element`)
-   rozłącza obserwator należący już do **nowego** montowania.
+1. **Solid re-renders the container** and, when swapping children, can remove
+   nodes it did not create itself.
+2. **The component mounts several times** during a single visit to the screen
+   (`right-click unassign active` appears in the log several times). A new `onMount`
+   can run **before** the previous one's `onCleanup` — so a freshly injected
+   element is immediately removed by the old mount's cleanup.
+   On top of that, `stop*()` operating on module-level singletons (`observer`, `element`)
+   disconnects an observer that already belongs to the **new** mount.
 
-**Wzorzec, który działa** (`tab-icons.js`, `factory-first.js`):
+**The pattern that works** (`tab-icons.js`, `factory-first.js`):
 
 ```js
 function ensureThing() {
     const host = document.querySelector(HOST_SELECTOR);
-    if (!host) return false;                       // jeszcze nie ma — czekaj
+    if (!host) return false;                       // not there yet — wait
     if (!host.querySelector(`.${CLASS}`)) host.insertBefore(build(), anchor);
-    if (observedHost !== host) {                   // stróż zostaje podłączony
+    if (observedHost !== host) {                   // the watchdog stays attached
         observer?.disconnect();
         observedHost = host;
         observer = new MutationObserver(() => ensureThing());
@@ -861,93 +861,93 @@ function ensureThing() {
 }
 ```
 
-- Obserwator **nie odłącza się** po pierwszym sukcesie — pilnuje i wstawia ponownie.
-- Nie ma zapętlenia: własne wstawienie budzi obserwator, ten widzi element na miejscu
-  i kończy bez zmian.
-- `start*()` musi być idempotentne (jest wołane przy każdym montowaniu).
-- `stop*()` **nie wolno** wołać z `onCleanup` zakładki — tylko przy pełnym demontażu.
-  Sprzątanie usuwa wtedy `.${CLASS}` przez `querySelectorAll`, a nie przez zapamiętaną
-  referencję, bo ta może wskazywać na element poprzedniego montowania.
+- The observer **does not detach** after the first success — it stands guard and reinserts.
+- There is no loop: your own insertion wakes the observer, which sees the element in place
+  and finishes without changes.
+- `start*()` has to be idempotent (it is called on every mount).
+- `stop*()` **must not** be called from the tab's `onCleanup` — only on a full teardown.
+  Cleanup then removes `.${CLASS}` via `querySelectorAll`, not via a remembered
+  reference, because that may point at the previous mount's element.
 
-**Rozpoznanie:** jeśli element jest w DOM, a nie widać go na ekranie — to jest ten
-problem, nie CSS. Log wstawienia (`log('… added')`) natychmiast to rozstrzyga: przy tej
-usterce pojawia się raz i nigdy więcej, mimo że element zniknął.
+**Recognizing it:** if the element is in the DOM but not visible on screen — this is the
+problem, not CSS. The insertion log (`log('… added')`) settles it immediately: with this
+fault it appears once and never again, even though the element vanished.
 
-**⚠️ Aktualizacja po teście w grze: dla paska nagłówka ekranu Commerce to NIE wystarczyło.**
-Stały stróż na `[data-name="filter-and-sort"]`.parentElement też nie dał efektu —
-checkbox nie pojawił się ani razu, mimo braku błędu w logu i mimo że `onMount`
-wykonywał się do końca. Ten konkretny pasek jest dla wstrzykiwania nieużywalny.
+**⚠️ Update after an in-game test: for the Commerce screen's header bar this was NOT enough.**
+A permanent watchdog on `[data-name="filter-and-sort"]`.parentElement had no effect either —
+the checkbox never appeared once, despite no error in the log and despite `onMount`
+running to completion. That particular bar is unusable for injection.
 
-Wzorzec ze stróżem pozostaje słuszny tam, gdzie jest **potwierdzony w praktyce**
-(`tab-icons.js`, pasek zakładek `[data-name="TabList"]`, `settlement-controls.js`,
-nagłówki kart osad). Nie jest natomiast uniwersalną odpowiedzią.
+The watchdog pattern remains correct where it is **confirmed in practice**
+(`tab-icons.js`, the tab bar `[data-name="TabList"]`, `settlement-controls.js`,
+settlement card headers). It is not, however, a universal answer.
 
-**Reguła praktyczna:** własne kontrolki umieszczaj w kontenerze, który mod sam tworzy
-i którego jest właścicielem — u nas pasek `.najane-assign-bar` doklejany do wiersza
-zakładek. Wtedy nie ma czego pilnować. Przełącznik „Najpierw fabryczne" trafił
-ostatecznie za znak zapytania w tym pasku i moduł `factory-first.js` sprowadza się do
-funkcji wytwórczej elementu — zero obserwatorów, zero selektorów gry.
+**A practical rule:** put your own controls in a container the mod creates and
+owns — for us the `.najane-assign-bar` bar appended to the tab row. Then there is nothing to guard.
+The "Factory first" toggle ended up behind a question mark in that bar, and the
+`factory-first.js` module comes down to an element factory
+function — zero observers, zero game selectors.
 
-Kolejność prób, od najpewniejszej: **(1)** dołóż do własnego kontenera → **(2)** wstrzyknij
-do kontenera gry ze stałym stróżem → **(3)** zawijaj komponent przez `ComponentRegistry`.
+The order to try, from the most reliable: **(1)** append to your own container → **(2)** inject
+into a game container with a permanent watchdog → **(3)** wrap the component via `ComponentRegistry`.
 
-## 52. `Game.PlayerOperations.canStart` w pętli to główny koszt przypisywania ❗✅
+## 52. `Game.PlayerOperations.canStart` in a loop is the main cost of assigning ❗✅
 
-**Objaw:** „Przypisz wszystkie" przy dużej puli działa bardzo wolno na początku i
-przyspiesza w miarę opróżniania puli.
+**Symptom:** "Assign all" with a large pool runs very slowly at first and
+speeds up as the pool empties.
 
-**Przyczyna:** planner liczy najlepszą parę (zasób, osada) od nowa przed każdym
-przypisaniem, a dla każdej pary woła `canStart` — czyli round-trip do silnika.
-Przy 170 zasobach i 15 osadach to 2550 wywołań na jedno przypisanie i ~430 000 na jedno
-„Przypisz wszystkie". Koszt maleje liniowo z pulą, stąd przyspieszanie.
+**Cause:** the planner recomputes the best (resource, settlement) pair from scratch before every
+assignment, and for every pair it calls `canStart` — i.e. a round-trip to the engine.
+With 170 resources and 15 settlements that is 2550 calls per assignment and ~430,000 per one
+"Assign all". The cost falls linearly with the pool, hence the speedup.
 
-**Trzy poprawki, w kolejności zysku:**
+**Three fixes, in order of payoff:**
 
-1. **Pamiętaj odpowiedzi silnika.** Odpowiedź zmienia się wyłącznie dla osady, która
-   właśnie coś wzięła (ubył jej slot, albo przybyły dwa po wielbłądzie). Reszta tabeli
-   pozostaje ważna. Cache `${resourceValue}:${cityKey}` + unieważnianie **per osada**.
-   ⚠️ Kluczem musi być `resourceValue`, a nie typ zasobu: kopie leżą na różnych polach,
-   a połączenie z siecią handlową jest cechą pola.
-2. **Punktuj jeden egzemplarz na rodzaj.** Punktacja nie czyta niczego poza typem zasobu,
-   więc ocenianie 8 kopii bawełny to 8× ta sama praca. Grupuj pulę po `resourceType`,
-   oceniaj reprezentanta, a pozostałe kopie trzymaj jako zamienniki na wypadek, gdyby
-   silnik odmówił akurat tej.
-3. **Nie pytaj bazy w pętli.** `Game.age === Database.makeHash('AGE_MODERN')` w funkcji
-   wołanej per para to setki tysięcy zapytań o hash. Epoka nie zmienia się w trakcie gry —
-   policz raz i zapamiętaj.
+1. **Remember the engine's answers.** The answer changes only for the settlement that
+   just took something (it lost a slot, or gained two after a camel). The rest of the table
+   stays valid. Cache `${resourceValue}:${cityKey}` + invalidation **per settlement**.
+   ⚠️ The key must be `resourceValue`, not the resource type: copies sit on different plots,
+   and the connection to the trade network is a property of the plot.
+2. **Score one instance per kind.** Scoring reads nothing but the resource type,
+   so evaluating 8 copies of cotton is 8× the same work. Group the pool by `resourceType`,
+   score a representative, and keep the remaining copies as substitutes in case
+   the engine refuses that particular one.
+3. **Do not query the database in a loop.** `Game.age === Database.makeHash('AGE_MODERN')` in a function
+   called per pair means hundreds of thousands of hash queries. The age does not change during a game —
+   compute it once and remember it.
 
-**Zasada ogólna:** wszystko, co w gorącej pętli sięga do `Game.*`, `GameInfo.*` albo
-`Database.*`, ma być policzone raz i zapamiętane; jeśli wynik zależy od stanu, unieważniaj
-punktowo to, co faktycznie się zmieniło, a nie cały cache.
+**The general principle:** anything in a hot loop that reaches into `Game.*`, `GameInfo.*` or
+`Database.*` should be computed once and remembered; if the result depends on state, invalidate
+precisely what actually changed, not the whole cache.
 
-## 53. Odwrotny apostrof w komentarzu CSS wywala CAŁY mod ❗✅
+## 53. A backtick in a CSS comment brings down the WHOLE mod ❗✅
 
-**Objaw:** mod przestaje się ładować w całości. W `UI.log`:
+**Symptom:** the mod stops loading entirely. In `UI.log`:
 
 ```
 JS Error: fs://game/<mod>/ui/settlement-controls.js:70: SyntaxError: Unexpected identifier
-SOURCE ERROR - fs://game/<mod>/ui/<punkt wejścia>.js
+SOURCE ERROR - fs://game/<mod>/ui/<entry point>.js
 ```
 
-**Przyczyna:** style trzymamy w literałach szablonowych. Odwrotny apostrof napisany
-**wewnątrz** takiego literału — choćby w komentarzu CSS, dla zacytowania nazwy właściwości —
-**zamyka string**. Reszta bloku jest wtedy parsowana jako kod.
+**Cause:** we keep styles in template literals. A backtick written
+**inside** such a literal — even in a CSS comment, to quote a property name —
+**closes the string**. The rest of the block is then parsed as code.
 
 ```js
 const STYLE = `
-/* ustawienie `margin-left: auto` nie zadziałało */   ← literał kończy się tutaj
+/* setting `margin-left: auto` did not work */   ← the literal ends here
 .foo { display: flex; }
 `;
 ```
 
-**❗ `node --check` tego NIE wykrywa.** Powstały śmieć bywa poprawnym JavaScriptem dla
-Node'a, a silnik gry odrzuca go bez litości. Wynik: „u mnie przechodzi walidację", a w grze
-nie ładuje się nic.
+**❗ `node --check` does NOT catch this.** The resulting garbage is sometimes valid JavaScript for
+Node, while the game engine rejects it mercilessly. The result: "it passes validation for me", and in game
+nothing loads.
 
-**W komentarzach CSS używaj cudzysłowów, nigdy odwrotnych apostrofów.** Zwykłe komentarze
-JSDoc (poza literałem) mogą je mieć bez ograniczeń — liczy się tylko wnętrze literału.
+**In CSS comments use quotes, never backticks.** Ordinary JSDoc comments
+(outside a literal) may contain them freely — only the inside of a literal matters.
 
-**Straż w `deploy.sh`** (blokuje wdrożenie, sprawdzona na podstawionym pliku):
+**A guard in `deploy.sh`** (blocks deployment, tested on a planted file):
 
 ```bash
 awk -v f="$file" '
@@ -957,38 +957,38 @@ awk -v f="$file" '
 ' "$file"
 ```
 
-Wymaga trzymania konwencji: blok stylu zaczyna się linią `const NAZWA = ` + apostrof i
-kończy linią z apostrofem i średnikiem — obie samodzielnie.
+It requires sticking to a convention: a style block starts with a line `const NAME = ` + a backtick and
+ends with a line containing a backtick and a semicolon — both on their own.
 
-**Druga runda, gdy silnik przestaje być wąskim gardłem:**
+**Round two, once the engine stops being the bottleneck:**
 
-4. **Odpytywanie modelu co 50 ms.** Każde przypisanie czeka, aż model pokaże zasób w nowym
-   miejscu — ten interwał płaci się dwa razy na zasób. Zejście do jednej klatki (16 ms) to
-   przy dużej puli różnica rzędu minuty. Niżej nie ma sensu: model przebudowuje się na
-   granicy klatki.
-5. **Podwójne czekanie na `isSlottingAvailable`** — raz na końcu iteracji, raz na początku
-   następnej. Jedno wystarczy.
-6. **Ta sama para liczona po kilka razy w jednym przebiegu.** `scorePair` bywa wołane z
-   czterech gałęzi tej samej decyzji, `estimatedYieldBoosts` osobno dla priorytetu,
-   produkcji i zadowolenia — wszystkie dla tej samej pary i wszystkie z tym samym wynikiem.
-   Memoizacja **na jeden przebieg planowania**, kluczem `typ zasobu : osada`, czyszczona na
-   starcie każdego przebiegu (stan planszy zmienia się między przebiegami).
+4. **Polling the model every 50 ms.** Every assignment waits until the model shows the resource in its new
+   place — that interval is paid twice per resource. Dropping to one frame (16 ms) is,
+   with a large pool, a difference of about a minute. Below that there is no point: the model rebuilds on
+   a frame boundary.
+5. **Waiting twice on `isSlottingAvailable`** — once at the end of an iteration, once at the start of
+   the next. One is enough.
+6. **The same pair computed several times in one pass.** `scorePair` is sometimes called from
+   four branches of the same decision, `estimatedYieldBoosts` separately for priority,
+   production and happiness — all for the same pair and all with the same result.
+   Memoize **for a single planning pass**, keyed by `resource type : settlement`, cleared at
+   the start of every pass (the board state changes between passes).
 
-**I najważniejsze: mierz, nie zgaduj.** Dwie rundy optymalizacji w tym module oparto na
-domysłach i jedna z nich była chybiona. Pętla loguje teraz rozbicie na czas planowania
-(nasz) i czas czekania na grę (nie nasz) — bez tego nie wiadomo, co poprawiać.
+**And most importantly: measure, do not guess.** Two rounds of optimization in this module were based on
+guesses and one of them missed. The loop now logs a breakdown into planning time
+(ours) and time waiting for the game (not ours) — without that you do not know what to fix.
 
-## 54. Nie steruj masową operacją przez model Solid — mierzone 30s vs. sekundy ❗✅
+## 54. Do not drive a bulk operation through the Solid model — measured 30s vs. seconds ❗✅
 
-Pomiar na 111 zasobach, „Przypisz wszystkie" prowadzone przez model ekranu:
+Measured on 111 resources, "Assign all" driven through the screen's model:
 
 ```
 assigned 111 resource(s) in 30663ms (1610ms planning, 16346ms waiting, 276ms each)
 ```
 
-**Podział 5 / 53 / 41:** planowanie 1,6 s (5%), czekanie na model 16,3 s (53%),
-a 12,7 s (41%) nie mieściło się w żadnym pomiarze. Te 41% to były trzy wywołania modelu
-na każdy zasób:
+**A 5 / 53 / 41 split:** planning 1.6 s (5%), waiting for the model 16.3 s (53%),
+and 12.7 s (41%) that fitted into no measurement at all. Those 41% were three model calls
+per resource:
 
 ```js
 model.clickAvailableResource({ resourceValue, cityID: undefined });
@@ -996,162 +996,162 @@ model.slotSelectedResource(cityID);
 model.deselectSelectedResource();
 ```
 
-Każde z nich mutuje store `createMutable` i wywołuje **przerysowanie ekranu**. Czyli trzy
-zbędne przerysowania na zasób, a czwarte (to właściwe) opłacane w pozycji „czekanie",
-bo pętla czekała, aż **ekran** się odbuduje, zanim zaplanowała kolejny ruch.
+Each of them mutates a `createMutable` store and triggers a **screen redraw**. So three
+needless redraws per resource, and a fourth (the real one) paid for under "waiting",
+because the loop waited for the **screen** to rebuild before it planned the next move.
 
-**Zasada:** operacja masowa ma rozmawiać z silnikiem i z silnika czytać:
+**The principle:** a bulk operation should talk to the engine and read from the engine:
 
-- wysyłka: `Game.PlayerOperations.sendRequest` bezpośrednio, nie przez metody modelu;
-- potwierdzenie: `Cities.get(cityID).Resources.getAssignedResources()` w pętli `requestAnimationFrame`;
-- kolejny plan: z API gry (u nas `headless-model.js`), nie z modelu ekranu.
+- sending: `Game.PlayerOperations.sendRequest` directly, not through the model's methods;
+- confirmation: `Cities.get(cityID).Resources.getAssignedResources()` in a `requestAnimationFrame` loop;
+- the next plan: from the game's API (for us `headless-model.js`), not from the screen's model.
 
-Ekran i tak się odświeży — słucha zdarzeń silnika — ale nic nie czeka, aż skończy.
+The screen will refresh anyway — it listens to engine events — but nothing waits for it to finish.
 
-⚠️ **Do potwierdzenia NIE używaj zdarzenia `ResourceAssigned`.** Zdarzenia silnika lecą dla
-wszystkich graczy, więc AI przypisujące coś na drugim końcu mapy zwolni oczekiwanie za
-wcześnie, a następny plan powstanie na niezmienionej planszy. Pytanie wprost osady jest
-odporne na cudzą turę.
+⚠️ **Do NOT use the `ResourceAssigned` event for confirmation.** Engine events fire for
+all players, so an AI assigning something on the other side of the map will release the wait
+too early, and the next plan will be built on an unchanged board. Asking the settlement directly is
+immune to somebody else's turn.
 
-**Efekt uboczny, korzystny:** obie ścieżki (przycisk na ekranie i automat przy zamkniętym
-ekranie) stają się jedną funkcją, bo obie czytają to samo źródło.
+**A welcome side effect:** both paths (the on-screen button and the automation with the screen
+closed) become one function, because both read the same source.
 
-**Do czego uważać przy przejściu na dane z API:** model ekranu miał policzone `yieldDeltas`
-i cechy budynków; licząc je samemu, przelicza się je raz na zasób. Chodzenie po
-`city.Constructibles.getIds()` w każdej iteracji to realny koszt — budynki nie powstają
-w trakcie przypisywania, więc wynik da się trzymać w cache'u na czas przebiegu i
-unieważniać tylko dla osady, która właśnie coś wzięła.
+**What to watch out for when moving to API data:** the screen's model had `yieldDeltas`
+and building properties precomputed; computing them yourself means recomputing them once per resource.
+Walking `city.Constructibles.getIds()` on every iteration is a real cost — buildings do not appear
+during assignment, so the result can be kept in a cache for the duration of the pass and
+invalidated only for the settlement that just took something.
 
-**Runda trzecia — po przejściu na API gry planowanie DROŻEJE, i wiadomo dlaczego.**
+**Round three — after moving to the game's API, planning gets MORE expensive, and it is clear why.**
 
 ```
-przez model ekranu:  30663ms (1610ms planowanie, 16346ms czekanie)  276ms/zasób
-przez API gry:       13169ms (4739ms planowanie,  8422ms czekanie)  119ms/zasób
+through the screen's model:  30663ms (1610ms planning, 16346ms waiting)  276ms/resource
+through the game's API:      13169ms (4739ms planning,  8422ms waiting)  119ms/resource
 ```
 
-Planowanie wzrosło 3×, bo model ekranu miał dochody osad **już policzone**, a licząc je
-samemu łatwo sięgnąć po najdroższą funkcję:
+Planning went up 3×, because the screen's model had settlement yields **already computed**, and when
+computing them yourself it is easy to reach for the most expensive function:
 
-⚠️ **`CityYields.getCityYieldDetails(cityID)` to NIE jest odczyt liczb.** Buduje drzewko,
-które pokazuje tooltip dochodów: wartości bazowe, kroki modyfikatorów, zlokalizowane
-etykiety. Wołane dla wszystkich osad przed każdym zasobem, było większością czasu
-planowania. Tańszy odpowiednik czyta dokładnie to, co ta funkcja czyta przed ozdabianiem:
+⚠️ **`CityYields.getCityYieldDetails(cityID)` is NOT a read of numbers.** It builds the tree
+that the yields tooltip shows: base values, modifier steps, localized
+labels. Called for every settlement before every resource, it was the bulk of the planning
+time. The cheaper equivalent reads exactly what that function reads before it decorates:
 
 ```js
-const yields = city.Yields?.getYields();          // tablica indeksowana jak GameInfo.Yields
+const yields = city.Yields?.getYields();          // an array indexed like GameInfo.Yields
 yields?.forEach((entry, index) => {
     const definition = GameInfo.Yields[index];
     if (definition) totals.set(definition.YieldType, Number(entry.value) || 0);
 });
 ```
 
-Drugi grzech tej samej klasy: model ekranu trzyma dochody jako `yieldIconSrc`
-(`url(${UI.getIcon(type,'YIELD')})`) plus liczba, a punktacja mapuje ikonę z powrotem na
-typ dochodu. Odtwarzanie tego kształtu w danych budowanych samodzielnie oznacza
-budowanie stringów tylko po to, żeby je zaraz sparsować. Lepiej podać gotową mapę i
-pozwolić punktacji ją wziąć wprost.
+The second sin of the same class: the screen's model keeps yields as `yieldIconSrc`
+(`url(${UI.getIcon(type,'YIELD')})`) plus a number, and the scoring maps the icon back to
+a yield type. Reproducing that shape in data you build yourself means
+building strings only to parse them immediately afterwards. Better to supply a ready-made map and
+let the scoring take it directly.
 
-**Potwierdzanie operacji: `setTimeout` co 4 ms, nie `requestAnimationFrame`.** Silnik
-przetwarza kolejkę na własnym takcie; sprawdzanie zsynchronizowane z klatką potrafi
-przegapić moment o prawie całą klatkę — 16 ms na każdym zasobie, za darmo.
+**Confirming operations: `setTimeout` every 4 ms, not `requestAnimationFrame`.** The engine
+processes its queue on its own tick; a check synchronized to the frame can miss
+the moment by almost a whole frame — 16 ms per resource, for free.
 
-**Gdzie jest podłoga:** po tych zmianach większość czasu to samo przetwarzanie operacji
-przez silnik. Zejście niżej wymaga wysyłania kolejnych przypisań bez czekania na
-poprzednie, a to znaczy planowanie na nieaktualnej planszy — czyli utratę wyrównywania
-(zadowolenie, fabryki). To jest wybór projektowy, nie optymalizacja.
+**Where the floor is:** after these changes most of the time is the engine processing the
+operations itself. Going lower requires sending further assignments without waiting for the
+previous ones, and that means planning on a stale board — i.e. losing the balancing
+(happiness, factories). That is a design choice, not an optimization.
 
-## 55. Wieloliniowy tooltip: `\n` i `[N]` nie wystarczą — potrzebny `white-space` ❗✅
+## 55. A multi-line tooltip: `\n` and `[N]` are not enough — you need `white-space` ❗✅
 
-**Objaw:** treść `data-tooltip-content` z podziałami linii wyświetla się jako jeden akapit.
-Ani `\n`, ani firaxisowy znacznik `[N]` nie robią różnicy, przy czym `[N]` **nie pojawia się
-dosłownie** — więc wygląda, jakby był przetwarzany i ignorowany.
+**Symptom:** `data-tooltip-content` with line breaks displays as a single paragraph.
+Neither `\n` nor the Firaxis `[N]` marker makes a difference, and `[N]` **does not show up
+literally** — so it looks as if it were processed and ignored.
 
-**Przyczyna** (`core/ui/tooltips/tooltip-controller.js`, `render()`):
+**The cause** (`core/ui/tooltips/tooltip-controller.js`, `render()`):
 
 ```js
-this.textElement.innerHTML = Locale.stylize(content);   // textElement to goły <div>
+this.textElement.innerHTML = Locale.stylize(content);   // textElement is a bare <div>
 ```
 
-`Locale.stylize` zamienia `[N]` na **znak nowej linii**, a nie na `<br>`. W HTML znak nowej
-linii zwija się do spacji jak każda inna biała spacja. Goły `<div>` nie ma
-`white-space: pre-wrap`, więc podziału nie widać.
+`Locale.stylize` turns `[N]` into a **newline character**, not into a `<br>`. In HTML a newline
+collapses into a space like any other whitespace. A bare `<div>` has no
+`white-space: pre-wrap`, so the break is not visible.
 
-**Rozwiązanie — jedno i drugie:**
+**The fix — both halves:**
 
 ```js
-lines.join('\n')            // zwykłe znaki nowej linii w treści
+lines.join('\n')            // plain newline characters in the content
 ```
 ```css
-.tooltip__content > div { white-space: pre-wrap; }   /* tu ląduje tekst tooltipa */
+.tooltip__content > div { white-space: pre-wrap; }   /* this is where the tooltip's text lands */
 ```
 
-⚠️ Sama treść nie wymusi podziału — musi go **dopuścić CSS**. Reguła działa globalnie na
-tekstowe tooltipy, więc wpinaj ją razem z arkuszem swojego ekranu, a nie na stałe.
+⚠️ The content alone will not force a break — the CSS has to **allow** it. The rule applies globally to
+text tooltips, so ship it with your screen's stylesheet rather than permanently.
 
-Tooltipy z `data-tooltip-component` idą inną ścieżką (własny element dostaje treść w
-atrybucie) i tej reguły nie potrzebują.
+Tooltips with `data-tooltip-component` take a different path (a custom element receives the content in an
+attribute) and do not need this rule.
 
-## 56. `node --check plik.js` NIE sprawdza modułów ES — cicho przepuszcza ❗✅
+## 56. `node --check file.js` does NOT check ES modules — it silently passes ❗✅
 
-**To unieważnia sposób weryfikacji używany wcześniej w tym projekcie**, łącznie z uwagą
-w quirku #53, że „Node akceptuje ten śmieć". Nie akceptuje — on go w ogóle nie parsuje.
+**This invalidates the verification method used earlier in this project**, including the note
+in quirk #53 that "Node accepts that garbage". It does not — it does not parse it at all.
 
-`node --check <plik>.js` traktuje plik jako **CommonJS**. Widząc `import` poddaje się i
-kończy z kodem **0**, nie mówiąc ani słowa. Każdy plik UI moda jest modułem ES, więc
-komplet „syntax ok" z tego polecenia nic nie znaczył.
+`node --check <file>.js` treats the file as **CommonJS**. On seeing `import` it gives up and
+exits with code **0**, without saying a word. Every UI file of a mod is an ES module, so
+a full "syntax ok" from that command meant nothing.
 
-Sprawdzone na pliku z celowo wstawionym znakiem nowej linii wewnątrz literału:
+Tested on a file with a deliberately inserted newline inside a literal:
 
 ```
-node --check ui/screen/tab-icons.js                 -> exit 0, cisza
-node --input-type=module --check < ui/screen/tab-icons.js -> exit 1, wskazuje linię 23
+node --check ui/screen/tab-icons.js                 -> exit 0, silence
+node --input-type=module --check < ui/screen/tab-icons.js -> exit 1, points at line 23
 ```
 
-**Poprawne polecenie** czyta ze standardowego wejścia:
+**The correct command** reads from standard input:
 
 ```bash
-node --input-type=module --check < plik.js
+node --input-type=module --check < file.js
 ```
 
-Tak sprawdzony parser łapie **oba** znane zabójcze błędy: zabłąkany odwrotny apostrof w
-literale szablonowym (quirk #53) i znak nowej linii w literale `'...'` — i zgłasza
-dokładnie ten sam komunikat, który potem pojawia się w `UI.log`.
+A parser invoked this way catches **both** known killer errors: a stray backtick in
+a template literal (quirk #53) and a newline inside a `'...'` literal — and it reports
+exactly the same message that later appears in `UI.log`.
 
-⚠️ **Kontrola ma stać na drodze do gry, nie w nawykach edytującego.** Druga połowa tej
-wpadki: plik został sprawdzony ręcznie, potem jeszcze raz zmieniony i wdrożony bez
-ponownej kontroli. `deploy.sh` sprawdza teraz każdy plik sam i odmawia wdrożenia.
+⚠️ **The check has to stand on the road to the game, not in the editor's habits.** The second half of this
+mishap: the file was checked by hand, then changed again and deployed without
+a re-check. `deploy.sh` now checks every file itself and refuses to deploy.
 
-**Uwaga na narzędzia pośredniczące:** sekwencja `\n` wpisana w skrypcie przekazywanym
-przez warstwę powłoki potrafi zostać zamieniona na prawdziwy znak nowej linii, zanim
-dotrze do pliku — tak powstały oba zepsute pliki tego dnia. Przy generowaniu kodu z
-sekwencjami ucieczki składaj je programowo (`chr(92) + 'n'`) albo używaj edytora plików
-zamiast heredoca.
+**Beware of intermediate tooling:** a `\n` sequence typed into a script passed through
+a shell layer can be turned into a real newline before it
+reaches the file — that is how both broken files that day came about. When generating code with
+escape sequences, assemble them programmatically (`chr(92) + 'n'`) or use a file editor
+instead of a heredoc.
 
-## 57. Przeniesienie węzła to mutacja — z `MutationObserver` daje zawieszenie gry ❗✅
+## 57. Moving a node is a mutation — with a `MutationObserver` it hangs the game ❗✅
 
-**Objaw:** wejście na ekran zawiesza całą grę (nie błąd, nie pusty ekran — zwis).
+**Symptom:** entering the screen hangs the whole game (not an error, not a blank screen — a freeze).
 
-**Przyczyna:** dekorator wołany z `MutationObserver` przenosił cudzy element na koniec
-wiersza **przy każdym przebiegu**:
+**Cause:** a decorator called from a `MutationObserver` moved someone else's element to the end
+of a row **on every pass**:
 
 ```js
-row.appendChild(leader);        // bezwarunkowo
+row.appendChild(leader);        // unconditionally
 ```
 
-`appendChild` na węźle, który już tam jest, **nie jest operacją pustą** — to usunięcie
-i wstawienie, czyli mutacja `childList`. Obserwator ją widzi, woła dekorator, ten znowu
-przenosi. Pętla bez końca w wątku UI.
+`appendChild` on a node that is already there **is not a no-op** — it is a removal
+and an insertion, i.e. a `childList` mutation. The observer sees it, calls the decorator, which again
+moves it. An infinite loop on the UI thread.
 
-**Naprawa — dwie warstwy:**
+**The fix — two layers:**
 
 ```js
-if (row.lastElementChild !== leader) {   // 1. nie ruszaj, gdy już jest na miejscu
+if (row.lastElementChild !== leader) {   // 1. do not touch it when it is already in place
     row.appendChild(leader);
 }
 ```
 
 ```js
-let decorating = false;                  // 2. zabezpieczenie na wypadek przeoczenia
+let decorating = false;                  // 2. a safeguard in case something is missed
 function decorateAll() {
     if (decorating) return;
     decorating = true;
@@ -1159,130 +1159,389 @@ function decorateAll() {
 }
 ```
 
-**Zasada:** każda funkcja wołana z obserwatora DOM musi być *idempotentna względem DOM* —
-przy drugim wywołaniu na tym samym stanie nie może niczego zmienić. Dotyczy to także
-`classList.add` i `setAttribute`, jeśli obserwator patrzy na atrybuty (przy `childList:
-true` — nie dotyczy).
+**The principle:** every function called from a DOM observer must be *idempotent with respect to the DOM* —
+on a second call against the same state it must change nothing. This applies to
+`classList.add` and `setAttribute` too, if the observer watches attributes (with `childList:
+true` — it does not).
 
-Ten sam wzorzec działa poprawnie w `settlement-controls.js` (flaga `injecting`) — nowy kod
-po prostu go nie powtórzył.
+The same pattern works correctly in `settlement-controls.js` (the `injecting` flag) — the new code
+simply did not repeat it.
 
-## 58. Wycinanie kodu zakresem „od funkcji do funkcji" ❗✅
+## 58. Cutting code out by a "from function to function" range ❗✅
 
-Przepisując jedną funkcję skryptem, łatwo wyciąć wszystko między nią a następnym
-punktem odniesienia:
+When rewriting one function with a script, it is easy to cut out everything between it and the next
+reference point:
 
 ```python
 start = s.index('function decorate(card) {')
-end   = s.index('let decorating = false;')     # a między nimi leżały jeszcze 4 funkcje
+end   = s.index('let decorating = false;')     # and 4 more functions lay in between
 s = s[:start] + new + s[end:]
 ```
 
-Zniknęły `updateMeasuredLayout`, `scheduleRemeasure` i licznik prób. **Plik nadal się
-parsował** — brakujące funkcje to błąd wykonania, nie składni — więc `node --check` i
-`deploy.sh` przepuściły go bez słowa. W grze: `ReferenceError` przy pierwszym użyciu i cały
-mod bez efektu.
+`updateMeasuredLayout`, `scheduleRemeasure` and the attempt counter disappeared. **The file still
+parsed** — missing functions are a runtime error, not a syntax one — so `node --check` and
+`deploy.sh` passed it without a word. In game: a `ReferenceError` on first use and the whole
+mod having no effect.
 
-**Zabezpieczenie:** po każdym cięciu skryptem policz, co zostało:
+**The safeguard:** after every scripted cut, count what is left:
 
 ```bash
-grep -n "^function \|^let \|^const [a-z]\|^export function" plik.js
+grep -n "^function \|^let \|^const [a-z]\|^export function" file.js
 ```
 
-albo prostszy skan: zbierz nazwy zadeklarowane w pliku plus zaimportowane i sprawdź, czy
-każde wywołanie ma pokrycie. To ta sama kontrola, która przy przebudowie struktury
-(quirk #56) wyłapała `settlementYieldTotal` i `modifierApplies`.
+or a simpler scan: collect the names declared in the file plus the imported ones and check that
+every call is covered. This is the same check that, during the structural rebuild
+(quirk #56), caught `settlementYieldTotal` and `modifierApplies`.
 
-⚠️ Kontrola składni **nie zastępuje** tego sprawdzenia. Wykrywa zepsuty plik, nie zepsuty
-moduł.
+⚠️ A syntax check **does not replace** this one. It detects a broken file, not a broken
+module.
+
+## 59. `ui-next` tooltip autolock works ONLY for nested ones ✅
+
+**2026-08-28.** The game has a complete mechanism for locking a tooltip automatically when the
+cursor is held still — a progress bar filling at the bottom of the frame, a sound, taking over the
+input context — and hooks it up to **one** case. In
+`core/ui-next/components/tooltip-model.js`, `tryStartAutoLock` has exactly one call
+site: inside `triggerTooltip`, in the `shouldNest` branch.
+
+```js
+if (!shouldNest) { setActive([name]); }
+else { … ; tryStartAutoLock(name); }
+```
+
+And `shouldNest` requires the parent to **already be locked**:
+
+```js
+shouldNest = isRaisingSiblingTooltip
+    || (currentTopList.includes(name) && (isLocked(currentTop) || IsTouchActive()));
+```
+
+❗ **The conclusion: a top-level tooltip never locks itself.** It is locked only by the
+`keyboard-inspect-tooltip` / `toggle-tooltip` input action, handled in
+`TooltipContentComponent.onEngineInput` → `tooltipModel.lock()`. Autolock only applies to
+a child opened inside a locked parent.
+
+To add this behavior to a tooltip of your own (Better City UI does it in
+`ui/screen/tooltip-autolock.js`), do not touch the model — it is a singleton shared by
+the whole game, and its `tryStartAutoLock` is private. Instead, in a component embedded
+inside your own `<Tooltip>`:
+
+```js
+const ctx = useContext(TooltipContext);          // exported from components/tooltip.js
+const model = TooltipModel.get();
+// after Configuration.getUser().tooltipAutolock has elapsed:
+if (top === ctx.name && !model.isLocked(ctx.name) && ctx.childTooltipList().length > 0) {
+    model.lock();                                 // it plays the sound and takes over input itself
+}
+```
+
+⚠️ **`lock()` refuses a tooltip with no children.** It checks
+`childTooltipTable()[name]().length > 0` and returns `false` — there is no point locking something you
+cannot enter. The autolock timeout ends the same way. Do not start a progress bar that
+will never reach the end.
+
+⚠️ **Gate on the PLAYER's settings, not your own.** `model.isAutolockAvailable()` already includes
+`Configuration.getUser().tooltipAutolockEnabled`, `UI.isMouseAvailable()` and the rejection of
+touch; `Configuration.getUser().tooltipAutolock` is the delay slider, and a value `<= 0`
+means "lock immediately".
+
+⚠️ **The progress bar is a game element and carries no `data-l10n-id` at all.**
+`Tooltip.Frame` appends `Tooltip.InspectHint` as its last child, and the bar is the last
+child of that hint — i.e. `frame.lastElementChild.lastElementChild`. It renders
+only when `tooltipCount() > 0`. The animation is switched on by the `tooltip-autolock-progress` class from
+`core/ui/tooltips/tooltip-manager.css` plus `style.animationDuration`. Protect yourself with
+a class check (`bg-secondary`), so that after a game patch you do not animate some random element.
+
+⚠️ **`@keyframes tooltip-autolock-frame` is EMPTY** in the shipped CSS — the
+`tooltip-autolock-frame` class the game adds to the frame for the last 300 ms does nothing
+visible. There is nothing to reproduce.
+
+⚠️ **Do not look for the frame via a `ref` on `Tooltip.Frame`.** Solid's `spread` formally
+supports a `ref` that is a function, but through `ComponentRegistry` that reference silently does not
+arrive — the lock worked, and the bar never appeared once with nothing reporting it.
+Render your own hidden element in the frame's `children` and walk up via `parentElement`: an element
+drawn inside cannot be wrong about where it is.
+
+⚠️ **The bar is sometimes absent even though everything is correct.** `Tooltip.InspectHint` renders
+it only once the tooltip HAS nested children, and those mount a frame after the frame itself.
+One retry inside `requestAnimationFrame` is needed, minus the time already spent —
+a bar starting from zero after the countdown began promises more time than is left.
+
+## 60. `SpriteGrid.addSprite` accepts `alpha` — contrary to what most of the code suggests ✅
+
+**2026-08-28.** Almost every `addSprite` call in the game looks like this:
+
+```js
+this.yieldVisualizer.addSprite(district.location, iconURL, { x, y: 24, z: 0 }, { scale: 0.9 });
+```
+
+— and it is easy to conclude from that that the parameters are only `offset` and `scale`. **That is not true.**
+`base-standard/ui/lenses/layer/worker-yields-layer.js` dims a blocked specialist pip:
+
+```js
+{ scale: offsetAndScale.scale, alpha: info.IsBlocked ? SPECIALIST_PIP_BLOCKED_ALPHA : 1 }
+// SPECIALIST_PIP_BLOCKED_ALPHA = 0.5
+```
+
+⚠️ **There is, however, no tint and no rotation** — in the whole game's codebase and in all installed mods
+a sprite never gets a color. Color is accepted by `addText` (`fill`, `stroke`) and by
+`YieldChangeVisualizer.addYieldChange(data, location, offset, color)`, where the color is ARGB
+(`0xff52ff46` for a recommended tile, `0xffffffff` for a normal one). A sprite — no.
+
+**The practical consequence:** a "shadow" under an icon cannot be a darkened copy of that icon. All you can
+do is a backing plate from an existing asset, dimmed with `alpha`. And `BUILDING_EMPTY` — the only
+natural backing plate under building icons — is a **ring, not a filled circle**: drawn
+noticeably larger, offset and opaque, it reads as a second outline around the icon, not
+as depth beneath it.
+
+⚠️ Reference values from the game (`building-placement-layer.js`, `realizeBuildSlots`): a building icon
+`scale: 0.9`, an empty slot `scale: 0.8`, `buildSlotSpritePadding = 16`, position `{ x, y: 24, z: 0 }`.
+
+⚠️ **The sourcemaps are on disk and contain the original TypeScript.** Every `*.js.map` in
+`Base/modules/` has a `sourcesContent` with the full, commented `.ts` source — an order of
+magnitude better to read than the compiled output:
+
+```bash
+python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['sourcesContent'][0])" file.js.map
+```
+
+## 61. A decorator MUST have all four lifecycle hooks ❗✅
+
+**2026-08-28.** `Controls.decorate` takes an object, and `component-support.js` calls
+**all four** methods on it unconditionally:
+
+```js
+d.beforeAttach();   // component-support.js, doAttach()
+d.afterAttach();
+d.beforeDetach();
+d.afterDetach();
+```
+
+A decorator with only `afterAttach` throws:
+
+```
+TypeError: d.beforeAttach is not a function
+    at c.doAttach (fs://game/core/ui/component-support.js:289:11)
+    at connectedCallback (fs://game/core/ui/component-support.js:332:14)
+```
+
+❗ **The exception is thrown while the panel is being attached and aborts its ENTIRE initialization** — not just
+your decoration. In Better City UI this took out the whole production list: empty sections, the
+vanilla Production/Purchase tabs came back, and no message from the mod in `UI.log` other than that one
+`JS Error`. It looks like a data error, and it is a contract error.
+
+⚠️ Empty methods are enough and **cannot be omitted**:
+
+```js
+class MyDecorator {
+    constructor(component) { this.component = component; component.myMod = this; }
+    beforeAttach() { }
+    afterAttach() { /* … */ }
+    beforeDetach() { }
+    afterDetach() { }
+}
+```
+
+⚠️ A `try`/`catch` around your own `installX()` will **not** catch this — the installation
+(`Controls.decorate`) succeeds, and the exception only appears on the first
+attachment of the element, inside the game's code. Search for `JS Error:` in `UI.log`, not for the mod's prefix.
+
+## 62. `localStorage` in a mod: it does not survive a reload, and City Hall wipes the whole store ❗✅
+
+**2026-08-28.** Two independent reasons why `localStorage` should **never be the source of truth** for a
+mod's state:
+
+1. on its own it did not survive a reload — verified with settlement priorities in Better Commerce
+   Screen UI;
+2. several mods clear the store **entirely**, wiping out every other mod's entries along the way.
+
+### ⚠️ CORRECTION, 2026-09-03: the trigger is YOUR OWN key, and the fix is `modSettings`
+
+The wipe is not arbitrary and it is not only City Hall. The published pattern is:
+
+```js
+save(modID, optionID, value) {
+    UI.setOption("user", "Mod", `${modID}.${optionID}`, value);
+    Configuration.getUser().saveCheckpoint();
+    if (localStorage.length > 1) {                  // <-- ANY second top-level key
+        console.warn(`ModOptions: erasing storage (${localStorage.length} items)`);
+        localStorage.clear();                       // <-- takes modSettings with it
+    }
+    const options = JSON.parse(localStorage.getItem("modSettings") || "{}");
+    options[modID] ??= {};
+    options[modID][optionID] = value;
+    localStorage.setItem("modSettings", JSON.stringify(options));
+}
+```
+
+✅ Read verbatim in `bz-city-hall`'s `ui/options/mod-options.js` and in Leugi's
+`core/settings.js`; reported in the wild for Memento Editor, More Diplo Ribbon, Policy Yields
+Preview, Enhanced Town Focus Info and Advanced Options Menu Tweaks too.
+
+⚠️ **So a private top-level key is not "keeping out of the way" — it is the trigger.** The
+condition is `length > 1`, so ONE key of your own is enough: the next time any of those mods saves
+anything, it erases `modSettings` and every mod that cooperates loses its settings. The mod that
+gets blamed is not the one that called `clear()`.
+
+⚠️ **The convention is one shared key with a namespace per mod**, and every write must
+read-merge-write:
+
+```js
+const shared = JSON.parse(localStorage.getItem('modSettings') || '{}');
+shared[MOD_ID] = { ...(shared[MOD_ID] ?? {}), ...mine };
+localStorage.setItem('modSettings', JSON.stringify(shared));
+```
+
+Never `setItem('modSettings', mine)` — replacing the object destroys the other mods the same way
+`clear()` does, just more quietly.
+
+⚠️ **Migrating off an old private key: DELETING it is the half that matters.** Carrying the values
+across is a courtesy; a leftover key goes on making `length > 1` for ever.
+
+Found the expensive way: `better-city-ui` shipped three private keys and
+`better-commerce-screen-ui` two, all five now folded into `modSettings`.
+
+⚠️ The durable channel is `UI.setOption('user', 'Mod', key, A NUMBER)` + `saveCheckpoint()` — see
+quirk 50. Keep `localStorage` as a mirror that is only read when the options channel
+does not answer.
+
+⚠️ **The options channel accepts NUMBERS only.** A consequence that is easy to forget: keys
+**cannot be enumerated** (there is no "give me all my entries"). Every query has to be about
+a key you already hold. In practice that is enough, because you ask about what the screen is
+currently showing.
+
+⚠️ `Catalog` / `SerialObject` accepts strings, but **writes into the game save** — for a mod with
+`AffectsSavedGames = 0` that is not an option.
+
+## 63. `getCityYieldDetails()` prunes whole branches of the yield tree ❗✅
+
+**2026-08-28.** `CityYields.getCityYieldDetails()` has its own `removeBlankChildren`: if
+any step in a branch has no label, **the whole branch disappears**. For Food and Influence the result is
+empty — not because nothing produces them, but because somewhere along the way there is an unnamed step.
+
+⚠️ The second source, `CityDetails.yields`, **is not populated** — measured in game: length 0 with
+a settlement selected. Relying on it means depending on whether another model has managed to refresh.
+
+⚠️ The approach that works: walk the `CityYieldNodes` paths yourself, the way
+`model-city-details.js` does (`addYieldSteps` / `addYieldsToHierarchy`), including the "all
+sub-steps have the parent's id" branch. No pruning, no other model, no shared state.
+
+## 64. Searching `GameInfo.Modifiers` easily becomes quadratic ❗✅
+
+**2026-08-28.** The natural shape of code that reads modifiers is quadratic and looks
+innocent:
+
+```js
+for (const modifier of GameInfo.Modifiers) {                       // thousands of rows
+    const dynamic = GameInfo.DynamicModifiers                      // ...times thousands
+        .find((row) => row.ModifierType === modifier.ModifierType);
+    const args = GameInfo.ModifierArguments                        // ...and again
+        .filter((row) => row.ModifierId === modifier.ModifierId);
+}
+```
+
+The same goes for `RequirementSetRequirements` → `Requirements`. Every installed mod adds
+rows to both sides of the multiplication.
+
+⚠️ The fix is always the same: **one linear pass per table**, the result into a `Map`, built
+once. In Better City UI that is `ui/engine/modifier-index.js`
+(`ModifierId → effect`, `ModifierId → arguments`, `RequirementSetId → requirement types`,
+`ConstructibleType → ModifierId[]`).
+
+⚠️ **`Modifiers` does NOT have an `EffectType` column.** The effect sits in `DynamicModifiers`, mapped by
+`ModifierType`. Reading `modifier.EffectType` returns `undefined` and **every** lookup comes out empty
+silently — no exception, no entry in `UI.log`, simply zero results.
+
+⚠️ Anything built from `GameInfo` has to be keyed by the **age** (`Game.age`): moving to
+the next era swaps the tables underneath every index.
 
 ---
 
-## 59. `sendRequest` KOLEJKUJE — `canStart` zaraz po nim kłamie ❗✅
+## 59. `sendRequest` QUEUES — `canStart` right after it lies ❗✅
 
-**Data: 2026-08-18.** Objaw: klikasz przycisk, mod przerysowuje UI, i **wszystko wygląda
-identycznie** — te same liczby, ten sam aktywny przycisk. Wygląda jak „przerysowanie nie
-działa", a przerysowanie działa doskonale; po prostu wierne odmalowanie **starego stanu**.
+**Date: 2026-08-18.** Symptom: you click a button, the mod redraws the UI, and **everything looks
+identical** — the same numbers, the same active button. It looks like "the redraw does not
+work", and the redraw works perfectly; it is simply a faithful repainting of the **old state**.
 
 ```js
-Game.PlayerOperations.sendRequest(playerId, opType, args);   // ← tylko KOLEJKUJE
-Game.PlayerOperations.canStart(playerId, opType, args, false); // ← nadal Success: true
+Game.PlayerOperations.sendRequest(playerId, opType, args);   // ← only QUEUES
+Game.PlayerOperations.canStart(playerId, opType, args, false); // ← still Success: true
 ```
 
-`sendRequest` **nie wykonuje** operacji — wrzuca ją do kolejki game core'a. Przez klatkę lub
-dwie `canStart`, koszty, limity i wszystko inne odczytane z silnika opisują stan **sprzed**
-żądania. Przerysowanie w `requestAnimationFrame` mieści się w tym oknie.
+`sendRequest` **does not execute** the operation — it puts it into the game core's queue. For a frame or
+two, `canStart`, costs, limits and everything else read from the engine describe the state **before**
+the request. A redraw inside `requestAnimationFrame` falls inside that window.
 
-### ✅ Dwa przebiegi, nie jeden
+### ✅ Two passes, not one
 
-1. **Natychmiast** — odmaluj to, co wiesz po swojej stronie (np. „propozycja jest w locie,
-   więc przycisk ma zgasnąć"). To jest prawdą od razu i daje graczowi reakcję na klik.
-2. **Po `GameCoreEventPlaybackComplete`** — dopiero wtedy silnik zna nowy stan. To jest
-   **własny wzorzec gry**: `panel-diplomacy-actions.js` na `DiplomacyEventEnded` /
-   `DiplomacyQueueChanged` **nie odświeża**, tylko ustawia flagę `needsRefresh`, a faktyczne
-   `checkRefesh()` woła z `GameCoreEventPlaybackComplete`.
+1. **Immediately** — repaint what you know on your own side (e.g. "the proposal is in flight,
+   so the button should go dark"). That is true right away and gives the player a reaction to the click.
+2. **After `GameCoreEventPlaybackComplete`** — only then does the engine know the new state. This is
+   **the game's own pattern**: on `DiplomacyEventEnded` / `DiplomacyQueueChanged`,
+   `panel-diplomacy-actions.js` **does not refresh**, it only sets a `needsRefresh` flag, and calls the actual
+   `checkRefesh()` from `GameCoreEventPlaybackComplete`.
 
-⚠️ To zdarzenie leci **bardzo często** i o wszystkim — nasłuchuj z flagą uzbrajaną przy
-kliknięciu, żeby poza tym oknem kosztowało jeden `if`.
+⚠️ That event fires **very often** and about everything — listen with a flag armed on
+the click, so that outside that window it costs one `if`.
 
-⚠️ Pamiętanie odpowiedzi po swojej stronie **to nie zgadywanie reguł**, dopóki odtwarzasz
-odpowiedź, którą silnik i tak da za chwilę, i podajesz **jego własny** klucz powodu (u nas
-`LOC_DIPLOMACY_ACTION_FAILURE_DUPLICATE_PROJECT`, przez tę samą tabelę podmian). Inaczej
-gracz zobaczy dwa różne zdania o jednej sytuacji.
+⚠️ Remembering the answer on your own side **is not guessing the rules**, as long as you reproduce the
+answer the engine will give in a moment anyway, and use **its own** reason key (for us
+`LOC_DIPLOMACY_ACTION_FAILURE_DUPLICATE_PROJECT`, through the same substitution table). Otherwise the
+player will see two different sentences about one situation.
 
-⚠️ Trzeba wiedzieć, **kiedy o tym zapomnieć**. U nas akcja dyplomatyczna ma `BaseDuration="0"`,
-czyli rozstrzyga się na koniec tury, w której ją złożono — więc pamięć czyści
-`LocalPlayerTurnBegin`. Odmowa też zwalnia akcję i też dzieje się na granicy tury.
+⚠️ You have to know **when to forget it**. For us a diplomatic action has `BaseDuration="0"`,
+i.e. it resolves at the end of the turn in which it was submitted — so the memory is cleared by
+`LocalPlayerTurnBegin`. A refusal also frees the action and also happens on a turn boundary.
 
-## 60. `Controls.decorate` woła fabrykę NA KAŻDĄ INSTANCJĘ — patch prototypu potrzebuje blokady ❗✅
+## 60. `Controls.decorate` calls the factory FOR EVERY INSTANCE — a prototype patch needs a lock ❗✅
 
-**Ustalone 2026-08-26** przy analizie `bz-city-hall` (ekran miasta, patrz [28](28-city-screen.md)).
+**Established 2026-08-26** while analyzing `bz-city-hall` (the city screen, see [28](28-city-screen.md)).
 
-Naturalne miejsce na patch prototypu to konstruktor dekoratora — i to jest pułapka. Panele
-miasta (`panel-city-details`, `panel-production-chooser`) **powstają i giną przy każdym
-otwarciu osady**, a `Controls.decorate` woła swoją fabrykę raz na instancję. Bez blokady
-prototyp jest opakowywany na nowo przy każdym otwarciu i łańcuch opakowań rośnie bez końca.
+The natural place for a prototype patch is the decorator's constructor — and that is a trap. The city
+panels (`panel-city-details`, `panel-production-chooser`) **are created and destroyed on every
+opening of a settlement**, and `Controls.decorate` calls its factory once per instance. Without a lock the
+prototype is wrapped anew on every opening and the chain of wrappers grows without end.
 
-Objaw jest paskudny, bo **nie pojawia się od razu**: po kilkunastu minutach gry ta sama metoda
-wykonuje się kilkadziesiąt razy na wywołanie i gra zaczyna się krztusić. W logach nic.
+The symptom is nasty, because it **does not appear straight away**: after a dozen or so minutes of play the same method
+runs dozens of times per call and the game starts to choke. Nothing in the logs.
 
-✅ Wzorzec z City Hall — statyczne pole jako blokada, plus most z prototypu do instancji
-dekoratora:
+✅ The pattern from City Hall — a static field as the lock, plus a bridge from the prototype to the
+decorator instance:
 
 ```js
-class mojDekorator {
+class myDecorator {
     static c = null;
     constructor(component) {
         this.component = component;
-        component.mojMod = this;            // most: metoda prototypu sięgnie po dekorator
+        component.myMod = this;             // the bridge: the prototype method reaches the decorator
         this.patchPrototype(Object.getPrototypeOf(component));
     }
     patchPrototype(proto) {
-        if (mojDekorator.c) return;         // ← bez tego łańcuch rośnie
-        const c = mojDekorator.c = { proto };
+        if (myDecorator.c) return;          // ← without this the chain grows
+        const c = myDecorator.c = { proto };
         c.update = proto.update;
         proto.update = function(...args) {
             const r = c.update.apply(this, args);
-            this.mojMod.afterUpdate(...args);
+            this.myMod.afterUpdate(...args);
             return r;
         }
     }
 }
 ```
 
-⚠️ Nazwij most unikalnie (`mojMod`, nie `component.mod`) — City Hall zajmuje `bzCityHall`.
+⚠️ Name the bridge uniquely (`myMod`, not `component.mod`) — City Hall occupies `bzCityHall`.
 
-## 61. Dwa mody podmieniające ten sam plik gry: jeden przegrywa BEZ ŚLADU ❗✅
+## 61. Two mods replacing the same game file: one loses WITHOUT A TRACE ❗✅
 
-**Ustalone 2026-08-26.** Rozwinięcie [#10](#10-importfiles-nadpisuje-pliki-gry-po-ścieżce-).
+**Established 2026-08-26.** An extension of [#10](#10-importfiles-overrides-game-files-by-path-).
 
-`ImportFiles` z plikiem pod ścieżką pliku gry podmienia go dla wszystkich konsumentów. Gdy
-robią to **dwa mody naraz**, wygrywa jedna kopia, a zmiany drugiej po prostu nie istnieją —
-**żadnego błędu w `Modding.log`, `Database.log` ani `UI.log`**. Mod się ładuje, jest na liście
-włączonych, jego skrypty się wykonują i nic nie robią.
+`ImportFiles` with a file at a game file's path replaces it for all consumers. When
+**two mods do it at once**, one copy wins and the other's changes simply do not exist —
+**no error in `Modding.log`, `Database.log` or `UI.log`**. The mod loads, it is on the list of
+enabled mods, its scripts run and do nothing.
 
-✅ Dlatego autorzy dojrzałych modów wsadzają ryzykowną część w **osobną grupę akcji** z
-`<Criteria>`, która gasi ją przy wykrytym konkurencie:
+✅ This is why the authors of mature mods put the risky part into a **separate action group** with
+a `<Criteria>` that switches it off when a competitor is detected:
 
 ```xml
 <Criteria id="production-ok">
@@ -1291,21 +1550,21 @@ włączonych, jego skrypty się wykonują i nic nie robią.
 </Criteria>
 ```
 
-⚠️ `<ModInUse>` porównuje **id moda z jego własnego `.modinfo`** — nie nazwę folderu, nie nazwę
-wyświetlaną.
+⚠️ `<ModInUse>` compares **the mod's id from its own `.modinfo`** — not the folder name, not the
+display name.
 
-⚠️ Podmiana zamraża plik na wersji gry, z której go skopiowano — patch Firaxis nie dotrze do
-gracza, dopóki autor nie skopiuje pliku ponownie. `bz-city-hall` niesie tak **1441-liniową kopię**
-`panel-production-chooser.js` z 16-liniowym diffem.
+⚠️ A replacement freezes the file at the game version it was copied from — a Firaxis patch will not reach
+the player until the author copies the file again. `bz-city-hall` carries a **1441-line copy**
+of `panel-production-chooser.js` with a 16-line diff this way.
 
-**Wniosek dla własnych modów:** jeżeli podmiana ma służyć tylko przestawieniu importu albo
-dopisaniu atrybutów `data-*` — i tak jej unikaj, a jeśli musisz, zamknij ją we własnej grupie
-akcji z kryterium. Do wszystkiego innego wystarczy dekorator albo patch prototypu.
+**The conclusion for your own mods:** if a replacement is only meant to reorder an import or
+add `data-*` attributes — avoid it anyway, and if you must, wrap it in its own action
+group with a criterion. For everything else a decorator or a prototype patch is enough.
 
-## 62. City Hall KASUJE cały `localStorage` — wszystkim modom ❗✅
+## 62. City Hall WIPES the whole `localStorage` — for every mod ❗✅
 
-**Ustalone 2026-08-27** przez czytanie `bz-city-hall/ui/options/mod-options.js`. Ten sam plik
-jest współdzielony przez mody autora (`bz-city-hall`, `bz-map-trix`, `bz-…`).
+**Established 2026-08-27** by reading `bz-city-hall/ui/options/mod-options.js`. That same file
+is shared by the author's mods (`bz-city-hall`, `bz-map-trix`, `bz-…`).
 
 ```js
 save(modID, optionID, value) {
@@ -1313,48 +1572,48 @@ save(modID, optionID, value) {
     Configuration.getUser().saveCheckpoint();
     if (localStorage.length > 1) {
         console.warn(`ModOptions: erasing storage (${localStorage.length} items)`);
-        localStorage.clear();                                    // ❗ WSZYSTKO, każdego moda
+        localStorage.clear();                                    // ❗ EVERYTHING, every mod's
     }
-    const storage = localStorage.getItem("modSettings") || "{}";  // → "{}" po clear()
+    const storage = localStorage.getItem("modSettings") || "{}";  // → "{}" after clear()
     const options = JSON.parse(storage);
     options[modID] ??= {};
     options[modID][optionID] = value;
-    localStorage.setItem("modSettings", JSON.stringify(options)); // tylko ta jedna wartość
+    localStorage.setItem("modSettings", JSON.stringify(options)); // only this one value
 }
 ```
 
-**Każda zmiana opcji w City Hall**, gdy w `localStorage` jest więcej niż jeden klucz,
-**kasuje dane wszystkich modów** — i **własne pozostałe opcje City Hall też**, bo po `clear()`
-odbudowuje `modSettings` od pustego obiektu.
+**Every option change in City Hall**, when `localStorage` holds more than one key,
+**wipes every mod's data** — and **City Hall's own remaining options too**, because after `clear()`
+it rebuilds `modSettings` from an empty object.
 
-`localStorage` w Civ VII jest **wspólny dla wszystkich modów** (jedno źródło `fs://game`
-w `LocalStorage.sqlite`), więc `clear()` jednego moda dosięga każdego innego.
+`localStorage` in Civ VII is **shared by all mods** (a single `fs://game` origin
+in `LocalStorage.sqlite`), so one mod's `clear()` reaches every other one.
 
-⚠️ **To najprawdopodobniej wyjaśnia obserwację z #50** („localStorage nie przeżył przeładowania"):
-nie przeżył, bo ktoś go wyczyścił — nie dlatego, że nie jest trwały.
+⚠️ **This most likely explains the observation in #50** ("localStorage did not survive a reload"):
+it did not survive because someone cleared it — not because it is not durable.
 
-⚠️ **Obserwacja bez wyjaśnienia:** na tej maszynie wiersz pod kluczem
-`najane-commerce-merchant-orders` zawiera, oprócz własnych danych, ustawienia
+⚠️ **An observation without an explanation:** on this machine the row under the key
+`najane-commerce-merchant-orders` contains, besides its own data, the settings of
 `repair-shop-plus`, `drongos-cheat-panel`, `f1rstdan-cool-ui`, `better-commerce-screen-ui`
-i `najane-common-specialists-yields` — w **starszej migawce** (tura 55) niż ta w `modSettings`
-(tura 97). Czyli zawartość jednego klucza wylądowała pod innym. ❓ Mechanizm nieustalony:
-albo shim `localStorage` podał wartość spod złego klucza, albo dwa zapisy się ścigają.
-**Nie trać czasu na debugowanie własnego moda, zanim tego nie wykluczysz.**
+and `najane-common-specialists-yields` — in an **older snapshot** (turn 55) than the one in `modSettings`
+(turn 97). So the contents of one key ended up under another. ❓ The mechanism is not established:
+either the `localStorage` shim served a value from the wrong key, or two writes are racing.
+**Do not waste time debugging your own mod before you have ruled this out.**
 
-**Co z tym robić we własnym modzie:**
-- trzymaj dane pod **własnym kluczem**, nigdy w `modSettings` — to ten, który City Hall
-  odbudowuje od zera;
-- ⚠️ i tak licz się z tym, że `clear()` go zabierze. Projektuj tak, żeby utrata danych
-  oznaczała „ustawienie wróciło do domyślnego", a nie zepsuty stan;
-- **nigdy nie wołaj `localStorage.clear()`** we własnym kodzie.
+**What to do about it in your own mod:**
+- keep your data under **your own key**, never in `modSettings` — that is the one City Hall
+  rebuilds from scratch;
+- ⚠️ expect `clear()` to take it anyway. Design so that losing the data
+  means "the setting went back to its default", not a corrupted state;
+- **never call `localStorage.clear()`** in your own code.
 
-## 63. `getCityYieldDetails` KASUJE cale drzewo dochodu przez jeden nieopisany krok ❗✅
+## 63. `getCityYieldDetails` WIPES a whole yield tree because of one unlabeled step ❗✅
 
-**Ustalone 2026-08-27** na wlasnym modzie: tooltip rozbicia dochodow dzialal dla zlota
-i produkcji, a dla **zywnosci i wplywow pokazywal sam tytul**, bez ani jednego wiersza.
+**Established 2026-08-27** on my own mod: the yield-breakdown tooltip worked for gold
+and production, while for **food and influence it showed only the title**, without a single row.
 
-Przyczyna jest w `base-standard/ui/utilities/utilities-city-yields.js`, w funkcji
-`removeBlankChildren`, ktorej wlasny komentarz Firaxis brzmi:
+The cause is in `base-standard/ui/utilities/utilities-city-yields.js`, in the function
+`removeBlankChildren`, whose own Firaxis comment reads:
 
 > 'Blank' nodes are nodes without a label or icon to convey what exactly they mean.
 > To provide concise information, nodes with blank children have **_all_** their children removed.
@@ -1363,120 +1622,120 @@ Przyczyna jest w `base-standard/ui/utilities/utilities-city-yields.js`, w funkcj
 ```js
 removeBlankChildren(root) {
     for (const data of root.childData) {
-        if (!data.label && !data.showIcon) { root.childData = []; }   // <- CALA lista
+        if (!data.label && !data.showIcon) { root.childData = []; }   // <- the WHOLE list
     }
     ...
 }
 ```
 
-❗ **Jeden krok bez etykiety gdziekolwiek pod dochodem kasuje cale jego drzewo.** Nie tylko ten
-krok — wszystkie rodzenstwo razem z nim. Gra sama przyznaje, ze to "too deep a cut".
+❗ **One unlabeled step anywhere under a yield wipes its entire tree.** Not just that
+step — all of its siblings along with it. The game itself admits this is "too deep a cut".
 
-✅ **Obejscie: druga sciezka.** Gra buduje to samo drzewo dwa razy, innym kodem:
+✅ **The workaround: a second path.** The game builds the same tree twice, with different code:
 
-| Zrodlo | Przycina? | Ksztalt |
+| Source | Prunes? | Shape |
 |---|---|---|
-| `CityYields.getCityYieldDetails(cityID)` | ❗ tak, `removeBlankChildren` | `{label, value, valueNum, valueType, type, isNegative, isModifier, childData[]}` |
-| `CityDetails.yields` (`ui/city-details/model-city-details.js`) | ✅ nie | `{name, value, icon, iconContext, children[]}` |
+| `CityYields.getCityYieldDetails(cityID)` | ❗ yes, `removeBlankChildren` | `{label, value, valueNum, valueType, type, isNegative, isModifier, childData[]}` |
+| `CityDetails.yields` (`ui/city-details/model-city-details.js`) | ✅ no | `{name, value, icon, iconContext, children[]}` |
 
-`CityDetails` chodzi po sciezkach `CityYieldNodes` i nie ma zadnego takiego czyszczenia — to
-ono zasila zakladke Dochody w szczegolach miasta. Bierz `CityYields` jako podstawe, a gdy wroci
-puste drzewo dla dochodu, ktory nie jest zerem, podmien dzieci na te z `CityDetails`.
+`CityDetails` walks the `CityYieldNodes` paths and has no such cleanup — it is what
+feeds the Yields tab in the city details. Take `CityYields` as the basis, and when it returns
+an empty tree for a yield that is not zero, swap the children for those from `CityDetails`.
 
-⚠️ Po takiej podmianie **trzeba samemu wyrzucic wezly bez etykiety** (i podniesc ich dzieci
-poziom wyzej) — bo to wlasnie one sa powodem, dla ktorego pierwsza sciezka je skasowala.
-Inaczej dostaniesz puste wiersze: okno rosnie, tekstu nie ma.
+⚠️ After such a swap you **have to drop the unlabeled nodes yourself** (and lift their children
+one level up) — because they are exactly the reason the first path deleted them.
+Otherwise you get empty rows: the window grows, there is no text.
 
-⚠️ I wyrzuc powtorzenia. Silnik opisuje jeden budynek trzema wezlami — sam budynek,
-"Podstawa" o tej samej wartosci i mnoznik `x 1,0` o tej samej nazwie — czyli trzy wiersze na
-jedna informacje. Mnoznik rowny 1 nic nie zmienia z definicji, a jedyne dziecko niosace liczbe
-rodzica **jest** rodzicem.
+⚠️ And drop the duplicates. The engine describes one building with three nodes — the building itself,
+a "Base" with the same value, and an `x 1.0` multiplier with the same name — i.e. three rows for
+one piece of information. A multiplier equal to 1 changes nothing by definition, and an only child carrying the
+parent's number **is** the parent.
 
-⚠️ Zasoby w zaopatrzeniu przychodza jako **jeden wezel na zasob, wszystkie z tym samym opisem** —
-bez scalenia rodzenstwa o identycznej etykiecie czytelnik widzi "Zasoby w zaopatrzeniu +7"
-bezposrednio nad "Zasoby w zaopatrzeniu +4" i nie ma jak zgadnac, o co chodzi.
+⚠️ Resources in supply arrive as **one node per resource, all with the same description** —
+without merging siblings with identical labels the reader sees "Resources in supply +7"
+directly above "Resources in supply +4" and has no way to guess what is going on.
 
 
-## 64. Budynku, ktory wlasnie budujesz, NIE MA na liscie produkcji ❗✅
+## 64. The building you are currently constructing is NOT on the production list ❗✅
 
-`GetConstructibleItemData` (`production-chooser-helpers.js`) zwraca `null`, kiedy wynik operacji
-niesie `InQueue`, a `hideIfUnavailable` jest ustawione — a jest ustawione przy **kazdym normalnym
-widoku** (`hideIfUnavailable: !showIfAvailable`, gdzie `showIfAvailable` wymaga `viewHidden`).
+`GetConstructibleItemData` (`production-chooser-helpers.js`) returns `null` when the operation's result
+carries `InQueue` and `hideIfUnavailable` is set — and it is set in **every normal
+view** (`hideIfUnavailable: !showIfAvailable`, where `showIfAvailable` requires `viewHidden`).
 
 ```js
-// linia 223 i 295 w production-chooser-helpers.js
+// lines 223 and 295 in production-chooser-helpers.js
 if (operationResult.Success || insufficientFunds || !hideIfUnavailable || …) { … }
 if (!hideIfUnavailable || insufficientFunds && possibleLocations.length > 0) { … }
 ```
 
-Konsekwencje dla moda:
+Consequences for a mod:
 
-- **Nie da sie „przeniesc" wiersza budowanego budynku** do wlasnej sekcji — nie ma czego
-  przenosic. `panel.itemElementMap` nie zawiera tego typu. Wlasny blok musi **sam tworzyc**
-  elementy `production-chooser-item` i sam ustawiac im atrybuty.
-- Kafelek „przypiete na gorze" w sortowaniu (`getQueuedPositionOfType(hash) !== -1`) **prawie
-  nigdy nie zadziala dla budynkow w kolejce**. Trafia tylko w naprawy, ktore maja osobna sciezke
-  i zostaja na liscie.
+- **You cannot "move" the row of a building under construction** into your own section — there is nothing
+  to move. `panel.itemElementMap` does not contain that type. Your own block has to **create**
+  the `production-chooser-item` elements itself and set their attributes itself.
+- A "pinned at the top" tile in sorting (`getQueuedPositionOfType(hash) !== -1`) will **almost
+  never work for buildings in the queue**. It only hits repairs, which have a separate path
+  and stay on the list.
 
-⚠️ Nie ma API zwracajacego **pozostala** produkcje. Jedyne, co gra ma, to procent:
+⚠️ There is no API returning the **remaining** production. All the game has is a percentage:
 
 ```js
-const pelny = city.Production.getConstructibleProductionCost(type, FeatureTypes.NO_FEATURE, false);
-const procent = city.BuildQueue.getPercentComplete(queueNode.type);   // 0-100, po HASHU wezla
-const zostalo = Math.ceil(pelny * (1 - procent / 100));
+const full = city.Production.getConstructibleProductionCost(type, FeatureTypes.NO_FEATURE, false);
+const percent = city.BuildQueue.getPercentComplete(queueNode.type);   // 0-100, by node HASH
+const remaining = Math.ceil(full * (1 - percent / 100));
 ```
 
-⚠️ Dwa rozne klucze w tym samym obiekcie: `getPercentComplete` bierze **hash** (`node.type`),
-a `getTurnsLeft` bierze **string typu** (`node.constructibleType` → `def.ConstructibleType`).
-Pomylenie ich nie rzuca bledu, tylko zwraca 0 / -1.
+⚠️ Two different keys in the same object: `getPercentComplete` takes the **hash** (`node.type`),
+while `getTurnsLeft` takes the **type string** (`node.constructibleType` → `def.ConstructibleType`).
+Confusing them throws no error, it just returns 0 / -1.
 
-### Wykup budowanego budynku
+### Purchasing a building under construction
 
-`Construct(city, item, true)` czyta z `item` **tylko** `type` i `interfaceMode`. Dla
-konstruktu w kolejce silnik odpowiada `InProgress` i podaje `result.Plots[0]`, wiec zakup konczy
-**istniejaca budowe** zamiast pytac o nowy kafelek. Wystarczy wiec:
+`Construct(city, item, true)` reads **only** `type` and `interfaceMode` from `item`. For
+a constructible in the queue the engine answers `InProgress` and supplies `result.Plots[0]`, so the purchase
+**finishes the existing construction** instead of asking for a new tile. So this is enough:
 
 ```js
 Construct(city, { type, interfaceMode: 'INTERFACEMODE_PLACE_BUILDING' }, true);
 ```
 
-### Wlasna sekcja w akordeonie
+### Your own section in the accordion
 
-`panel.productionAccordion` (`fxs-vslot`) trzyma `section.root` kazdej kategorii. Wlasny blok
-wstawia sie przez `accordion.insertBefore(wlasny, panel.productionCategorySlots['buildings'].root)`.
-Zeby wygladal natywnie, powtorz klasy sekcji: `production-category mb-2 ml-4` na korzeniu i
-`relative flex items-center h-10 mb-2 hud_sidepanel_list-bg` na naglowku.
+`panel.productionAccordion` (`fxs-vslot`) holds each category's `section.root`. Your own block
+is inserted with `accordion.insertBefore(mine, panel.productionCategorySlots['buildings'].root)`.
+To make it look native, repeat the section's classes: `production-category mb-2 ml-4` on the root and
+`relative flex items-center h-10 mb-2 hud_sidepanel_list-bg` on the header.
 
-⚠️ `ProductionKind` jest **globalem silnika**, nie importem — `city-banners.js` uzywa go bez
-zadnego `import`. To samo dotyczy `FeatureTypes`, `YieldTypes`, `OrderTypes`.
+⚠️ `ProductionKind` is an **engine global**, not an import — `city-banners.js` uses it without
+any `import`. The same goes for `FeatureTypes`, `YieldTypes`, `OrderTypes`.
 
-## 65. Prawy przycisk to `engine-input`, nie `contextmenu` — i musi być FINISH ❗✅
+## 65. The right button is `engine-input`, not `contextmenu` — and it must be FINISH ❗✅
 
-Gra nie wysyła `contextmenu`. Każdy przycisk idzie przez jej własną warstwę wejścia i przychodzi
-jako zdarzenie `engine-input`:
+The game does not send `contextmenu`. Every button goes through its own input layer and arrives
+as an `engine-input` event:
 
 ```js
-inputEvent.detail.name    // 'mousebutton-right' | 'shell-action-1' (pad) | 'mousebutton-left' | 'accept' | …
+inputEvent.detail.name    // 'mousebutton-right' | 'shell-action-1' (gamepad) | 'mousebutton-left' | 'accept' | …
 inputEvent.detail.status  // InputActionStatuses.START | .FINISH
 ```
 
-⚠️ **`FINISH`, nie `START`.** Reakcja na wciśnięcie odpala się **drugi raz** przy puszczeniu.
-Przy przełączniku (ukryj/pokaż) daje to dwa przełączenia i wygląda, jakby nic się nie stało.
+⚠️ **`FINISH`, not `START`.** A reaction to the press fires **a second time** on release.
+With a toggle (hide/show) that gives two toggles and looks as if nothing happened.
 
-⚠️ W komponentach `ui-next` **`Activatable` przechwytuje** lewy przycisk, `accept`, `touch-tap`
-i `keyboard-enter`, a **całą resztę przekazuje** do propa `on:engine-input`:
+⚠️ In `ui-next` components **`Activatable` intercepts** the left button, `accept`, `touch-tap`
+and `keyboard-enter`, and **passes everything else** to the `on:engine-input` prop:
 
 ```js
 // core/ui-next/components/activatable.js
 props["on:engine-input"]?.(inputEvent);
 ```
 
-`ChooserItem` robi `mergeProps(props, {…})` i nie definiuje tego klucza, więc prop przechodzi
-przez niego bez zmian. To **jedyna** droga do prawego przycisku w wierszu opartym na `ChooserItem`
-— zwykły `addEventListener('engine-input')` na hoście nie wystarczy, bo `Activatable` woła
-`stopPropagation()` na tym, co obsługuje samo.
+`ChooserItem` does `mergeProps(props, {…})` and does not define that key, so the prop passes
+through it unchanged. This is the **only** route to the right button in a row based on `ChooserItem`
+— a plain `addEventListener('engine-input')` on the host is not enough, because `Activatable` calls
+`stopPropagation()` on what it handles itself.
 
-Wzorzec (nasz `production-item.js`):
+The pattern (our `production-item.js`):
 
 ```js
 createComponent(ChooserItem, {
@@ -1492,105 +1751,105 @@ createComponent(ChooserItem, {
 });
 ```
 
-`InputActionStatuses` jest globalem silnika (bez importu), tak jak `ProductionKind`.
+`InputActionStatuses` is an engine global (no import), just like `ProductionKind`.
 
-## 66. Zestaw stringów per miasto BEZ zapisu do save'a — jeden option na parę ❗✅
+## 66. A set of strings per city WITHOUT writing to the save — one option per pair ❗✅
 
-`UI.setOption('user', 'Mod', klucz, wartość)` przyjmuje **liczbę**. Zbiór typów (stringów) nie
-zmieści się w jednej wartości, a `Catalog` / `SerialObject` z `utility-serialize.js` bierze
-stringi, ale **pisze do pliku zapisu** — czyli odpada przy `AffectsSavedGames = 0`.
+`UI.setOption('user', 'Mod', key, value)` takes a **number**. A set of types (strings) will not
+fit into one value, and `Catalog` / `SerialObject` from `utility-serialize.js` takes
+strings but **writes into the save file** — so it is out with `AffectsSavedGames = 0`.
 
-Rozwiązanie: **jeden option na parę (osada, typ)**:
+The solution: **one option per (settlement, type) pair**:
 
 ```js
-`${MOD_ID}.hidden.${gameSeed}.${cityId}.${TYPE}` = 1 (ukryty) | 2 (przywrócony)
+`${MOD_ID}.hidden.${gameSeed}.${cityId}.${TYPE}` = 1 (hidden) | 2 (restored)
 ```
 
-⚠️ **Nie da się wylistować kluczy** tym kanałem — `UI.getOption` odpowiada tylko na konkretny
-klucz. Da się z tym żyć wtedy, gdy zbiór pytań jest znany z innego źródła (u nas: typy, które
-lista produkcji i tak właśnie pokazuje). Do projektowania: jeśli musisz **wyliczyć** zawartość,
-ten kanał nie zadziała.
+⚠️ **Keys cannot be enumerated** through this channel — `UI.getOption` only answers about a specific
+key. You can live with that when the set of questions is known from another source (for us: the types
+the production list is showing anyway). For design purposes: if you have to **enumerate** the contents,
+this channel will not work.
 
-⚠️ **„Przywrócony" musi mieć własny kod (2), nie brak wpisu.** Nie ma pewnego „unset", a brak
-wartości musi dalej znaczyć „nigdy nie wybrano" — inaczej przywrócenie jest nieodróżnialne od
-stanu początkowego dopiero po restarcie.
+⚠️ **"Restored" must have its own code (2), not the absence of an entry.** There is no reliable "unset", and a missing
+value must keep meaning "never chosen" — otherwise a restore is indistinguishable from the
+initial state as soon as you restart.
 
-⚠️ Klucz gry to `Configuration.getGame().gameSeed`, bo numeryczna część `ComponentID` osady jest
-unikalna **tylko w obrębie jednej rozgrywki**.
+⚠️ The match key is `Configuration.getGame().gameSeed`, because the numeric part of a settlement's `ComponentID` is
+unique **only within one game**.
 
-`localStorage` zostaje jako lustro, nigdy jako źródło prawdy — patrz [#62] (City Hall kasuje cały
-`localStorage`) i doświadczenie z Better Commerce Screen UI, gdzie sam `localStorage` nie przeżył
-przeładowania.
+`localStorage` stays as a mirror, never as the source of truth — see [#62] (City Hall wipes the whole
+`localStorage`) and the experience from Better Commerce Screen UI, where `localStorage` alone did not survive
+a reload.
 
-## 67. Tooltip `ui-next` na elemencie STAREGO frameworka — `Tooltip.Trigger` nie opakowuje ❗✅
+## 67. A `ui-next` tooltip on an OLD-framework element — `Tooltip.Trigger` does not wrap ❗✅
 
-Kluczowa własność, dzięki której da się połączyć oba systemy
+The key property that makes it possible to join the two systems
 (`core/ui-next/components/tooltip.js`, `TooltipTriggerInternal`):
 
 ```js
 if (resolvedChildren instanceof HTMLElement) {
     element.addEventListener('mouseover', props.onShowTooltip);
     // …
-    props.setRoot(element);       // TEN element jest kotwicą
-    setNeedsWrapper(false);       // nic go nie owija
+    props.setRoot(element);       // THIS element is the anchor
+    setNeedsWrapper(false);       // nothing wraps it
 }
 ```
 
-Gdy dzieckiem `Tooltip.Trigger` jest **pojedynczy `HTMLElement`**, komponent tylko **dowiesza mu
-słuchacze** i używa go jako kotwicy. Element zachowuje tożsamość, klasy i wszystkie handlery, jakie
-założyła na niego gra — zmienia jedynie rodzica (Solid wstawia go tam, gdzie renderuje się
-komponent).
+When the child of `Tooltip.Trigger` is a **single `HTMLElement`**, the component merely **attaches
+listeners to it** and uses it as the anchor. The element keeps its identity, classes and all the handlers
+the game put on it — only its parent changes (Solid inserts it where the component
+renders).
 
-Wzorzec mostka (nasz `queue-tooltip.js` + `queue-decorator.js`):
+The bridge pattern (our `queue-tooltip.js` + `queue-decorator.js`):
 
-1. `defineLegacyComponent('moj-tip', { attrs: { 'data-anchor': null, … } }, …)`.
-2. Elementu **nie da się przekazać atrybutem** → rejestr `Map(id → element)`, id trafia do
-   `data-anchor`. Rejestruj **przed** wstawieniem hosta do DOM — komponent czyta kotwicę przy
-   pierwszym renderze, a `Trigger` bez elementu tworzy sobie własny wrapper.
-3. `parent.replaceChild(host, karta)` — Solid sam wciągnie kartę do środka.
-4. `onCleanup(() => anchors.delete(id))`, bo stary framework przebudowuje elementy przez
-   `Databind.for` przy każdej aktualizacji modelu.
+1. `defineLegacyComponent('my-tip', { attrs: { 'data-anchor': null, … } }, …)`.
+2. The element **cannot be passed in an attribute** → a `Map(id → element)` registry, with the id going into
+   `data-anchor`. Register **before** inserting the host into the DOM — the component reads the anchor on its
+   first render, and a `Trigger` without an element creates a wrapper of its own.
+3. `parent.replaceChild(host, card)` — Solid will pull the card inside itself.
+4. `onCleanup(() => anchors.delete(id))`, because the old framework rebuilds elements through
+   `Databind.for` on every model update.
 
-### ❗ KOREKTA — tego wzorca NIE WOLNO użyć na węzłach z `data-bind-for`
+### ❗ CORRECTION — this pattern MUST NOT be used on nodes with `data-bind-for`
 
-Mostek powyżej działa tylko wtedy, gdy element podawany jako dziecko `Tooltip.Trigger`
-**należy do Ciebie**. Na kartach generowanych przez `data-bind-for` przeniesienie węzła
-**rozwala binding**: tooltip się pokazuje, ale panel przestaje się odświeżać — po zmianie
-kolejności ikony i pozycje zostają stare. Silnik trzyma referencje do węzłów, które sam
-wygenerował, i po podmianie nie potrafi ich już przestawić.
+The bridge above works only when the element passed as `Tooltip.Trigger`'s child
+**belongs to you**. On cards generated by `data-bind-for`, moving the node
+**breaks the binding**: the tooltip shows, but the panel stops refreshing — after a reorder the
+icons and positions stay stale. The engine holds references to the nodes it
+generated itself, and after the swap it can no longer rearrange them.
 
-Wzorzec bezpieczny (nasz `queue-decorator.js`): **jeden** tooltip na cały panel, doczepiony do
-korzenia panelu (poza poddrzewem bindowanym), `position: fixed`, `pointer-events: none`,
-pozycjonowany z `card.getBoundingClientRect()`. `Tooltip.Trigger` dostaje **brak**
-dziecka-elementu, więc buduje sobie własny wrapper — i to jego się rozciąga oraz karmi
-**syntetycznymi** zdarzeniami z listenera na karcie:
+The safe pattern (our `queue-decorator.js`): **one** tooltip for the whole panel, attached to
+the panel's root (outside the bound subtree), `position: fixed`, `pointer-events: none`,
+positioned from `card.getBoundingClientRect()`. `Tooltip.Trigger` gets **no**
+element child, so it builds its own wrapper — and it is that wrapper which is stretched and fed
+**synthetic** events from a listener on the card:
 
 ```js
 trigger.dispatchEvent(new MouseEvent('mouseover'));
 trigger.dispatchEvent(new MouseEvent('mouseleave'));
 ```
 
-Karta zachowuje wtedy wszystkie swoje zdarzenia — łącznie z hoverem odsłaniającym jej przyciski.
+The card then keeps all of its own events — including the hover that reveals its buttons.
 
-⚠️ **`MutationObserver` NIE widzi węzłów z `data-bind-for`.** Rozwija je natywnie silnik Gameface,
-z pominięciem JS-owego DOM API — żadne rekordy nie powstają. Dekorację trzeba pisać po
-**callbacku modelu**:
+⚠️ **`MutationObserver` does NOT see nodes with `data-bind-for`.** The Gameface engine expands them natively,
+bypassing the JS DOM API — no records are produced. The decoration has to be written off
+the **model's callback**:
 
 ```js
-const previous = Model._OnUpdate;          // pole za setterem `updateCallback`
+const previous = Model._OnUpdate;          // the field behind the `updateCallback` setter
 Model.updateCallback = (...a) => { previous?.(...a); scheduleRefresh(); };
 ```
 
-⚠️ Model ma **jedno** pole callbacku — nadpisanie bez wywołania poprzedniego zabija aktualizacje.
+⚠️ The model has **one** callback field — overwriting it without calling the previous one kills updates.
 
-⚠️ Callback leci przy wypchnięciu modelu; silnik rozwija bindingi **kilka klatek później**, i nie
-zawsze tyle samo. Rób kilka przebiegów (u nas 0/120/400 ms), każdy idempotentny (patrz [#57]).
+⚠️ The callback fires when the model is pushed; the engine expands the bindings **a few frames later**, and not
+always the same number. Do several passes (for us 0/120/400 ms), each idempotent (see [#57]).
 
-## 68. Są DWA stare systemy tooltipów — `data-tooltip-content` obsługuje inny ❗✅
+## 68. There are TWO old tooltip systems — `data-tooltip-content` is handled by the other one ❗✅
 
-❗ **KOREKTA.** `data-tooltip-style="none"` na przodku wycisza `tooltip-manager.js`, ale
-**nie dotyka** `core/ui/tooltips/tooltip-controller.js` — a to on rysuje mały dymek z samą nazwą.
-Kontroler szuka wyłącznie treści i **w ogóle nie czyta** `data-tooltip-style`:
+❗ **CORRECTION.** `data-tooltip-style="none"` on an ancestor silences `tooltip-manager.js`, but
+**does not touch** `core/ui/tooltips/tooltip-controller.js` — and that is what draws the small bubble with just the name.
+The controller looks only for content and **does not read** `data-tooltip-style` at all:
 
 ```js
 recursiveGetTooltipContent(target) {
@@ -1600,32 +1859,32 @@ recursiveGetTooltipContent(target) {
 }
 ```
 
-Jedyny sposób, żeby go wyłączyć, to **usunąć `data-tooltip-content`** ze wszystkich przodków
-elementu pod kursorem.
+The only way to switch it off is to **remove `data-tooltip-content`** from all the ancestors
+of the element under the cursor.
 
-⚠️ Jeśli atrybut jest podpięty przez `Databind.attribute`, wraca przy każdej aktualizacji modelu —
-usuwanie trzeba powtarzać w tym samym cyklu, w którym odnawiasz resztę dekoracji.
+⚠️ If the attribute is bound through `Databind.attribute`, it comes back on every model update —
+the removal has to be repeated in the same cycle in which you renew the rest of the decoration.
 
-### Poprzednia notatka (dalej prawdziwa dla `tooltip-manager.js`)
+### The previous note (still true for `tooltip-manager.js`)
 
-`data-tooltip-content` bywa podpięte przez `Databind.attribute` i jest **przepisywane przy każdej
-aktualizacji modelu** — usunięcie atrybutu nic nie daje, wróci.
+`data-tooltip-content` is sometimes bound through `Databind.attribute` and is **rewritten on every
+model update** — removing the attribute achieves nothing, it will come back.
 
-Za to `TooltipManager` wybiera typ przez **`RecursiveGetAttribute(target, 'data-tooltip-style')`**,
-czyli idzie w GÓRĘ od elementu pod kursorem, a `"none"` oznacza „nie pokazuj nic":
+`TooltipManager`, on the other hand, picks the type via **`RecursiveGetAttribute(target, 'data-tooltip-style')`**,
+i.e. it walks UP from the element under the cursor, and `"none"` means "show nothing":
 
 ```js
 const ttTypeName = RecursiveGetAttribute(targetElement, 'data-tooltip-style') ?? 'none';
 if (ttTypeName == 'none') { this.hideTooltips(); return; }
 ```
 
-Jeden atrybut na korzeniu panelu wycisza więc stary tooltip w całym poddrzewie — bez walki
-z bindowaniem.
+So a single attribute on a panel's root silences the old tooltip across the whole subtree — without fighting
+the binding.
 
-## 69. Kolejka budowy: dowolne przestawienie istnieje, gra go nie używa ❗✅
+## 69. The build queue: an arbitrary reorder exists, the game does not use it ❗✅
 
-`model-build-queue.js` ma tylko `moveItemUp` / `moveItemDown` (`Swap`) i `moveItemLast`. Ale sam
-`moveItemLast` pokazuje, że silnik zna operację „przenieś na pozycję":
+`model-build-queue.js` has only `moveItemUp` / `moveItemDown` (`Swap`) and `moveItemLast`. But
+`moveItemLast` itself shows that the engine knows a "move to position" operation:
 
 ```js
 const args = {
@@ -1638,65 +1897,49 @@ if (Game.CityOperations.canStart(cityID, CityOperationTypes.BUILD, args, false).
 }
 ```
 
-To pełny prymityw dla drag-and-drop — nie trzeba składać przestawienia z wielu `Swap`.
+That is a complete primitive for drag-and-drop — you do not have to assemble a reorder out of several `Swap`s.
 
-⚠️ Zawsze `canStart` przed `sendRequest`. Kolejka odmawia części przeniesień, a wysłanie mimo to
-jest **cichym no-opem**, który wygląda jak nieudany drag.
+⚠️ Always `canStart` before `sendRequest`. The queue refuses some moves, and sending anyway
+is a **silent no-op** that looks like a failed drag.
 
-⚠️ `BuildQueue.cityID` (model) to gotowe źródło `ComponentID` osady — panel kolejki sam nie trzyma
-miasta.
+⚠️ `BuildQueue.cityID` (the model) is a ready source for the settlement's `ComponentID` — the queue panel does not
+hold the city itself.
 
-⚠️ Próg ruchu przy starcie przeciągania jest obowiązkowy. Bez niego każde kliknięcie w kartę liczy
-się jako drag i przestaje działać jej własne `action-activate`.
+⚠️ A movement threshold when starting a drag is mandatory. Without it every click on a card counts
+as a drag and the card's own `action-activate` stops working.
 
 ---
 
-## 70. `style.cssText` na elemencie plot-icona zdejmuje wyśrodkowanie gry ❗✅
+## 70. `style.cssText` on a plot-icon element removes the game's centering ❗✅
 
-`plot-icons-root.js` → `createIcon()` ustawia ikonie **inline**:
+`plot-icons-root.js` → `createIcon()` sets an **inline** style on the icon:
 
 ```js
 plotIcon.style.transform = `translateX(-50%) translateY(-50%)`;
 ```
 
-To jedyne, co centruje ikonę na heksie — kotwica świata (`WorldAnchors.RegisterFixedWorldAnchor`)
-pozycjonuje RODZICA `<plot-icons>`, a dziecko musi cofnąć się o połowę własnego rozmiaru samo.
+That is the only thing centering the icon on the hex — the world anchor (`WorldAnchors.RegisterFixedWorldAnchor`)
+positions the `<plot-icons>` PARENT, and the child has to pull itself back by half its own size.
 
-⚠️ Przypisanie `element.style.cssText = '...'` na TYM elemencie **podmienia cały blok deklaracji**,
-więc kasuje ten `transform`. Ikona przestaje być wyśrodkowana i siada lewym górnym rogiem na
-kotwicy — czyli **przesuwa się w prawo i w dół o połowę swojej szerokości/wysokości**.
+⚠️ Assigning `element.style.cssText = '...'` on THAT element **replaces the whole declaration block**,
+so it wipes that `transform`. The icon stops being centered and sits with its top-left corner on
+the anchor — i.e. it **shifts right and down by half its width/height**.
 
-⚠️ **Objaw wygląda jak błąd zoomu, a nie pozycjonowania.** Przesunięcie jest stałe w PIKSELACH
-EKRANU (DOM nie skaluje się z kamerą), a heks kurczy się przy oddalaniu — więc z bliska wygląda to
-na drobne niedociągnięcie, a przy dużym oddaleniu ikona ląduje o kilka pól w bok. Zgłaszane jako
-„ikony rozjeżdżają się przy zoomowaniu".
+⚠️ **The symptom looks like a zoom bug, not a positioning one.** The shift is constant in SCREEN
+PIXELS (the DOM does not scale with the camera), while the hex shrinks as you zoom out — so up close it looks
+like a small imperfection, and at a large zoom-out the icon lands several tiles to the side. Reported as
+"the icons drift apart when zooming".
 
-Na własnych elementach `cssText` jest w porządku i jest znacznie tańszy niż `setProperty` per
-własność (jedno przejście do silnika zamiast N). Wyjątkiem jest **korzeń ikony**, bo to jedyny
-element współdzielony z grą:
+On your own elements `cssText` is fine and much cheaper than `setProperty` per
+property (one crossing into the engine instead of N). The exception is the **icon's root**, because it is the only
+element shared with the game:
 
 ```js
-// ✅ korzeń: setProperty, dokłada się do istniejących deklaracji
+// ✅ the root: setProperty, adds to the existing declarations
 for (const [name, value] of ROOT_ENTRIES) this.Root.style.setProperty(name, value);
-// ✅ elementy stworzone przez nas: cssText
+// ✅ elements we created: cssText
 child.style.cssText = CHILD_CSS;
 ```
 
-Ta sama zasada dotyczy każdego elementu, na którym gra trzyma inline'owy styl — m.in. wszystkiego,
-co ma `data-bind-style-*` (bindingi też piszą inline).
-
-## Świeżo wstawiony element ma prostokąt 0x0 w tej samej klatce ✅ (2026-09-07)
-
-`getBoundingClientRect()` na węźle dodanym do DOM w tej samej klatce zwraca `0,0-0,0` — silnik nie
-przeliczył jeszcze układu. Gest myszy, który przebudowuje listę i **od razu** próbuje sprawdzić, w
-który wiersz trafił kursor, nie trafi w żaden: pierwsze kliknięcie „nie działa", drugie działa.
-
-⚠️ Objaw myli, bo wygląda na błąd liczenia albo na przechwycone zdarzenie. Rozstrzyga wypisanie
-prostokątów do `UI.log` — same zera mówią wszystko.
-
-⚠️ Rozwiązanie: przełóż pomiar na najbliższy `mousemove` (albo `requestAnimationFrame`), pamiętając
-punkt naciśnięcia. Ten sam mod złapał się na tym trzy razy: przy pomiarach magazynów i przy
-przeciąganiu listy zaplanowanych zakupów.
-
-⚠️ Pokrewne: `fxs-vslot` zgłasza `0x0` **zawsze**, niezależnie od klatki — nie da się przez niego
-mierzyć niczego.
+The same principle applies to every element on which the game keeps an inline style — including everything
+with `data-bind-style-*` (bindings write inline too).

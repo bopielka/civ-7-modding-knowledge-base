@@ -1,112 +1,112 @@
-# 25. `ui-next` — drugi framework UI (Solid.js)
+# 25. `ui-next` — the second UI framework (Solid.js)
 
-**Data ustalenia: 2026-08-10.** Odkryte przy pracy nad modem „Better Commerce Screen UI".
+**Established: 2026-08-10.** Discovered while working on the "Better Commerce Screen UI" mod.
 
-## ⚠️ NAJWAŻNIEJSZE: Civ VII ma DWA frameworki UI, nie jeden
+## ⚠️ MOST IMPORTANT: Civ VII has TWO UI frameworks, not one
 
-Wszystko, co opisuje [05-ui-javascript.md](05-ui-javascript.md) i
+Everything described in [05-ui-javascript.md](05-ui-javascript.md) and
 [09-cookbook-ui-mod.md](09-cookbook-ui-mod.md) (`Controls.define`, `Controls.decorate`,
-`Component`, `data-bind-*`, `.html.js`), dotyczy **starego** frameworka w katalogach `ui/`.
+`Component`, `data-bind-*`, `.html.js`) applies to the **old** framework in the `ui/` directories.
 
-Równolegle istnieje **nowy** framework w katalogach `ui-next/` — ✅ zweryfikowane w plikach:
+Alongside it there is a **new** framework in the `ui-next/` directories — ✅ verified in the files:
 
-| | stary `ui/` | nowy `ui-next/` |
+| | old `ui/` | new `ui-next/` |
 |---|---|---|
-| Podstawa | własny `Component` + custom elements | **Solid.js** (`core/vendor/solid-js`) |
-| Widok | string HTML w `*.html.js` + `data-bind-*` | JSX kompilowany do `createComponent`/`template` |
-| Reaktywność | `data-bind-value`, ręczne `update*()` | sygnały: `createSignal`, `createMemo`, `createEffect` |
-| Rejestracja | `Controls.define('nazwa', …)` | `ComponentRegistry.register({name, createInstance})` |
-| Model | klasa singleton + `engine.on` | `ModelRegistry.register(...)` / fabryka + `createContext` |
-| Modowanie | `Controls.decorate` | **`overridePriority`** (patrz niżej) |
-| Klasy CSS | te same utility (`flex`, `mt-4`, `text-secondary`) | te same |
+| Foundation | a custom `Component` + custom elements | **Solid.js** (`core/vendor/solid-js`) |
+| View | an HTML string in `*.html.js` + `data-bind-*` | JSX compiled to `createComponent`/`template` |
+| Reactivity | `data-bind-value`, manual `update*()` | signals: `createSignal`, `createMemo`, `createEffect` |
+| Registration | `Controls.define('name', …)` | `ComponentRegistry.register({name, createInstance})` |
+| Model | a singleton class + `engine.on` | `ModelRegistry.register(...)` / a factory + `createContext` |
+| Modding | `Controls.decorate` | **`overridePriority`** (see below) |
+| CSS classes | the same utilities (`flex`, `mt-4`, `text-secondary`) | the same |
 
-Nowe ekrany Firaxis pisze już w `ui-next`. Na 2026-08-10 są tam m.in.:
-`screens/commerce` (ekran Handlu), `screens/victories`, `screens/load-screen`,
+Firaxis writes new screens in `ui-next` already. As of 2026-08-10 these include:
+`screens/commerce` (the Commerce screen), `screens/victories`, `screens/load-screen`,
 `screens/age-transition`, `screens/choosers/tech-chooser`, `.../culture-chooser`.
 
-**Praktyczny wniosek:** zanim zaczniesz pisać dekorator w starym stylu, sprawdź, czy
-ekran nie został już przeniesiony do `ui-next/`. Jeśli został — stary plik w `ui/`
-nadal leży na dysku i nadal jest ładowany, ale **nie jest tym, co widzi gracz**
-(patrz „Który ekran wygrywa" niżej).
+**The practical conclusion:** before you start writing an old-style decorator, check whether
+the screen has already moved to `ui-next/`. If it has — the old file in `ui/`
+is still on disk and is still loaded, but it is **not what the player sees**
+(see "Which screen wins" below).
 
-## Gdzie co leży ✅
+## Where things live ✅
 
 ```
-Base/modules/core/vendor/solid-js/dist/solid.js         rdzeń Solid
-Base/modules/core/vendor/solid-js/web/dist/web.js       renderer DOM
+Base/modules/core/vendor/solid-js/dist/solid.js         the Solid core
+Base/modules/core/vendor/solid-js/web/dist/web.js       the DOM renderer
 Base/modules/core/vendor/solid-js/store/dist/store.js   createMutable / createStore
 Base/modules/core/ui-next/services/component-registry.js
 Base/modules/core/ui-next/services/model-registry.js
-Base/modules/core/ui-next/components/fxs-solid-component.js   most stary↔nowy
+Base/modules/core/ui-next/components/fxs-solid-component.js   the old↔new bridge
 Base/modules/core/ui-next/components/                   Tab, Dropdown, ScrollArea,
                                                         SearchBar, CollapsibleContainer,
                                                         CardFrame, Activatable, Icon, L10n…
 Base/modules/base-standard/ui-next/components/          ScreenFrame, FramedResource,
                                                         YieldDelta, LeaderWithRibbon…
-Base/modules/base-standard/ui-next/screens/<ekran>/
-Base/modules/core/ui-next/sandbox/                      przykłady Firaxis (!)
-Base/modules/core/ui-next/reference/                    referencje: audio, drag&drop
+Base/modules/base-standard/ui-next/screens/<screen>/
+Base/modules/core/ui-next/sandbox/                      Firaxis's own examples (!)
+Base/modules/core/ui-next/reference/                    references: audio, drag&drop
 ```
 
-W `sandbox/` leżą gotowe, proste przykłady Firaxis (`hello-component.js`,
-`simple-binding.js`, `list-example.js`, `effect-model.js`) — to najkrótsza droga do
-zrozumienia konwencji.
+`sandbox/` holds ready, simple Firaxis examples (`hello-component.js`,
+`simple-binding.js`, `list-example.js`, `effect-model.js`) — the shortest route to
+understanding the conventions.
 
-## Mechanizm nadpisywania — zaprojektowany POD MODY ✅
+## The override mechanism — designed FOR MODS ✅
 
-To najważniejsze odkrycie. `component-registry.ts` mówi wprost w komentarzu:
-*„Components can be overriden (for example, by mods) by setting a higher priority"*.
+This is the most important discovery. `component-registry.ts` says so plainly in a comment:
+*"Components can be overriden (for example, by mods) by setting a higher priority"*.
 
 ```js
-// gra rejestruje:
+// the game registers:
 ComponentRegistry.register({ name: "TradeRouteCard", createInstance: TradeRouteCardComponent });
-// mod rejestruje pod TĄ SAMĄ nazwą z wyższym priorytetem:
+// the mod registers under THE SAME name with a higher priority:
 ComponentRegistry.register({ name: "TradeRouteCard", createInstance: MyCard, overridePriority: 1 });
 ```
 
-Jak to działa w środku (przeczytane w źródle):
-- rejestr trzyma **jeden owinięty obiekt-fabrykę na nazwę**; `register()` zwraca zawsze
-  ten sam obiekt i tylko podmienia w nim pole `.factory`, jeśli nowy priorytet jest wyższy;
-- kod gry, który zaimportował `TradeRouteCard`, trzyma referencję do tego owiniętego
-  obiektu → **po nadpisaniu automatycznie renderuje wersję moda**, bez reimportu.
+How it works inside (read in the source):
+- the registry keeps **one wrapped factory object per name**; `register()` always returns
+  that same object and only swaps its `.factory` field if the new priority is higher;
+- game code that imported `TradeRouteCard` holds a reference to that wrapped
+  object → **after the override it automatically renders the mod's version**, with no re-import.
 
-✅ **Kolejność ładowania nie ma znaczenia.** Mod może zarejestrować się przed grą albo po
-niej — wygrywa wyższy `overridePriority`. To całkowicie usuwa problem „patch wykonał się,
-zanim obiekt istniał", który zjadł dużo czasu przy modzie specjalistów
-(patrz [14-quirks-and-gotchas.md](14-quirks-and-gotchas.md)).
+✅ **Load order does not matter.** A mod can register before the game or after
+it — the higher `overridePriority` wins. This entirely removes the "the patch ran
+before the object existed" problem that ate a lot of time on the specialists mod
+(see [14-quirks-and-gotchas.md](14-quirks-and-gotchas.md)).
 
-Analogicznie `ModelRegistry.register(name, lifecycle, factory, priority)`, gdzie
-`ModelLifecycle` to `Singleton` / `SharedInstance` / `PerInstance`.
+Analogously `ModelRegistry.register(name, lifecycle, factory, priority)`, where
+`ModelLifecycle` is `Singleton` / `SharedInstance` / `PerInstance`.
 
-⚠️ **Ale:** nadpisanie modelu w `ModelRegistry` działa tylko wtedy, gdy konsument
-faktycznie woła `Model.get()`. Ekran Handlu **woła fabrykę `createCommerceScreenModel()`
-bezpośrednio**, więc rejestracja `"CommerceScreenModel"` z wyższym priorytetem go **nie**
-dotknie — patrz [26-commerce-screen.md](26-commerce-screen.md).
+⚠️ **But:** overriding a model in `ModelRegistry` only works if the consumer
+actually calls `Model.get()`. The Commerce screen **calls the `createCommerceScreenModel()`
+factory directly**, so registering `"CommerceScreenModel"` with a higher priority will **not**
+affect it — see [26-commerce-screen.md](26-commerce-screen.md).
 
-**Nadpisać można tylko komponent, który gra zarejestrowała.** Zwykły `export const Foo:
-Component = …` bez `ComponentRegistry.register` jest nietykalny — trzeba wtedy podmienić
-jego rodzica.
+**You can only override a component the game registered.** A plain `export const Foo:
+Component = …` without `ComponentRegistry.register` is untouchable — you then have to replace
+its parent.
 
-## Most stary ↔ nowy: `defineLegacyComponent` ✅
+## The old ↔ new bridge: `defineLegacyComponent` ✅
 
 ```js
 defineLegacyComponent("screen-resource-allocation", { classNames: ["fullscreen"] },
                       () => createComponent(CommerceScreen, {}));
 ```
 
-Tworzy klasyczny custom element o podanej nazwie, którego `onAttach` renderuje w środku
-drzewo Solid (`render()` z `solid-js/web`). Dzięki temu `ContextManager.push("screen-…")`,
-`<template>` w `root-game.html`, tutoriale i cała stara infrastruktura działają bez zmian.
+It creates a classic custom element with the given name, whose `onAttach` renders a Solid
+tree inside (`render()` from `solid-js/web`). Thanks to this, `ContextManager.push("screen-…")`,
+the `<template>` in `root-game.html`, tutorials and all the old infrastructure work unchanged.
 
-### Który ekran wygrywa, gdy istnieje stara i nowa wersja ✅
+### Which screen wins when an old and a new version both exist ✅
 
-`defineLegacyComponent` woła `Controls.define(name, { priority: ranking })`, gdzie
-`ranking = Modding.getModRankByURL(calleeURLOrPriority)` albo **domyślnie `1`**.
-Stary `Controls.define` bez priorytetu daje `0`. Dlatego przy dwóch definicjach
-`screen-resource-allocation` (starej w `ui/resource-allocation/` i nowej w
-`ui-next/screens/commerce/`) **wygrywa ta z `ui-next`**.
+`defineLegacyComponent` calls `Controls.define(name, { priority: ranking })`, where
+`ranking = Modding.getModRankByURL(calleeURLOrPriority)` or **`1` by default**.
+The old `Controls.define` without a priority gives `0`. That is why, with two definitions of
+`screen-resource-allocation` (the old one in `ui/resource-allocation/` and the new one in
+`ui-next/screens/commerce/`), **the `ui-next` one wins**.
 
-Ten sam mechanizm jest drogą do całkowitego przejęcia ekranu przez mod:
+The same mechanism is the route to a mod taking over a screen entirely:
 
 ```js
 defineLegacyComponent("screen-resource-allocation",
@@ -114,73 +114,73 @@ defineLegacyComponent("screen-resource-allocation",
     () => createComponent(MyWholeScreen, {}));
 ```
 
-⚠️ Niesprawdzone w praktyce; `Modding.getModRankByURL` powinno dać modowi rangę > 1.
-Nadpisanie przez `ComponentRegistry` jest mniej inwazyjne i należy je preferować.
+⚠️ Not verified in practice; `Modding.getModRankByURL` should give a mod a rank > 1.
+Overriding via `ComponentRegistry` is less invasive and should be preferred.
 
-### ❗✅ KOREKTA 2026-08-26: funkcja renderująca to zwykły `Map.set` — WYGRYWA OSTATNI
+### ❗✅ CORRECTION 2026-08-26: the render function is a plain `Map.set` — THE LAST ONE WINS
 
-Priorytet **nie decyduje o tym, co się narysuje**. Pełne ciało funkcji, przeczytane w
+Priority **does not decide what gets drawn**. The full body of the function, read in
 `core/ui-next/components/fxs-solid-component.js`:
 
 ```js
 function defineLegacyComponent(name, options, renderFunction) {
   const ranking = typeof options.calleeURLOrPriority == "number" ? options.calleeURLOrPriority
     : options.calleeURLOrPriority ? Modding.getModRankByURL(options.calleeURLOrPriority) : 1;
-  registeredLegacySolidComponents.set(name.toUpperCase(), { renderFunction, ...options });  // ← zwykły Map.set
+  registeredLegacySolidComponents.set(name.toUpperCase(), { renderFunction, ...options });  // ← a plain Map.set
   Controls.define(name, { createInstance: FxsSolidComponent, priority: ranking >= 0 ? ranking : 0, … });
 }
 ```
 
-`registeredLegacySolidComponents` to zwykła `Map` bez żadnego sprawdzania priorytetu.
-`priority` rządzi wyłącznie `Controls.define` — a **każdy** wywołujący podaje tę samą klasę
-`FxsSolidComponent`, więc kto wygra tamten wyścig, nie ma znaczenia.
+`registeredLegacySolidComponents` is a plain `Map` with no priority check whatsoever.
+`priority` governs `Controls.define` only — and **every** caller passes the same
+`FxsSolidComponent` class, so who wins that race does not matter.
 
-**Wniosek praktyczny:** żeby przejąć element zdefiniowany przez `defineLegacyComponent`
-(np. `production-chooser-item`), wystarczy zawołać `defineLegacyComponent` z tą samą nazwą
-**później** — czyli mieć wyższy `LoadOrder`. Działa to nawet wtedy, gdy inny mod podmienił
-cały plik gry przez `ImportFiles`, bo liczy się kolejność wykonania, nie to, czyj plik został
-wykonany.
+**The practical conclusion:** to take over an element defined by `defineLegacyComponent`
+(e.g. `production-chooser-item`), it is enough to call `defineLegacyComponent` with the same name
+**later** — i.e. to have a higher `LoadOrder`. This works even when another mod has replaced
+a whole game file through `ImportFiles`, because what counts is execution order, not whose file was
+executed.
 
-⚠️ To jest **tylko podmiana**, nie owinięcie: mapa jest prywatna dla modułu, a pliki gry z
-komponentami niczego nie eksportują. Trzeba napisać cały renderer.
+⚠️ This is **only a replacement**, not a wrap: the map is private to the module, and the game's
+component files export nothing. You have to write the whole renderer.
 
-⚠️ Symetrycznie: mod ładujący się po tobie odbierze ci to tak samo.
+⚠️ Symmetrically: a mod that loads after you will take it from you the same way.
 
-⚠️ `options.attrs` musi wymieniać **każdy** czytany atrybut `data-*`. `FxsSolidComponent`
-przepisuje do reaktywnego magazynu tylko zadeklarowane, a `Controls.define` obserwuje tylko je.
-Brakujący atrybut po prostu nigdy się nie zaktualizuje — bez błędu.
+⚠️ `options.attrs` has to list **every** `data-*` attribute you read. `FxsSolidComponent`
+copies only the declared ones into the reactive store, and `Controls.define` observes only those.
+A missing attribute simply never updates — without an error.
 
-### ✅ `Controls.decorate` DZIAŁA na elemencie z `defineLegacyComponent` — ale nie daje wnętrza
+### ✅ `Controls.decorate` DOES WORK on an element from `defineLegacyComponent` — but it does not give you the internals
 
-Ustalone 2026-08-26 na działającym modzie `f1rstdan-cool-ui`: element zdefiniowany przez
-`defineLegacyComponent` to nadal zwykły custom element z `Controls.define` (klasa
-`FxsSolidComponent`), więc dekorator się podepnie i dostanie `Root` oraz cztery haki cyklu życia.
+Established 2026-08-26 on the working `f1rstdan-cool-ui` mod: an element defined by
+`defineLegacyComponent` is still an ordinary custom element from `Controls.define` (the
+`FxsSolidComponent` class), so a decorator will attach and will get `Root` plus the four lifecycle hooks.
 
-❗ **Czego NIE dostanie: wnętrza jako nazwanych właściwości.** W starym frameworku komponent
-wystawiał `this.container`, `this.iconElement`, `this.itemNameElement`… Po przepisaniu na Solid
-tych pól nie ma — jest tylko wyrenderowany DOM pod `Root`.
+❗ **What it will NOT get: the internals as named properties.** In the old framework a component
+exposed `this.container`, `this.iconElement`, `this.itemNameElement`… After the rewrite to Solid
+those fields are gone — there is only the rendered DOM under `Root`.
 
-**Stąd dwie drogi i realny wybór między nimi:**
+**Hence two routes and a real choice between them:**
 
-| Droga | Daje | Kosztuje |
+| Route | Gives you | Costs |
 |---|---|---|
-| **A** — ponowna rejestracja przez `defineLegacyComponent` | pełną kontrolę nad komponentem | tylko podmiana; trzeba napisać cały renderer |
-| **B** — `Controls.decorate` + operowanie na wyrenderowanym DOM | dodatkowość, współistnienie z innymi | walczy z reaktywnością Solid o wszystko, co Solid przerysowuje |
+| **A** — re-registration via `defineLegacyComponent` | full control over the component | replacement only; you have to write the whole renderer |
+| **B** — `Controls.decorate` + operating on the rendered DOM | additivity, coexistence with others | fights Solid's reactivity over everything Solid redraws |
 
-⚠️ **Przestroga z praktyki:** `f1rstdan-cool-ui` zbudował swój kompaktowy układ wiersza produkcji
-na drodze B, na nazwanych elementach wnętrza. Gdy gra przeniosła `production-chooser-item` do
-`ui-next`, **funkcja przestała działać i jest niesprawna od dwóch wydań** — autor pisze o tym
-wprost w swoim `Changelog.md`. To, co w tym samym modzie **przetrwało**, to przycisk szybkiego
-zakupu, bo sięga wyłącznie po `Root.firstElementChild`.
+⚠️ **A warning from practice:** `f1rstdan-cool-ui` built its compact production row layout
+on route B, on named internal elements. When the game moved `production-chooser-item` to
+`ui-next`, **the feature stopped working and has been broken for two releases** — the author says so
+plainly in his `Changelog.md`. What **did** survive in the same mod is the quick-purchase
+button, because it only reaches for `Root.firstElementChild`.
 
-**Reguła:** droga B do rzeczy czysto dodawanych (wstrzyknięcie własnego przycisku), droga A do
-zmiany układu.
+**The rule:** route B for purely additive things (injecting a button of your own), route A for
+changing the layout.
 
-## ✅ Import z moda DZIAŁA — potwierdzone działającym modem z Workshop
+## ✅ Importing from a mod WORKS — confirmed by a working Workshop mod
 
-**2026-08-10, KOREKTA wcześniejszego ⚠️:** ścieżki `/core/vendor/…` i `/core/ui-next/…`
-z poziomu moda **działają**. Potwierdza to mod **Resource+** (`brads-assign-all-resources`,
-Workshop 3756000777, autor Brad), który zaczyna się dokładnie tak:
+**2026-08-10, a CORRECTION to an earlier ⚠️:** the paths `/core/vendor/…` and `/core/ui-next/…`
+**work** from within a mod. This is confirmed by the **Resource+** mod (`brads-assign-all-resources`,
+Workshop 3756000777, by Brad), which begins exactly like this:
 
 ```js
 import { onMount, onCleanup } from '/core/vendor/solid-js/dist/solid.js';
@@ -189,24 +189,24 @@ import { useCommerceScreenContext } from '/base-standard/ui-next/screens/commerc
 import { CommerceResourcesContainer } from '/base-standard/ui-next/screens/commerce/commerce-screen-resources-tab.js';
 ```
 
-## ⭐ Wzorzec: opakowanie oryginału (`Controls.decorate` dla `ui-next`) ✅
+## ⭐ The pattern: wrapping the original (`Controls.decorate` for `ui-next`) ✅
 
-Nadpisanie z `overridePriority` **zastępuje** komponent. Żeby go tylko *rozszerzyć*,
-trzeba złapać oryginał i zawołać go na końcu. Wzorzec z Resource+:
+An override with `overridePriority` **replaces** the component. To merely *extend* it,
+you have to catch the original and call it at the end. The pattern from Resource+:
 
 ```js
-// 1. import komponentu WYMUSZA wykonanie modułu gry przed tą linią (kolejność ESM),
-//    więc rejestracja gry na pewno już się odbyła
+// 1. importing the component FORCES the game's module to run before this line (ESM order),
+//    so the game's registration has definitely already happened
 import { CommerceResourcesContainer } from '/base-standard/ui-next/screens/commerce/commerce-screen-resources-tab.js';
 
-// 2. `.factory` owiniętej fabryki to implementacja gry
+// 2. the wrapped factory's `.factory` is the game's implementation
 const originalFactory = CommerceResourcesContainer.factory;
 
 function MyWrapper(props) {
-    const model = useCommerceScreenContext();   // działa: jesteśmy w drzewie Providera
-    onMount(() => { /* wstrzyknij swoje — idempotentnie, patrz niżej */ });
-    onCleanup(() => { /* patrz ⚠️ pod spodem: NIE zawsze wolno tu sprzątać */ });
-    return originalFactory(props);              // 3. oryginał renderuje się normalnie
+    const model = useCommerceScreenContext();   // works: we are inside the Provider's tree
+    onMount(() => { /* inject your own — idempotently, see below */ });
+    onCleanup(() => { /* see the ⚠️ below: cleaning up here is NOT always allowed */ });
+    return originalFactory(props);              // 3. the original renders normally
 }
 
 ComponentRegistry.register({
@@ -216,47 +216,47 @@ ComponentRegistry.register({
 });
 ```
 
-⚠️ **Tu kolejność JEDNAK ma znaczenie** — inaczej niż przy czystym nadpisaniu.
-`Component.factory` musi już wskazywać na implementację gry w chwili odczytu.
-Gwarantuje to **import modułu gry** (moduł importowany wykonuje się przed importującym),
-a nie `<LoadOrder>`. Resource+ i tak ustawia `LoadOrder` 1100 — nie zaszkodzi.
+⚠️ **Here order DOES matter** — unlike with a pure override.
+`Component.factory` has to already point at the game's implementation at the moment of the read.
+That is guaranteed by **importing the game's module** (an imported module runs before the importer),
+not by `<LoadOrder>`. Resource+ sets `LoadOrder` 1100 anyway — it does no harm.
 
-⚠️ Jeśli dwa mody zrobią to samo, wygrywa wyższy `overridePriority`, a łańcuch
-`originalFactory` zachowa się poprawnie **tylko wtedy**, gdy oba czytają `.factory`
-w momencie importu. Resource+ zajmuje `CommerceResourcesContainer` z priorytetem **1100** —
-przy kolizji trzeba dać więcej (i wtedy to nasz mod woła ich wrapper, a nie odwrotnie).
+⚠️ If two mods do the same thing, the higher `overridePriority` wins, and the
+`originalFactory` chain behaves correctly **only if** both read `.factory`
+at import time. Resource+ occupies `CommerceResourcesContainer` with priority **1100** —
+on a collision you have to give more (and then it is our mod calling their wrapper, not the other way round).
 
-## Dwie drogi do treści: JSX ręcznie albo goły DOM
+## Two routes to the content: JSX by hand, or raw DOM
 
-### Droga A (jak Resource+): wstrzykiwanie DOM ✅ prostsze
+### Route A (like Resource+): DOM injection ✅ simpler
 
-Resource+ **w ogóle nie buduje JSX**. Zwraca oryginał, a swoje elementy dokłada
-`document.createElement` / `querySelector` w `onMount`, style wrzuca jako
-`<style id="…">` do `document.head`, a synchronizację z reaktywnym drzewem Solid
-załatwia `MutationObserver` na `document.body`:
+Resource+ **does not build JSX at all**. It returns the original and adds its own elements with
+`document.createElement` / `querySelector` in `onMount`, drops its styles as a
+`<style id="…">` into `document.head`, and handles synchronization with Solid's reactive tree
+with a `MutationObserver` on `document.body`:
 
 ```js
 observer = new MutationObserver(reconcileUI);
 observer.observe(document.body, { childList: true, subtree: true });
 ```
 
-Zalety: zero kompilacji, pełna kontrola. Wady: zależność od klas CSS i atrybutów
-`data-name` gry (kruche przy patchach) oraz koszt `MutationObserver` na całym `body`.
+Advantages: no compilation, full control. Drawbacks: dependence on the game's CSS classes and
+`data-name` attributes (brittle across patches) and the cost of a `MutationObserver` on the whole `body`.
 
-⚠️ **Sprzątanie w `onCleanup` jest pułapką.** Kontener montuje się kilka razy w trakcie
-jednej wizyty na ekranie, a `onMount` nowego montowania potrafi wykonać się **przed**
-`onCleanup` poprzedniego — sprzątanie usuwa wtedy dopiero co wstrzyknięty element,
-a `stop*()` operujące na modułowym singletonie rozłącza obserwator już należący do
-nowego montowania. Do tego Solid przy przerysowaniu kontenera potrafi usunąć obce węzły.
+⚠️ **Cleaning up in `onCleanup` is a trap.** The container mounts several times during
+a single visit to the screen, and a new mount's `onMount` can run **before** the previous one's
+`onCleanup` — the cleanup then removes the just-injected element,
+and a `stop*()` operating on a module singleton disconnects an observer that already belongs to
+the new mount. On top of that, Solid can remove foreign nodes when it re-renders the container.
 
-Dlatego obserwator **zostaje podłączony na stałe** i wstawia element z powrotem, ilekroć
-zniknie, a `stop*()` woła się wyłącznie przy pełnym demontażu moda. Pełny wzorzec:
+That is why the observer **stays permanently attached** and reinserts the element whenever it
+disappears, and `stop*()` is called only on a full teardown of the mod. The full pattern:
 **[quirk #51](14-quirks-and-gotchas.md)**.
 
-### Droga B: ręcznie pisany skompilowany JSX ⚠️ nieprzetestowane
+### Route B: hand-written compiled JSX ⚠️ untested
 
-Mod ładowany przez `<UIScripts>` to zwykły moduł ES — nikt nie skompiluje w nim JSX.
-Ale skompilowany kod gry to czysty JS, który da się pisać ręcznie:
+A mod loaded through `<UIScripts>` is a plain ES module — nobody will compile JSX in it.
+But the game's compiled code is plain JS, which can be written by hand:
 
 ```js
 import { createComponent, createMemo, Show, For } from '/core/vendor/solid-js/dist/solid.js';
@@ -264,83 +264,83 @@ import { template, insert, effect, setAttribute } from '/core/vendor/solid-js/we
 ```
 
 - `<Foo a={1}>bar</Foo>` → `createComponent(Foo, { a: 1, get children() { return "bar" } })`
-- statyczny HTML → `const _tmpl = template('<div class="flex"></div>')`, potem `_tmpl()`
-- dziecko dynamiczne → `insert(rodzic, () => wyrażenie)`
-- prop reaktywny musi być **getterem** (`get children() {…}`), inaczej traci reaktywność
+- static HTML → `const _tmpl = template('<div class="flex"></div>')`, then `_tmpl()`
+- a dynamic child → `insert(parent, () => expression)`
+- a reactive prop has to be a **getter** (`get children() {…}`), otherwise it loses reactivity
 
-Eksporty są dostępne: `solid.js` daje m.in. `createComponent, createSignal, createMemo,
+The exports are available: `solid.js` gives, among others, `createComponent, createSignal, createMemo,
 createEffect, createContext, useContext, batch, untrack, splitProps, mergeProps, onMount,
-onCleanup, For, Show, Switch, Index, lazy`; `web.js` daje `template, insert, render, spread,
+onCleanup, For, Show, Switch, Index, lazy`; `web.js` gives `template, insert, render, spread,
 setAttribute, classList, style, effect, delegateEvents`.
 
-## Rzeczy, które zaskakują
+## Things that surprise you
 
-- **Klasy CSS są utility w stylu Tailwinda**, ale to własna implementacja Firaxis;
-  ucieczki w nazwach klas piszą jako `-top-0\.5`, `hover\:scale-125`, `w-1\/4`.
-- Rozmiary w px liczy się przez `Layout.pixelsToScreenPixels(512)` — nie wpisuj px na sztywno.
-- Teksty: `<L10n.Compose text="LOC_…" />`, nie `data-l10n-id`.
-- Obrazy BLP: `url(blp:nazwa)` w stylu + deklaracja w `images: [...]` przy rejestracji
-  komponentu (preload), albo `useImageCache().registerImages(Symbol, [...])`.
-- `createEngineEvent("NazwaZdarzenia")` z `#core/ui-next/utilities/game-core-utilities.js`
-  zamienia zdarzenie silnika na sygnał Solid — nie ma potrzeby ręcznego `engine.off`.
-- Stary `UpdateGate` z `core/ui/utilities/utilities-update-gate.js` jest nadal używany
-  wewnątrz nowych modeli do zbierania wielu zdarzeń w jedno przeliczenie.
-- Aliasy importów w źródłach TypeScript (`#core/…`, `#base/…`) to tylko konwencja
-  buildu — w skompilowanym `.js` są **ścieżkami względnymi** (`../../../../core/…`).
+- **The CSS classes are Tailwind-style utilities**, but it is a Firaxis implementation of its own;
+  escapes in class names are written as `-top-0\.5`, `hover\:scale-125`, `w-1\/4`.
+- Pixel sizes are computed with `Layout.pixelsToScreenPixels(512)` — do not hardcode px.
+- Texts: `<L10n.Compose text="LOC_…" />`, not `data-l10n-id`.
+- BLP images: `url(blp:name)` in a style + a declaration in `images: [...]` at component
+  registration (preload), or `useImageCache().registerImages(Symbol, [...])`.
+- `createEngineEvent("EventName")` from `#core/ui-next/utilities/game-core-utilities.js`
+  turns an engine event into a Solid signal — no need for a manual `engine.off`.
+- The old `UpdateGate` from `core/ui/utilities/utilities-update-gate.js` is still used
+  inside the new models to batch several events into one recomputation.
+- The import aliases in the TypeScript sources (`#core/…`, `#base/…`) are only a build
+  convention — in the compiled `.js` they are **relative paths** (`../../../../core/…`).
 
-## Skąd brać oryginalne źródła
+## Where to get the original sources
 
-`.js.map` w `ui-next/` mają pełne `sourcesContent` z plikami **`.tsx`**:
+The `.js.map` files in `ui-next/` have full `sourcesContent` with **`.tsx`** files:
 
 ```bash
-python tools/extract_ts.py "…/base-standard/ui-next/screens/commerce" /katalog/docelowy
+python tools/extract_ts.py "…/base-standard/ui-next/screens/commerce" /target/directory
 ```
 
-⚠️ `extract_ts.py` wywala się na mapach dla `*.scss.js` (nazwa źródła kończy się na
-`?url`, co jest nielegalną nazwą pliku w Windows). Wypisuje `BLAD …` i idzie dalej —
-reszta plików wyciąga się poprawnie, więc to nieszkodliwe.
+⚠️ `extract_ts.py` blows up on maps for `*.scss.js` (the source name ends in
+`?url`, which is an illegal file name on Windows). It prints `ERROR …` and carries on —
+the remaining files extract correctly, so it is harmless.
 
-## Wejście myszy i klawiatury w `ui-next` ✅
+## Mouse and keyboard input in `ui-next` ✅
 
-**Data: 2026-08-10**, ustalone przy pierwszym feature moda Commerce.
+**Date: 2026-08-10**, established while working on the first feature of the Commerce mod.
 
-### Kształt zdarzenia `engine-input`
+### The shape of the `engine-input` event
 
-`core/ui/input/input-support.js` — `detail` ma **dokładnie** tyle:
+`core/ui/input/input-support.js` — `detail` has **exactly** this much:
 
 ```js
 { name, status, x, y, isTouch, isMouse }
 ```
 
-❗ **Nie ma `shiftKey`/`ctrlKey`/`altKey` ani `target` w `detail`.** Modyfikatory trzeba
-brać z DOM-owych `keydown`/`keyup` (te działają — własna
-`core/ui/external/js-spatial-navigation/spatial_navigation.js` czyta z nich
-`evt.shiftKey`), albo zadeklarować własną akcję wejścia.
+❗ **There is no `shiftKey`/`ctrlKey`/`altKey`, and no `target`, in `detail`.** Modifiers have to be
+taken from the DOM's `keydown`/`keyup` (those work — the game's own
+`core/ui/external/js-spatial-navigation/spatial_navigation.js` reads
+`evt.shiftKey` from them), or you have to declare an input action of your own.
 
-✅ `detail.x` / `detail.y` to **współrzędne DOM-owe** — gra sama robi na nich
-`document.elementsFromPoint(event.detail.x, event.detail.y)`
-(`core/ui-next/components/drag-and-drop.js`). To najpewniejszy sposób ustalenia,
-w co gracz kliknął, bo `event.target` przy wejściu z pada bywa elementem *skupionym*,
-a nie tym pod kursorem.
+✅ `detail.x` / `detail.y` are **DOM coordinates** — the game itself does
+`document.elementsFromPoint(event.detail.x, event.detail.y)` with them
+(`core/ui-next/components/drag-and-drop.js`). That is the most reliable way of establishing
+what the player clicked on, because with gamepad input `event.target` is sometimes the *focused*
+element rather than the one under the cursor.
 
 ### `mousebutton-right` ✅
 
-- jest **zwykłą akcją wejścia** z `EventType="All"` → dostajesz `START` i `FINISH`
-  (`InputActionStatuses`), a nie jedno zdarzenie;
-- **nie ma żadnego wiersza w `InputContextConstraints`** → działa w każdym kontekście,
-  także `Shell` (czyli na ekranach pełnoekranowych);
-- gesty domyślne: `MOUSE_R` oraz — co ciekawe — `KEY_CONTROL+MOUSE_R` jako drugi
-  indeks tej samej akcji. Kombinacje `MODYFIKATOR+MYSZ` są więc legalne w `GestureData`.
+- it is an **ordinary input action** with `EventType="All"` → you get `START` and `FINISH`
+  (`InputActionStatuses`), not a single event;
+- it has **no row in `InputContextConstraints`** → it works in every context,
+  including `Shell` (i.e. on fullscreen screens);
+- default gestures: `MOUSE_R` and — interestingly — `KEY_CONTROL+MOUSE_R` as a second
+  index of the same action. So `MODIFIER+MOUSE` combinations are legal in `GestureData`.
 
-### PPM domyślnie zamyka ekran — trzeba to przechwycić ⚠️
+### RMB closes the screen by default — you have to intercept it ⚠️
 
-`InputEngineEvent.isCancelInput()` zwraca true dla `cancel`, `keyboard-escape`
-**i `mousebutton-right`**. `core/ui-next/components/panel.js` na `FINISH` takiego
-zdarzenia woła `ContextManager.pop(...)` — czyli zamyka ekran.
+`InputEngineEvent.isCancelInput()` returns true for `cancel`, `keyboard-escape`
+**and `mousebutton-right`**. On a `FINISH` of such an event, `core/ui-next/components/panel.js`
+calls `ContextManager.pop(...)` — i.e. it closes the screen.
 
-Panel słucha przez Solidowe `"on:engine-input"`, czyli **natywnym, niedelegowanym**
-listenerem na swoim elemencie (faza bąbelkowania). Dlatego mod, który chce nadać PPM
-własne znaczenie, musi słuchać **w fazie przechwytywania na `window`**:
+The panel listens through Solid's `"on:engine-input"`, i.e. with a **native, non-delegated**
+listener on its own element (the bubbling phase). That is why a mod that wants to give RMB
+a meaning of its own has to listen **in the capture phase on `window`**:
 
 ```js
 window.addEventListener(InputEngineEventName, handler, true);   // ← true = capture
@@ -350,305 +350,305 @@ event.stopPropagation();
 event.stopImmediatePropagation();
 ```
 
-Capture od `window` biegnie w dół **przed** dotarciem do elementu panelu, więc
-zatrzymanie propagacji tam faktycznie zapobiega zamknięciu ekranu. Zatrzymuj tylko
-te kliknięcia, które naprawdę obsługujesz — reszta PPM ma dalej zamykać ekran.
+Capture from `window` runs downwards **before** reaching the panel's element, so
+stopping propagation there really does prevent the screen from closing. Stop only
+the clicks you actually handle — the rest of RMB should keep closing the screen.
 
-### Klikanie komponentu gry Z KODU: `Activatable` NIE reaguje na natywny klik ❗✅
+### Clicking a game component FROM CODE: `Activatable` does NOT react to a native click ❗✅
 
-**Data: 2026-08-18.** Odwrotność pułapki z `bindActivatable` (mod → wstrzyknięty div widzi
-tylko natywne zdarzenia). W drugą stronę jest tak samo szczelnie: `Activatable`
-(`core/ui-next/components/activatable.js`) nasłuchuje **wyłącznie** przez Solidowe
-`"on:engine-input"` i reaguje na `mousebutton-left` / `touch-tap` / `keyboard-enter` /
-przycisk akcji pada. `element.click()` i `dispatchEvent(new MouseEvent('click'))` **nie robią
-nic**. Trzeba wysłać zdarzenie silnika:
+**Date: 2026-08-18.** The inverse of the `bindActivatable` trap (mod → an injected div sees
+only native events). The other way round it is just as sealed: `Activatable`
+(`core/ui-next/components/activatable.js`) listens **exclusively** through Solid's
+`"on:engine-input"` and reacts to `mousebutton-left` / `touch-tap` / `keyboard-enter` /
+a gamepad action button. `element.click()` and `dispatchEvent(new MouseEvent('click'))` **do
+nothing**. You have to dispatch an engine event:
 
 ```js
 import { InputEngineEvent } from '/core/ui/input/input-support.js';
 
 element.dispatchEvent(new InputEngineEvent(
     'mousebutton-left',
-    InputActionStatuses.FINISH,   // ⚠️ FINISH, nie START
-    0, 0,                          // x, y — nieczytane przez Activatable
+    InputActionStatuses.FINISH,   // ⚠️ FINISH, not START
+    0, 0,                          // x, y — not read by Activatable
     false,                         // isTouch
     true,                          // isMouse
 ));
 ```
 
-⚠️ **Tylko `FINISH`.** `Activatable` na `START` odtwarza sam dźwięk wciśnięcia, a `activate()`
-woła dopiero na `FINISH`. Wysłanie obu = słyszalne wciśnięcie bez powodu.
+⚠️ **`FINISH` only.** On `START` `Activatable` plays the press sound itself, and it calls `activate()`
+only on `FINISH`. Sending both = an audible press for no reason.
 
-⚠️ `InputActionStatuses` i `InputEngineEventName` to globalne enumy silnika — nie importuje
-się ich, tak samo jak `GameContext` czy `Locale`.
+⚠️ `InputActionStatuses` and `InputEngineEventName` are engine global enums — they are not
+imported, just like `GameContext` or `Locale`.
 
-Dotyczy wszystkiego, co jest zbudowane na `Activatable` — czyli praktycznie każdego klikalnego
-elementu `ui-next`. Najbardziej przydatne przy **zakładkach**: element `[data-name="TabListItem"]`
-to `Activatable`, więc tak właśnie przełącza się zakładkę z moda (patrz
-[26-commerce-screen.md](26-commerce-screen.md), „Przeładowanie ekranu").
+This applies to everything built on `Activatable` — i.e. practically every clickable
+`ui-next` element. Most useful with **tabs**: the `[data-name="TabListItem"]` element
+is an `Activatable`, so that is exactly how you switch a tab from a mod (see
+[26-commerce-screen.md](26-commerce-screen.md), "Reloading the screen").
 
-### Wzorzec priorytetu odpornego na kolejność ✅
+### An order-proof priority pattern ✅
 
-Zamiast wpisywać `overridePriority` na sztywno (i ryzykować, że wyląduje pod cudzym
-wrapperem albo go skasuje):
+Instead of hardcoding `overridePriority` (and risking landing under somebody else's
+wrapper or wiping it out):
 
 ```js
 const originalFactory   = SomeComponent.factory;
 const overridePriority  = (SomeComponent.overridePriority ?? 0) + 100;
 ```
 
-Ładujemy się przed innym modem → mamy niski priorytet, on owija nas.
-Ładujemy się po nim → mamy wyższy, owijamy jego. **W obu przypadkach oba wrappery
-działają**, o ile każdy delegue do swojego `originalFactory`.
+We load before another mod → we have a low priority, it wraps us.
+We load after it → we have a higher one, we wrap it. **In both cases both wrappers
+work**, as long as each delegates to its own `originalFactory`.
 
-### Stan klawiszy modyfikujących: `Input.isShiftDown()` ✅
+### Modifier key state: `Input.isShiftDown()` ✅
 
-**2026-08-10, KOREKTA.** Wcześniej napisałem tu, że modyfikatory trzeba brać z DOM-owych
-`keydown`/`keyup`. **To nie działa** — sprawdzone w grze: nasłuch na `keydown`, `keyup`
-i `mousedown` (faza capture, na `window`) **ani razu** nie zgłosił wciśniętego Shifta,
-mimo że gracz go trzymał. Ten interfejs nie przepuszcza stanu modyfikatorów przez
-zdarzenia klawiatury DOM.
+**2026-08-10, A CORRECTION.** I wrote earlier here that modifiers have to be taken from the DOM's
+`keydown`/`keyup`. **That does not work** — checked in game: listeners on `keydown`, `keyup`
+and `mousedown` (capture phase, on `window`) **never once** reported Shift being pressed,
+even though the player was holding it. This interface does not pass modifier state through
+DOM keyboard events.
 
-Zamiast tego silnik odpowiada wprost:
+Instead the engine answers directly:
 
 ```js
-Input.isShiftDown()   // → boolean, można pytać w dowolnym momencie
+Input.isShiftDown()   // → boolean, can be asked at any moment
 ```
 
-Sama gra używa tego tak samo — `core/ui/tooltips/tooltip-manager.js` i
-`tooltip-controller.js` skracają opóźnienie dymka, gdy Shift jest wciśnięty:
+The game itself uses it the same way — `core/ui/tooltips/tooltip-manager.js` and
+`tooltip-controller.js` shorten the bubble's delay when Shift is held:
 
 ```js
 const tooltipDelay = Input.isShiftDown() ? 1 : Configuration.getUser().tooltipDelay;
 ```
 
-Zalety wobec własnej akcji wejścia w `config/input.xml`: zero plików konfiguracyjnych,
-zero grupy akcji w zakresie `shell`, żadnego stanu do synchronizowania i żadnej pułapki
-z przemapowywaniem gołego modyfikatora (patrz komentarz w `config/input.xml` moda
-o specjalistach). Wada: klawisz jest na sztywno, nie da się go przypisać na nowo.
+The advantages over a custom input action in `config/input.xml`: no configuration files,
+no action group in the `shell` scope, no state to synchronize and none of the trap
+with remapping a bare modifier (see the comment in the specialists mod's
+`config/input.xml`). The drawback: the key is hardcoded, it cannot be rebound.
 
-⚠️ Uwaga na kolejność szukania: pełnej listy API `Input.*` nie ma w żadnej
-dokumentacji — najszybciej wyciąga się ją z kodu gry:
+⚠️ Watch the order in which you search: there is no complete list of the `Input.*` API in any
+documentation — the fastest way to extract it is from the game's code:
 
 ```bash
 grep -rhoE "Input\.[a-zA-Z]+\(" --include=*.js core/ base-standard/ | sort -u
 ```
 
-To samo podejście działa dla `Game.*`, `Players.*` i reszty globalnych obiektów silnika.
+The same approach works for `Game.*`, `Players.*` and the rest of the engine's global objects.
 
-#### ❓ KOREKTA do powyższego: `Input.isShiftDown()` też zawiodło
+#### ❓ A CORRECTION to the above: `Input.isShiftDown()` failed too
 
-**2026-08-10, ta sama sesja.** Podmiana toru DOM na `Input.isShiftDown()` **nie
-naprawiła problemu** — funkcja istnieje, jest wołana (potwierdzone logiem), ale przy
-wciśniętym Shifcie i kliknięciu PPM na ekranie Handlu zwraca `false`.
+**2026-08-10, the same session.** Swapping the DOM route for `Input.isShiftDown()` **did not
+fix the problem** — the function exists, it is called (confirmed by a log), but with
+Shift held and RMB clicked on the Commerce screen it returns `false`.
 
-Stan na teraz: **nie znam działającego sposobu na odczytanie stanu modyfikatora
-w kontekście `Shell`.** `Input.isShiftDown()` to jedyne API stanu klawiszy w całym
-kodzie gry (`grep -rhoE "Input\.(is|get)[A-Z][a-zA-Z]*\("`), a gra używa go wyłącznie
-w tooltipach, które żyją głównie w kontekście świata.
+The state of things for now: **I do not know a working way of reading modifier state
+in the `Shell` context.** `Input.isShiftDown()` is the only key-state API in the whole
+game's code (`grep -rhoE "Input\.(is|get)[A-Z][a-zA-Z]*\("`), and the game uses it only
+in tooltips, which live mostly in the world context.
 
-**Hipoteza robocza (do potwierdzenia):** silnik **nie wyzwala gołej akcji
-`mousebutton-right`, gdy trzymany jest modyfikator**, więc przy Shift+PPM nie dociera
-do nas nic i pytanie o Shift nigdy nie pada w dobrym momencie. Poszlaka jest mocna —
-w `core/config/Input.xml` sama gra musi zadeklarować **drugi gest** dla tej samej akcji:
+**A working hypothesis (to be confirmed):** the engine **does not fire the bare
+`mousebutton-right` action while a modifier is held**, so with Shift+RMB nothing reaches
+us and the question about Shift is never asked at the right moment. The circumstantial evidence is strong —
+in `core/config/Input.xml` the game itself has to declare a **second gesture** for the same action:
 
 ```xml
 <Row ActionId="mousebutton-right" Index="0" GestureType="KBMouse" GestureData="MOUSE_R"/>
 <Row ActionId="mousebutton-right" Index="1" GestureType="KBMouse" GestureData="KEY_CONTROL+MOUSE_R"/>
 ```
 
-Gdyby `MOUSE_R` łapało też Ctrl+PPM, ten drugi wiersz byłby zbędny.
+If `MOUSE_R` also caught Ctrl+RMB, that second row would be pointless.
 
-**Sposób obejścia, który testujemy:** własna akcja z gestem `KEY_SHIFT+MOUSE_R`
-w `config/input.xml` (zakres `shell`, jak w [09-cookbook-ui-mod.md](09-cookbook-ui-mod.md)),
-i nasłuch na jej nazwę obok `mousebutton-right`:
+**The workaround we are testing:** a custom action with a `KEY_SHIFT+MOUSE_R` gesture
+in `config/input.xml` (`shell` scope, as in [09-cookbook-ui-mod.md](09-cookbook-ui-mod.md)),
+and listening for its name alongside `mousebutton-right`:
 
 ```xml
 <InputActions>
-    <Replace ActionId="moj-mod-akcja" DeviceType="Keyboard"
+    <Replace ActionId="my-mod-action" DeviceType="Keyboard"
              Name="LOC_…" Description="LOC_…_HELP" EventType="All" />
 </InputActions>
 <InputActionDefaultGestures>
-    <Replace ActionId="moj-mod-akcja" Index="0"
+    <Replace ActionId="my-mod-action" Index="0"
              GestureType="KBMouse" GestureData="KEY_SHIFT+MOUSE_R" />
 </InputActionDefaultGestures>
 ```
 
-Bez wierszy w `InputContextConstraints` — `mousebutton-right` też ich nie ma i właśnie
-dlatego działa na ekranach pełnoekranowych (kontekst `Shell`).
+Without rows in `InputContextConstraints` — `mousebutton-right` has none either and that is exactly
+why it works on fullscreen screens (the `Shell` context).
 
-⚠️ Jeżeli okaże się, że silnik jednak wysyła **obie** akcje przy Shift+PPM, trzeba
-odsiać duplikat — u nas robi to okno czasowe ~400 ms po operacji masowej.
+⚠️ If it turns out that the engine does send **both** actions on Shift+RMB, the duplicate has to be
+filtered out — for us that is done by a ~400 ms window after a bulk operation.
 
-**Wniosek ogólny na przyszłość:** przy zagadkach z wejściem nie zgaduj kolejnego API —
-podłącz na jedną rundę testu podsłuch, który loguje **każde** `engine-input`
-(nazwa + status + `isShiftDown()` + współrzędne) oraz natywne zdarzenia DOM
-`mousedown`/`contextmenu`/`keydown` z ich flagami modyfikatorów. Jedna runda z danymi
-jest tańsza niż trzy rundy zgadywania.
+**A general conclusion for the future:** with input puzzles do not guess at the next API —
+attach, for one test round, a listener that logs **every** `engine-input`
+(name + status + `isShiftDown()` + coordinates) plus native DOM
+`mousedown`/`contextmenu`/`keydown` events with their modifier flags. One round with data
+is cheaper than three rounds of guessing.
 
-#### ❌ KOREKTA #2: hipoteza „modyfikator blokuje akcję" jest FAŁSZYWA
+#### ❌ CORRECTION #2: the "a modifier blocks the action" hypothesis is FALSE
 
-**2026-08-10, kolejna runda.** Shift+PPM **wyzwala** zwykłą akcję `mousebutton-right` —
-widać to w logu (mod wykonał na niej pojedyncze cofnięcie zasobu). Poprzedni wniosek
-z pustego okna logu był błędem interpretacji: tam po prostu było mniej kliknięć.
+**2026-08-10, another round.** Shift+RMB **does fire** the ordinary `mousebutton-right` action —
+you can see it in the log (the mod performed a single resource un-assignment on it). The previous conclusion
+from an empty log window was a misreading: there were simply fewer clicks there.
 
-Więc drugi gest `KEY_CONTROL+MOUSE_R` przy `mousebutton-right` w `core/config/Input.xml`
-**nie dowodzi**, że gołe `MOUSE_R` nie łapie kombinacji. Powód jego istnienia pozostaje
-nieznany.
+So the second `KEY_CONTROL+MOUSE_R` gesture on `mousebutton-right` in `core/config/Input.xml`
+**does not prove** that bare `MOUSE_R` fails to catch the combination. The reason for its existence remains
+unknown.
 
-Stan wiedzy po tej rundzie:
+The state of knowledge after this round:
 
-| co | wynik |
+| what | result |
 |---|---|
-| DOM `keydown`/`keyup`/`mousedown` → `shiftKey` | ❌ nigdy nie zgłasza wciśniętego Shifta |
-| `Input.isShiftDown()` w kontekście `Shell` | ❌ zwraca `false` mimo trzymanego Shifta |
-| Shift+PPM wyzwala `mousebutton-right` | ✅ tak |
-| własna akcja z gestem `KEY_SHIFT+MOUSE_R`, bez `InputContextConstraints` | ❌ nie wyzwoliła się |
+| DOM `keydown`/`keyup`/`mousedown` → `shiftKey` | ❌ never reports Shift as held |
+| `Input.isShiftDown()` in the `Shell` context | ❌ returns `false` despite Shift being held |
+| Shift+RMB fires `mousebutton-right` | ✅ yes |
+| a custom action with a `KEY_SHIFT+MOUSE_R` gesture, without `InputContextConstraints` | ❌ did not fire |
 
-**Aktualna hipoteza:** mod-owa akcja wymaga **jawnych wierszy
-`InputContextConstraints`**. Poszlaka: mod o specjalistach deklaruje dla swojego
-klawisza `ContextId="World"` i `ContextId="Unit"` i działa; akcje bazowej gry bez
-żadnych wierszy (`mousebutton-right`) też działają, więc reguła „brak wierszy = wszędzie"
-najwyraźniej **nie** obejmuje akcji dodanych przez mody.
+**The current hypothesis:** a mod's action requires **explicit
+`InputContextConstraints` rows**. The evidence: the specialists mod declares
+`ContextId="World"` and `ContextId="Unit"` for its key and works; the base game's actions with
+no rows at all (`mousebutton-right`) also work, so the "no rows = everywhere" rule
+apparently does **not** cover actions added by mods.
 
-Do przetestowania: `<Replace ActionId="…" ContextId="Shell" />` (+ `Dual`).
-Konteksty do wyboru — `core/config/Input.xml`, tabela `InputContexts`:
+To be tested: `<Replace ActionId="…" ContextId="Shell" />` (+ `Dual`).
+The contexts to choose from — `core/config/Input.xml`, the `InputContexts` table:
 **`Shell`, `World`, `Unit`, `Dual`**.
 
-⚠️ Sprawdzenie w czasie działania, czy akcja w ogóle się zarejestrowała (tego nie widać
-w `Modding.log` — grupy akcji o zakresie `shell` nie są tam wypisywane):
+⚠️ To check at runtime whether the action registered at all (this is not visible
+in `Modding.log` — action groups with the `shell` scope are not printed there):
 
 ```js
-const actionId = Input.getActionIdByName('moja-akcja');   // null/undefined = nie ma
+const actionId = Input.getActionIdByName('my-action');   // null/undefined = not there
 ```
 
-⚠️ Podsłuch wejścia MUSI odsiewać `InputActionStatuses.UPDATE` — `mousebutton-left`
-w tym statusie powtarza się co klatkę i zjada cały limit linii, zanim dojdzie do
-badanego kliknięcia.
+⚠️ An input listener MUST filter out `InputActionStatuses.UPDATE` — `mousebutton-left`
+in that status repeats every frame and eats the whole line budget before it reaches
+the click under investigation.
 
-#### ✅ ROZWIĄZANIE: silnik NIE wysyła `mousebutton-right`, gdy trzymany jest modyfikator
+#### ✅ THE SOLUTION: the engine does NOT send `mousebutton-right` while a modifier is held
 
-**2026-08-10, ustalone podsłuchem — koniec zgadywania.** Ten wpis unieważnia KOREKTĘ #2
-i przywraca pierwotną hipotezę. Surowe dane z `UI.log`:
+**2026-08-10, established with a listener — the end of guessing.** This entry invalidates CORRECTION #2
+and restores the original hypothesis. Raw data from `UI.log`:
 
 ```
-zwykły PPM:
+plain RMB:
   dom mousedown button=2 shiftKey=false isShiftDown=false
   engine-input name=mousebutton-right status=START  isMouse=true
   dom mouseup   button=2 shiftKey=false
   engine-input name=mousebutton-right status=FINISH
 
-Shift + PPM:
+Shift + RMB:
   dom mousedown button=2 shiftKey=true  isShiftDown=true
   dom mouseup   button=2 shiftKey=true  isShiftDown=true
-  (żadnego engine-input!)
+  (no engine-input at all!)
 ```
 
-**Ani `event.shiftKey`, ani `Input.isShiftDown()` nigdy nie były zepsute** — oba
-zwracają `true` we właściwym momencie. Zepsute było źródło zdarzeń: kod nasłuchiwał
-akcji `mousebutton-right`, która przy wciśniętym modyfikatorze **w ogóle nie leci**.
-Dlatego pytanie „czy Shift jest wciśnięty" padało wyłącznie przy kliknięciach bez
-Shifta i zawsze dostawało `false`.
+**Neither `event.shiftKey` nor `Input.isShiftDown()` was ever broken** — both
+return `true` at the right moment. What was broken was the event source: the code listened for
+the `mousebutton-right` action, which with a modifier held **does not fire at all**.
+That is why the question "is Shift held" was only ever asked on clicks without
+Shift and always got `false`.
 
-To wyjaśnia też drugi gest `KEY_CONTROL+MOUSE_R` w `core/config/Import.xml` gry:
-bez niego Ctrl+PPM byłby dla silnika niczym.
+This also explains the second `KEY_CONTROL+MOUSE_R` gesture in the game's `core/config/Import.xml`:
+without it Ctrl+RMB would be nothing to the engine.
 
-**Wniosek praktyczny — klik z modyfikatorem obsługuj natywnymi zdarzeniami DOM:**
+**The practical conclusion — handle modifier-clicks with native DOM events:**
 
 ```js
 window.addEventListener('mousedown', onDown, true);   // capture
 window.addEventListener('mouseup',   onUp,   true);
-// event.button === 2, event.shiftKey / ctrlKey / altKey — wszystko dostępne
+// event.button === 2, event.shiftKey / ctrlKey / altKey — all available
 ```
 
-Zdarzenia DOM myszy lecą **w obu przypadkach** i niosą poprawny stan modyfikatorów.
-Kolejność w obrębie jednego kliknięcia: `dom mousedown` → `engine START` →
-`dom mouseup` → `engine FINISH`; robotę wykonuj na `mouseup`.
+The DOM's mouse events fire **in both cases** and carry the correct modifier state.
+The order within a single click: `dom mousedown` → `engine START` →
+`dom mouseup` → `engine FINISH`; do the work on `mouseup`.
 
-⚠️ **Nadal trzeba obsłużyć akcję silnika** — ale wyłącznie po to, żeby ją **zdusić**:
-zwykły PPM jest `isCancelInput()` i panel zamyka na nim cały ekran. Przychodzi PO
-DOM-owym `mouseup`, więc wystarczy znacznik czasu ustawiony przy obsłudze kliknięcia
-i tłumienie akcji w oknie ~400 ms.
+⚠️ **You still have to handle the engine action** — but only in order to **suppress** it:
+a plain RMB is `isCancelInput()` and the panel closes the whole screen on it. It arrives AFTER
+the DOM `mouseup`, so a timestamp set when handling the click plus suppression of the
+action within a ~400 ms window is enough.
 
-⚠️ Zduś też `mousedown`, jeśli kliknięcie trafia w Twój element — inaczej własne
-handlery ekranu zdążą zaznaczyć albo zacząć przeciągać element pod kursorem.
+⚠️ Suppress `mousedown` too if the click lands on your element — otherwise the screen's own
+handlers will manage to select or start dragging the element under the cursor.
 
-❗ **To dotyczy WSZYSTKICH przycisków myszy, nie tylko prawego.** `Activatable`
-z `core/ui-next/components/activatable.js` — czyli wszystko, co w tym frameworku jest
-klikalne — wyzwala `onActivate` właśnie z akcji silnika:
+❗ **This applies to ALL mouse buttons, not just the right one.** `Activatable`
+from `core/ui-next/components/activatable.js` — i.e. everything clickable in this framework —
+fires `onActivate` precisely from an engine action:
 
 ```js
 if (inputEvent.detail.name == "mousebutton-left" || … ) props.onActivate?.();
 ```
 
-Skutek: **z wciśniętym modyfikatorem cały ekran przestaje reagować na kliknięcia.**
-U nas objawiło się to tak, że Shift+przeciągnięcie działało, a Shift+kliknięcie nie —
-bo przeciąganie jedzie na zdarzeniach DOM, a klikanie na akcji silnika.
+The result: **with a modifier held the whole screen stops reacting to clicks.**
+For us it showed up as Shift+drag working while Shift+click did not —
+because dragging runs on DOM events and clicking on an engine action.
 
-Jeśli Twój mod nadaje modyfikatorowi znaczenie, musisz **odtworzyć zwykłe klikanie**
-na czas jego trzymania: na DOM-owym `mouseup` wywołaj tę samą metodę modelu, którą
-wywołałby `onActivate` danego `Activatable`.
+If your mod gives a modifier a meaning, you have to **reproduce ordinary clicking**
+for as long as it is held: on the DOM `mouseup` call the same model method that
+that `Activatable`'s `onActivate` would have called.
 
-⚠️ Odróżnij kliknięcie od przeciągnięcia — inaczej upuszczenie po przeciągnięciu
-wykona akcję drugi raz. Wystarczy zapamiętać pozycję `mousedown` i odrzucić `mouseup`
-przesunięty o więcej niż kilka pikseli.
+⚠️ Distinguish a click from a drag — otherwise dropping after a drag will
+perform the action a second time. It is enough to remember the `mousedown` position and reject a `mouseup`
+that moved more than a few pixels.
 
-❓ **Nierozwiązane, ale już niepotrzebne:** własna akcja z gestem `KEY_SHIFT+MOUSE_R`
-zadeklarowana w `config/input.xml` (zakres `shell`, `<Replace>`, `EventType="All"`,
-z wierszami `InputContextConstraints` i bez nich) **nie zarejestrowała się** —
-`Input.getActionIdByName()` zwracało `null`. Powód nieznany; droga przez DOM jest
-i tak prostsza (zero plików konfiguracyjnych, zero zakresu `shell`).
+❓ **Unresolved, but no longer needed:** a custom action with a `KEY_SHIFT+MOUSE_R` gesture
+declared in `config/input.xml` (`shell` scope, `<Replace>`, `EventType="All"`,
+with and without `InputContextConstraints` rows) **did not register** —
+`Input.getActionIdByName()` returned `null`. The reason is unknown; the DOM route is
+simpler anyway (no configuration files, no `shell` scope).
 
-## Skracanie tekstu wielokropkiem ✅
+## Truncating text with an ellipsis ✅
 
-Ten silnik obsługuje `text-overflow: ellipsis` — motyw gry ma nawet gotową klasę
-`.truncate` (`core/ui/themes/default/default.css`):
+This engine supports `text-overflow: ellipsis` — the game's theme even has a ready-made
+`.truncate` class (`core/ui/themes/default/default.css`):
 
 ```css
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 ```
 
-⚠️ Wewnątrz flexboxa samo `text-overflow` nie wystarczy: element flex domyślnie nie
-kurczy się poniżej szerokości swojej treści. Potrzebne jest **`min-width: 0`** na
-skracanym elemencie **i na każdym jego przodku będącym elementem flex**, inaczej zamiast
-wielokropka wiersz się rozepnie albo zawinie.
+⚠️ Inside a flexbox `text-overflow` alone is not enough: a flex item does not by default
+shrink below the width of its content. You need **`min-width: 0`** on the
+truncated element **and on every flex ancestor of it**, otherwise instead of
+an ellipsis the row will stretch or wrap.
 
-Uzupełnienie: `coh-font-fit-mode` przyjmuje `fit`, `shrink` i `none` — to inny mechanizm
-(skalowanie czcionki do pudełka), nie skracanie.
+An addendum: `coh-font-fit-mode` accepts `fit`, `shrink` and `none` — that is a different mechanism
+(scaling the font to the box), not truncation.
 
 
 ---
 
-## ⚠️ CSS grid: gra go NIE UŻYWA ANI RAZU — nie stawiaj na nim layoutu ✅
+## ⚠️ CSS grid: the game does NOT USE IT EVEN ONCE — do not build a layout on it ✅
 
 ```bash
 grep -rho "display:\s*grid\|grid-template-columns" --include=*.css --include=*.js Base/
-# zero trafień w całej grze
+# zero hits in the whole game
 ```
 
-Nic nie mówi, że ten renderer implementuje grid. Skoro Firaxis nie użył go nigdzie —
-a w wielu miejscach grid byłby oczywistym wyborem — zakładamy, że go nie ma. Wszystko
-robimy flexboxem.
+Nothing says this renderer implements grid. Since Firaxis used it nowhere —
+and in many places grid would be the obvious choice — we assume it is not there. We do everything
+with flexbox.
 
-### Wyrównanie kolumn liczb bez grida: rząd KOLUMN, nie kolumna rzędów
+### Aligning columns of numbers without grid: a ROW OF COLUMNS, not a column of rows
 
-Problem: dwa wiersze liczb, w każdym kilka pozycji, mają mieć plusy jeden pod drugim.
-
-```
-Jeden:      +18 🪙  +18 🌿
-Wszystkie:  +144 🪙 +144 🌿      ← druga pozycja startuje tam, gdzie skończyła pierwsza
-```
-
-Ułożone **wierszami** nie da się tego wyrównać: szerokość drugiej pozycji zależy od tego,
-ile miejsca zajęła pierwsza, więc `+18` nad `+144` rozjeżdża wszystko dalej. Ani
-`justify-content`, ani `text-align` tego nie ruszą.
-
-**Rozwiązanie: odwrócić zagnieżdżenie.** Zamiast dwóch wierszy po N pozycji — **N+1 kolumn
-po 2 komórki**:
+The problem: two rows of numbers, several items in each, with the plus signs to line up under one another.
 
 ```
-[etykiety]   [pozycja 1]   [pozycja 2]
- Jeden:       +18 🪙        +18 🌿
- Wszystkie:   +144 🪙       +144 🌿
+One:        +18 🪙  +18 🌿
+All:        +144 🪙 +144 🌿      ← the second item starts where the first one ended
+```
+
+Laid out **by rows** this cannot be aligned: the second item's width depends on
+how much space the first took, so `+18` above `+144` throws everything after it off. Neither
+`justify-content` nor `text-align` will touch it.
+
+**The fix: invert the nesting.** Instead of two rows of N items — **N+1 columns
+of 2 cells**:
+
+```
+[labels]     [item 1]      [item 2]
+ One:         +18 🪙        +18 🌿
+ All:         +144 🪙       +144 🌿
 ```
 
 ```css
@@ -657,77 +657,77 @@ po 2 komórki**:
 .figures-col + .figures-col { margin-left: 0.9rem; }
 ```
 
-Każda kolumna jest szeroka na swoją najszerszą komórkę, obie komórki startują przy jej
-lewej krawędzi — **wyrównanie wychodzi z konstrukcji**, bez mierzenia i bez zgadywanych
-szerokości. Nie trzeba tego stroić, gdy premia urośnie do czterech cyfr.
+Each column is as wide as its widest cell, both cells start at its
+left edge — **the alignment falls out of the construction**, without measuring and without guessed
+widths. Nothing needs tuning when a bonus grows to four digits.
 
-`align-self: center` na kontenerze daje przy okazji „blok wyśrodkowany, tekst w środku do
-lewej" — w kolumnowym kontenerze flex to zwęża element do zawartości i centruje.
+`align-self: center` on the container also gives you "a centered block with the text inside aligned
+left" — in a column flex container that shrinks the element to its content and centers it.
 
-⚠️ Klasy modyfikujące wygląd („ten wiersz jest przygaszony", „ten jest pogrubiony")
-przenoszą się z wiersza na **każdą komórkę** — wiersz przestaje istnieć jako element.
+⚠️ Classes that modify appearance ("this row is dimmed", "this one is bold")
+move from the row onto **every cell** — the row stops existing as an element.
 
 ---
 
-## ✅ Budowanie ładnych tooltipów — klocki gry zamiast gołego boksu
+## ✅ Building good-looking tooltips — the game's building blocks instead of a bare box
 
-`data-tooltip-content` daje **surowy prostokąt z tekstem**. To, co gra pokazuje przy zasobach
-(nagłówek klasy z ikoną, zasób w ramce, nazwa, opis) to **komponent Solid**, nie atrybut —
-`base-standard/ui-next/tooltips/resource-tooltip.jsx`. Owija swój wyzwalacz w `<Tooltip.Trigger>`,
-więc **nie da się o niego poprosić z poziomu DOM-u**: trzeba mu oddać element i wstawić w jego
-miejsce to, co zwróci.
+`data-tooltip-content` gives you a **raw rectangle with text**. What the game shows for resources
+(a class header with an icon, the resource in a frame, a name, a description) is a **Solid component**, not an attribute —
+`base-standard/ui-next/tooltips/resource-tooltip.jsx`. It wraps its trigger in a `<Tooltip.Trigger>`,
+so **you cannot ask for it from the DOM**: you have to hand it an element and put whatever it
+returns in that element's place.
 
-### ⭐ Skrót, który oszczędza godziny
+### ⭐ The shortcut that saves hours
 
-**Znajdź ekran gry, który rysuje to, czego chcesz, i przeczytaj, po jakie komponenty sięga.**
-Cały zestaw poniżej wyszedł z jednego pliku — `commerce-screen-empire-tab.jsx` — bo tam gra
-rysuje dokładnie te dane (zasoby + twarze liderów), których potrzebowałem.
+**Find a game screen that draws what you want and read which components it reaches for.**
+The whole set below came out of a single file — `commerce-screen-empire-tab.jsx` — because that is where the game
+draws exactly the data (resources + leader faces) that I needed.
 
-### Klocki i ich propsy ✅
+### The building blocks and their props ✅
 
-| Komponent | Import | Propsy |
+| Component | Import | Props |
 |---|---|---|
-| `Tooltip` + `.Trigger` `.Content` `.Frame` `.Text` | `#core/ui-next/components/tooltip.jsx` | `showFiligrees` — `false` daje prosty styl narożników |
-| `CardFrame` | `#core/ui-next/components/card-frame.jsx` | dokłada klasę `card-frame-bg` |
-| `PortraitIcon` | `#core/ui-next/components/portrait-icon.jsx` | `{ playerId, size }` — twarz lidera w jego barwach |
+| `Tooltip` + `.Trigger` `.Content` `.Frame` `.Text` | `#core/ui-next/components/tooltip.jsx` | `showFiligrees` — `false` gives a simple corner style |
+| `CardFrame` | `#core/ui-next/components/card-frame.jsx` | adds the `card-frame-bg` class |
+| `PortraitIcon` | `#core/ui-next/components/portrait-icon.jsx` | `{ playerId, size }` — a leader's face in their colors |
 | `FramedResource` | `#base/ui-next/components/framed-resource.jsx` | `{ size, ...resourceProps }` |
-| `Icon` | `#core/ui-next/components/icon.jsx` | `{ name, isUrl }` — `name` to `url(blp:…)`, gdy `isUrl` |
+| `Icon` | `#core/ui-next/components/icon.jsx` | `{ name, isUrl }` — `name` is `url(blp:…)` when `isUrl` |
 | `Divider.Vertical` / `.Horizontal` | `#core/ui-next/components/divider.jsx` | `{ margin }`, `{ useGradient }` |
-| `L10n.Compose` | `#core/ui-next/components/l10n.jsx` | `{ text, args }` — lokalizuje klucz |
-| `L10n.Stylize` | to samo | lokalizuje **i** interpretuje `[B]`, `[N]`, `[STYLE:…]` |
-| `OrnateCard`, `FiligreeTitle.Plain`, `Activatable`, `ScrollArea` | `#core/ui-next/components/…` | reszta „ozdobnego" zestawu |
+| `L10n.Compose` | `#core/ui-next/components/l10n.jsx` | `{ text, args }` — localizes a key |
+| `L10n.Stylize` | the same | localizes **and** interprets `[B]`, `[N]`, `[STYLE:…]` |
+| `OrnateCard`, `FiligreeTitle.Plain`, `Activatable`, `ScrollArea` | `#core/ui-next/components/…` | the rest of the "ornate" set |
 
-### ⚠️ Pułapki
+### ⚠️ Traps
 
-1. **`resourceType` w propsach zasobu to KLUCZ LOKALIZACYJNY**, nie typ zasobu. Tooltip składa go
-   przez `LOC_RESOURCECLASS_TOOLTIP_NAME`. Buduje się to jako `LOC_${ResourceClassType}_NAME`.
-2. **Ikony to napisy `url(blp:…)`**, nie ścieżki: `url(blp:${UI.getIconBLP(type)})`.
-3. **`getResourcePropsFromDefinition` nie jest eksportowane** — trzeba je przepisać z
+1. **`resourceType` in a resource's props is a LOCALIZATION KEY**, not a resource type. The tooltip composes it
+   through `LOC_RESOURCECLASS_TOOLTIP_NAME`. It is built as `LOC_${ResourceClassType}_NAME`.
+2. **Icons are `url(blp:…)` strings**, not paths: `url(blp:${UI.getIconBLP(type)})`.
+3. **`getResourcePropsFromDefinition` is not exported** — you have to copy it from
    `commerce-screen-model.ts`.
-4. **Komponent trzeba tworzyć pod właścicielem Solid** (np. w `onMount` komponentu). Wywołany poza
-   nim wycieka swój zakres reaktywny.
-5. **Bez kroku budowania nie ma JSX** — pisz w postaci skompilowanej: `createComponent(Comp, {...,
-   get children() { return … } })`. Getter jest istotny: zwykła wartość zostanie odczytana raz.
-6. ⚠️⚠️ **Zagnieżdżony komponent twórz WEWNĄTRZ gettera `children` rodzica, nigdy wcześniej do
-   zmiennej.** To nie jest kosmetyka — dokładnie to robi JSX:
+4. **A component has to be created under a Solid owner** (e.g. in a component's `onMount`). Called outside
+   one it leaks its reactive scope.
+5. **Without a build step there is no JSX** — write it in compiled form: `createComponent(Comp, {...,
+   get children() { return … } })`. The getter matters: a plain value will be read once.
+6. ⚠️⚠️ **Create a nested component INSIDE the parent's `children` getter, never earlier into a
+   variable.** This is not cosmetic — it is exactly what JSX does:
 
    ```js
-   // ŹLE — Frame powstaje POZA kontekstem Tooltipa
+   // WRONG — the Frame is created OUTSIDE the Tooltip's context
    const frame = createComponent(Tooltip.Frame, {...});
    createComponent(Tooltip.Content, { get children() { return frame; } });
 
-   // DOBRZE — tak kompiluje się <Tooltip.Content><Tooltip.Frame/></Tooltip.Content>
+   // RIGHT — this is how <Tooltip.Content><Tooltip.Frame/></Tooltip.Content> compiles
    createComponent(Tooltip.Content, {
        get children() { return createComponent(Tooltip.Frame, {...}); },
    });
    ```
 
-   Objaw pierwszej wersji: **tooltip rysuje się dwa razy** i dwie kopie jadą za kursorem —
-   ramka montuje się samodzielnie *oraz* przez `Content`. Nic nie loguje błędu, więc bez tej
-   wiedzy szuka się przyczyny w CSS albo w starym `data-tooltip-content`.
-7. ⚠️⚠️ **Mieszając z gołym DOM-em używaj `insert()`, NIE `appendChild()`.** Komponent Solid nie
-   zwraca węzła — zwraca **reaktywny getter** (albo tablicę, albo tekst). `appendChild` wywala się
-   na tym:
+   The symptom of the first version: **the tooltip is drawn twice** and two copies follow the cursor —
+   the frame mounts on its own *and* through `Content`. Nothing logs an error, so without this
+   knowledge you look for the cause in CSS or in the old `data-tooltip-content`.
+7. ⚠️⚠️ **When mixing with raw DOM use `insert()`, NOT `appendChild()`.** A Solid component does
+   not return a node — it returns a **reactive getter** (or an array, or text). `appendChild` blows up
+   on that:
 
    ```
    TypeError: Arguments[0] expect type : Node
@@ -737,64 +737,64 @@ rysuje dokładnie te dane (zasoby + twarze liderów), których potrzebowałem.
    import { insert } from '/core/vendor/solid-js/web/dist/web.js';
 
    const box = document.createElement('div');
-   insert(box, createComponent(L10n.Stylize, { text: '…' }));   // dobrze
-   box.appendChild(createComponent(L10n.Stylize, { text: '…' })); // wywali się
+   insert(box, createComponent(L10n.Stylize, { text: '…' }));   // right
+   box.appendChild(createComponent(L10n.Stylize, { text: '…' })); // will throw
    ```
 
-   `insert` to dokładnie to, czego JSX używa pod spodem dla `{wyrażenia}` — obsługuje węzły,
-   tablice, funkcje i prymitywy, i podłącza reaktywność. Zwykłe `element.appendChild(innyElement)`
-   dla gołego DOM-u nadal jest w porządku.
-8. ⚠️ **Zawsze zostaw awaryjny tooltip tekstowy.** Sięgasz po komponent, którego gra nie pisała pod
-   użycie z zewnątrz; patch, który go przeniesie, zostawi element **bez żadnego tooltipa** — gorzej
-   niż goły boks, od którego się zaczęło.
+   `insert` is exactly what JSX uses underneath for `{expressions}` — it handles nodes,
+   arrays, functions and primitives, and hooks up reactivity. A plain `element.appendChild(otherElement)`
+   for raw DOM is still fine.
+8. ⚠️ **Always leave a fallback text tooltip.** You are reaching for a component the game did not write for
+   external use; a patch that moves it will leave the element **with no tooltip at all** — worse
+   than the bare box you started from.
 
-Działający przykład (nagłówek klasy + karta zasobu + karta na lidera z jego twarzą i osadami):
+A working example (a class header + a resource card + a card for a leader with their face and settlements):
 `better-commerce-screen-ui/ui/screen/resource-tooltip.js`.
 
 
-## ⚠️ DOM gry to Coherent, nie przeglądarka — brakuje wygodnych metod ✅
+## ⚠️ The game's DOM is Coherent, not a browser — the convenience methods are missing ✅
 
-Silnik UI Civ VII to **Coherent GT**, nie Chromium. Wygląda jak DOM i w większości działa jak
-DOM, ale **nie ma metod z interfejsu `ChildNode`/`ParentNode`**, do których człowiek sięga
-odruchowo:
+Civ VII's UI engine is **Coherent GT**, not Chromium. It looks like the DOM and mostly behaves like
+the DOM, but **it lacks the `ChildNode`/`ParentNode` interface methods** that one reaches for
+by reflex:
 
 ```js
 node.replaceWith(other);   // TypeError: replaceWith is not a function
-node.remove();             // ⚠️ akurat to działa — mod używa go od dawna
-node.isConnected           // nie polegaj; sprawdzaj node.parentNode
+node.remove();             // ⚠️ this one does work — the mod has used it for a long time
+node.isConnected           // do not rely on it; check node.parentNode
 ```
 
-Zamiast tego klasyka sprzed lat:
+Instead, the classics of years past:
 
 ```js
 node.parentNode.replaceChild(other, node);
 node.parentNode.insertBefore(other, node);
 ```
 
-Objaw jest podstępny, bo **kod się ładuje i nic nie krzyczy** — wyjątek leci dopiero przy
-wywołaniu, więc funkcja po prostu „nic nie robi". U mnie licznik PKB nie odświeżał się przy
-każdym przypisaniu i wyglądało to na błąd w nasłuchu zdarzeń; dopiero `warn` w bloku `catch`
-pokazał `replaceWith is not a function`.
+The symptom is insidious, because **the code loads and nothing complains** — the exception only fires on
+the call, so the function simply "does nothing". For me a GDP counter did not refresh on
+every assignment and it looked like a bug in the event listeners; only a `warn` in the `catch` block
+revealed `replaceWith is not a function`.
 
-**Wniosek:** owijaj takie operacje w `try/catch` z `warn` od razu, a nie dopiero gdy coś nie
-działa — inaczej szukasz przyczyny w zupełnie innym miejscu.
+**The conclusion:** wrap such operations in `try/catch` with a `warn` straight away, not only once something does not
+work — otherwise you will look for the cause somewhere else entirely.
 
-## ❗✅ SA DWA SYSTEMY TOOLTIPOW — i tylko nowy umie zagniezdzanie i blokade
+## ❗✅ THERE ARE TWO TOOLTIP SYSTEMS — and only the new one can nest and lock
 
-**Ustalone 2026-08-27.** To jest dokladnie ta sama pulapka co z ekranami (#33): stary i nowy
-system istnieja rownolegle, oba dzialaja, i wybor miedzy nimi decyduje o tym, co da sie zrobic.
+**Established 2026-08-27.** This is exactly the same trap as with screens (#33): the old and the new
+system exist in parallel, both work, and the choice between them decides what is possible.
 
-| | stary | nowy |
+| | old | new |
 |---|---|---|
-| Plik | `core/ui/tooltips/tooltip-manager.js` | `core/ui-next/components/tooltip.js` (1116 linii) |
-| Zglaszanie sie | atrybut `data-tooltip-style="nazwa"` | komponent Solid `Tooltip.Trigger` |
-| Rejestracja | `TooltipManager.registerType(nazwa, instancja)` | `ComponentRegistry.register` |
-| Zagniezdzanie | ❗ **BRAK** | ✅ `NestedTooltipContext` |
-| Blokada / interakcja | ❗ **BRAK** | ✅ autolock + `pointer-events-auto` |
+| File | `core/ui/tooltips/tooltip-manager.js` | `core/ui-next/components/tooltip.js` (1116 lines) |
+| Opting in | the `data-tooltip-style="name"` attribute | the Solid `Tooltip.Trigger` component |
+| Registration | `TooltipManager.registerType(name, instance)` | `ComponentRegistry.register` |
+| Nesting | ❗ **NONE** | ✅ `NestedTooltipContext` |
+| Locking / interaction | ❗ **NONE** | ✅ autolock + `pointer-events-auto` |
 
-### Dlaczego stary NIE moze byc interaktywny ✅
+### Why the old one CANNOT be interactive ✅
 
-`cursorTooltipCheck()` leci **co klatke** i czyta `Cursor.target`:
+`cursorTooltipCheck()` runs **every frame** and reads `Cursor.target`:
 
 ```js
 targetElement = Cursor.target instanceof HTMLElement ? Cursor.target : void 0;
@@ -802,66 +802,66 @@ const ttTypeName = RecursiveGetAttribute(targetElement, "data-tooltip-style") ??
 if (ttTypeName == "none") { this.hideTooltips(); return; }
 ```
 
-W momencie, gdy kursor zjedzie z elementu w strone dymka, styl rozwiazuje sie na `"none"`
-i dymek znika. Nie da sie w niego wejsc mysza. `isToggledOn`, ktore wyglada na blokade,
-dotyczy **wylacznie dotyku** (`ActionHandler.deviceType != InputDeviceType.Touch`).
+The moment the cursor leaves the element towards the bubble, the style resolves to `"none"`
+and the bubble disappears. You cannot enter it with the mouse. `isToggledOn`, which looks like a lock,
+concerns **touch only** (`ActionHandler.deviceType != InputDeviceType.Touch`).
 
-### Nowy system — API i mechanizm ✅
+### The new system — the API and the mechanism ✅
 
 ```js
 import { Tooltip } from '/core/ui-next/components/tooltip.js';
 Tooltip.Trigger   Tooltip.Content   Tooltip.Frame   Tooltip.Text   Tooltip.InspectHint
 ```
 
-Uzywane w grze bazowej ponad 100 razy kazde. Blokada:
+Each of them is used over 100 times in the base game. The lock:
 
 ```js
 "pointer-events-auto": tooltipModel.isLocked(ctx.name) || IsTouchActive(),
 "pointer-events-none": !tooltipModel.isLocked(ctx.name) && !IsTouchActive()
 ```
 
-✅ **Autolock jest ustawieniem GRACZA w opcjach gry**: `Configuration.getUser().tooltipAutolockEnabled`
-oraz suwak czasu `Configuration.getUser().tooltipAutolock` (patrz `core/ui/options/options.js`).
-Czyli "dymek blokuje sie po pare sekundach najechania" to funkcja natywna, nie cos do napisania.
-Po zablokowaniu dymek dostaje `pointer-events-auto` i mozna w niego wejsc, klikac i rozwijac.
+✅ **Autolock is a PLAYER setting in the game's options**: `Configuration.getUser().tooltipAutolockEnabled`
+plus the time slider `Configuration.getUser().tooltipAutolock` (see `core/ui/options/options.js`).
+So "the bubble locks after a couple of seconds of hovering" is a native feature, not something to write.
+Once locked, the bubble gets `pointer-events-auto` and you can enter it, click and expand.
 
-`tooltip-model.js` daje `lock()`, `unlock()`, `unlockAll()`, `isLocked(name)`, a `Escape`
-(`inputEvent.isCancelInput()`) odblokowuje.
+`tooltip-model.js` provides `lock()`, `unlock()`, `unlockAll()`, `isLocked(name)`, and `Escape`
+(`inputEvent.isCancelInput()`) unlocks.
 
-### Most stary -> nowy dla tooltipa ⚠️
+### The old -> new bridge for a tooltip ⚠️
 
-`core/ui-next/components/tooltip-compat.js` definiuje `<fxs-tip>` przez `defineLegacyComponent`
-i renderuje w srodku `Tooltip.Text` — dowod, ze element starego frameworka **moze** hostowac
-tooltip z `ui-next`. ⚠️ Ale to most dla slow kluczowych w tekscie, nie ogolny adapter:
-zagniezdzony wariant wymaga wlascciciela Solid (`findOwnerFromElement`), a wlasny element trzeba
-zbudowac samemu.
+`core/ui-next/components/tooltip-compat.js` defines `<fxs-tip>` via `defineLegacyComponent`
+and renders a `Tooltip.Text` inside — proof that an old-framework element **can** host
+a `ui-next` tooltip. ⚠️ But it is a bridge for keywords in text, not a general adapter:
+the nested variant requires a Solid owner (`findOwnerFromElement`), and your own element has to be
+built yourself.
 
-**Wniosek praktyczny:** tooltip, ktory ma byc tylko czytany — stary `TooltipManager`, jedna
-rejestracja i atrybut. Tooltip, ktory ma sie blokowac, byc klikalny albo zawierac kolejny tooltip
-— **musi** byc `ui-next` / Solid.
+**The practical conclusion:** a tooltip meant only to be read — the old `TooltipManager`, one
+registration and an attribute. A tooltip that should lock, be clickable or contain another tooltip
+— **must** be `ui-next` / Solid.
 
-### ❗ Pulapka: blokady NIE DA SIE wlaczyc, dopoki tooltip nie ma DZIECI
+### ❗ A trap: the lock CANNOT be enabled until the tooltip has CHILDREN
 
-**Ustalone 2026-08-27 na wlasnym modzie.** Tooltip `ui-next` zbudowany poprawnie, a mimo to
-nie dawal sie zablokowac TAB-em — zamiast "SPRAWDZ" (`LOC_INSPECT_TOOLTIP`) ramka pokazywala
-wylacznie "UKRYJ (PRZYTRZYMAJ)".
+**Established 2026-08-27 on my own mod.** A `ui-next` tooltip built correctly, and yet
+it could not be locked with TAB — instead of "INSPECT" (`LOC_INSPECT_TOOLTIP`) the frame showed
+only "HIDE (HOLD)".
 
-Warunek w `TooltipInspectHintComponent`:
+The condition in `TooltipInspectHintComponent`:
 
 ```js
 when: tooltipCount() > 0 && (!isLocked() || isTopLevelActiveAndLocked())
 ```
 
-gdzie `tooltipCount()` to `ctx.childTooltipList().length` — **liczba tooltipow POTOMNYCH**.
+where `tooltipCount()` is `ctx.childTooltipList().length` — **the number of CHILD tooltips**.
 
-❗ **Tooltip bez ani jednego zagniezdzonego tooltipa nie oferuje inspekcji**, bo nie ma w co
-wejsc — i tym samym nie da sie go zablokowac ani wejsc w niego mysza. To nie jest blad w
-konfiguracji: gra celowo nie proponuje blokady tam, gdzie nie ma glebszego poziomu.
+❗ **A tooltip without a single nested tooltip offers no inspection**, because there is nothing to
+enter — and therefore it cannot be locked or entered with the mouse. This is not a configuration
+error: the game deliberately does not offer a lock where there is no deeper level.
 
-**Wniosek:** jesli chcesz, zeby tooltip dal sie zatrzymac, **musi zawierac przynajmniej jeden
-`Tooltip` zagniezdzony w swoim `Tooltip.Content`**. Renderowanie calej tresci "plasko" wewnatrz
-jednej ramki zabiera te mozliwosc.
+**The conclusion:** if you want a tooltip to be freezable, it **has to contain at least one
+`Tooltip` nested inside its `Tooltip.Content`**. Rendering all the content "flat" inside
+a single frame takes that possibility away.
 
-Blokade odpala akcja `keyboard-inspect-tooltip` / `toggle-tooltip` (TAB) na `FINISH`, przy
-krotkim nacisnieciu; przytrzymanie ponad `HIDE_TOOLTIPS_HOLD_THRESHOLD_MS` chowa tooltipy
-zamiast blokowac. `Escape` (`inputEvent.isCancelInput()`) odblokowuje.
+The lock is triggered by the `keyboard-inspect-tooltip` / `toggle-tooltip` action (TAB) on `FINISH`, on
+a short press; holding it beyond `HIDE_TOOLTIPS_HOLD_THRESHOLD_MS` hides tooltips
+instead of locking. `Escape` (`inputEvent.isCancelInput()`) unlocks.

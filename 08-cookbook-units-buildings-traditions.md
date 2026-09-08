@@ -1,22 +1,22 @@
-# 08 — Cookbook: jednostki, budynki, ulepszenia, tradycje
+# 08 — Cookbook: units, buildings, improvements, traditions
 
-Najlepszy punkt startu dla początkującego moddera — mała, testowalna zmiana.
+The best starting point for a beginner modder — a small, testable change.
 
-## Model: wszystko budowalne to `Constructible` ✅
+## The model: everything buildable is a `Constructible` ✅
 
 ```
-Constructibles  (tabela nadrzędna — wspólne pola)
+Constructibles  (the parent table — shared fields)
     ├── Buildings      (ConstructibleClass = BUILDING)
     ├── Improvements   (ConstructibleClass = IMPROVEMENT)
     ├── Wonders        (ConstructibleClass = WONDER)
     └── Districts
 ```
-Każdy budynek/ulepszenie/cud ma **wiersz w `Constructibles`** plus wiersz
-w tabeli szczegółowej. Klucz łączący: `ConstructibleType`.
+Every building/improvement/wonder has a **row in `Constructibles`** plus a row
+in the detail table. The joining key: `ConstructibleType`.
 
-## Najprostszy możliwy mod — zmiana istniejącej wartości
+## The simplest possible mod — changing an existing value
 
-Najlepszy pierwszy test „czy mój mod w ogóle się ładuje":
+The best first test of "does my mod load at all":
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -29,130 +29,130 @@ Najlepszy pierwszy test „czy mój mod w ogóle się ładuje":
     </Units>
 </Database>
 ```
-Zwiadowca z 5 ruchami jest natychmiast widoczny w grze — od razu wiesz, czy działa.
+A scout with 5 movement is immediately visible in the game — you know right away whether it works.
 
-## Jednostka ✅
+## A unit ✅
 
-Kolumny `Units` (wybrane z 64):
+`Units` columns (a selection out of 64):
 `UnitType`, `Name`, `Description`, `BaseMoves`, `BaseSightRange`, `Domain`,
 `CoreClass`, `FormationClass`, `PromotionClass`, `UnitMovementClass`, `Maintenance`,
 `Tier`, `TraitType`, `CanTrain`, `CanPurchase`, `BuildCharges`, `FoundCity`,
 `ZoneOfControl`, `Stackable`, `ConstructibleType`, `CostProgressionModel`
 
-Kolumny `Unit_Stats`: `UnitType`, `Combat`, `RangedCombat`, `Bombard`, `Range`, `WMDType`
+`Unit_Stats` columns: `UnitType`, `Combat`, `RangedCombat`, `Bombard`, `Range`, `WMDType`
 
 ```sql
-INSERT INTO Types(Type,Kind) VALUES('UNIT_MOJ_HUSARZ','KIND_UNIT');
+INSERT INTO Types(Type,Kind) VALUES('UNIT_MY_HUSSAR','KIND_UNIT');
 
 INSERT INTO Units(UnitType,Name,Description,BaseMoves,BaseSightRange,Domain,
     CoreClass,FormationClass,PromotionClass,UnitMovementClass,Maintenance,Tier,TraitType)
-VALUES('UNIT_MOJ_HUSARZ','LOC_UNIT_MOJ_HUSARZ_NAME','LOC_UNIT_MOJ_HUSARZ_DESCRIPTION',
+VALUES('UNIT_MY_HUSSAR','LOC_UNIT_MY_HUSSAR_NAME','LOC_UNIT_MY_HUSSAR_DESCRIPTION',
     4,2,'DOMAIN_LAND','CORE_CLASS_MILITARY','FORMATION_CLASS_LAND_COMBAT',
-    'PROMOTION_CLASS_CAVALRY','UNIT_MOVEMENT_CLASS_FOOT',2,3,'TRAIT_MOJA');
+    'PROMOTION_CLASS_CAVALRY','UNIT_MOVEMENT_CLASS_FOOT',2,3,'TRAIT_MINE');
 
-INSERT INTO Unit_Stats(UnitType,Combat) VALUES('UNIT_MOJ_HUSARZ',36);
+INSERT INTO Unit_Stats(UnitType,Combat) VALUES('UNIT_MY_HUSSAR',36);
 
 INSERT INTO Unit_Costs(UnitType,YieldType,Cost)
-VALUES('UNIT_MOJ_HUSARZ','YIELD_PRODUCTION',110);
+VALUES('UNIT_MY_HUSSAR','YIELD_PRODUCTION',110);
 ```
 
-⚠️ `TraitType='TRAIT_MOJA'` sprawia, że jednostka jest **unikalna dla twojej cywilizacji**.
+⚠️ `TraitType='TRAIT_MINE'` makes the unit **unique to your civilization**.
 
-Jednostka unikalna zwykle **zastępuje** standardową:
+A unique unit usually **replaces** a standard one:
 ```sql
 INSERT INTO UnitReplaces(CivUniqueUnitType,ReplacesUnitType)
-VALUES('UNIT_MOJ_HUSARZ','UNIT_CAVALRY');
+VALUES('UNIT_MY_HUSSAR','UNIT_CAVALRY');
 ```
-✅ `UnitReplaces` ma dokładnie dwie kolumny: `CivUniqueUnitType`, `ReplacesUnitType`.
-Ścieżka ulepszania jednostek: `UnitUpgrades(Unit, UpgradeUnit)`.
+✅ `UnitReplaces` has exactly two columns: `CivUniqueUnitType`, `ReplacesUnitType`.
+The unit upgrade path: `UnitUpgrades(Unit, UpgradeUnit)`.
 
-**Model 3D:** użyj `VisualRemaps` (patrz [06](06-cookbook-new-civilization.md) krok 7) —
-to jedyna realna droga bez pipeline'u artystycznego.
+**3D model:** use `VisualRemaps` (see [06](06-cookbook-new-civilization.md), step 7) —
+it is the only realistic route without an art pipeline.
 
-## Budynek ✅
+## A building ✅
 
-Kolumny `Constructibles` (wybrane z 34): `ConstructibleType`, `Name`, `Description`,
+`Constructibles` columns (a selection out of 34): `ConstructibleType`, `Name`, `Description`,
 `ConstructibleClass`, `Age`, `Cost`, `Population`, `Defense`, `Tooltip`,
 `AdjacentRiver`, `AdjacentTerrain`, `AdjacentDistrict`, `RequiresUnlock`,
 `RequiresHomeland`, `RequiresDistantLands`, `Repairable`
 
-Kolumny `Buildings` (22): `ConstructibleType`, `TraitType`, `Housing`, `CitizenSlots`,
+`Buildings` columns (22): `ConstructibleType`, `TraitType`, `Housing`, `CitizenSlots`,
 `Capital`, `CapitalForbidden`, `Town`, `Workable`, `Purchasable`, `MustPurchase`,
 `MaxPlayerInstances`, `MultiplePerCity`, `DefenseModifier`, `GrantFortification`,
 `OuterDefenseStrength`, `OuterDefenseHitPoints`, `BuildQueue`, `CityCenterPriority`,
 `AllowsHolyCity`, `ArchaeologyResearch`, `Movable`, `PurchaseYield`
 
 ```sql
-INSERT INTO Types(Type,Kind) VALUES('BUILDING_MOJE_SUKIENNICE','KIND_CONSTRUCTIBLE');
+INSERT INTO Types(Type,Kind) VALUES('BUILDING_MY_CLOTH_HALL','KIND_CONSTRUCTIBLE');
 
 INSERT INTO Constructibles(ConstructibleType,Name,Description,ConstructibleClass,
     Age,Cost,Population,Repairable)
-VALUES('BUILDING_MOJE_SUKIENNICE','LOC_BUILDING_MOJE_SUKIENNICE_NAME',
-    'LOC_BUILDING_MOJE_SUKIENNICE_DESCRIPTION','BUILDING','AGE_EXPLORATION',180,1,1);
+VALUES('BUILDING_MY_CLOTH_HALL','LOC_BUILDING_MY_CLOTH_HALL_NAME',
+    'LOC_BUILDING_MY_CLOTH_HALL_DESCRIPTION','BUILDING','AGE_EXPLORATION',180,1,1);
 
 INSERT INTO Buildings(ConstructibleType,TraitType,Housing,CitizenSlots,Purchasable)
-VALUES('BUILDING_MOJE_SUKIENNICE','TRAIT_MOJA',2,1,1);
+VALUES('BUILDING_MY_CLOTH_HALL','TRAIT_MINE',2,1,1);
 
--- yieldy budynku
+-- the building's yields
 INSERT INTO Constructible_YieldChanges(ConstructibleType,YieldType,YieldChange)
-VALUES('BUILDING_MOJE_SUKIENNICE','YIELD_GOLD',4),
-      ('BUILDING_MOJE_SUKIENNICE','YIELD_CULTURE',2);
+VALUES('BUILDING_MY_CLOTH_HALL','YIELD_GOLD',4),
+      ('BUILDING_MY_CLOTH_HALL','YIELD_CULTURE',2);
 ```
 
-### Bonusy za sąsiedztwo
+### Adjacency bonuses
 ```sql
 INSERT INTO Constructible_Adjacencies(ConstructibleType,YieldChangeId)
-VALUES('BUILDING_MOJE_SUKIENNICE','MOJE_SUKIENNICE_ADJ_RIVER');
+VALUES('BUILDING_MY_CLOTH_HALL','MY_CLOTH_HALL_ADJ_RIVER');
 
 INSERT INTO Adjacency_YieldChanges(ID,YieldType,YieldChange,TilesRequired,AdjacentRiver)
-VALUES('MOJE_SUKIENNICE_ADJ_RIVER','YIELD_GOLD',1,1,1);
+VALUES('MY_CLOTH_HALL_ADJ_RIVER','YIELD_GOLD',1,1,1);
 ```
 
-## Cud (`Wonders`) ✅
+## A wonder (`Wonders`) ✅
 
-Kolumny: `ConstructibleType`, `MaxPerPlayer`, `MaxWorldInstances`, `AdjacentCapital`,
+Columns: `ConstructibleType`, `MaxPerPlayer`, `MaxWorldInstances`, `AdjacentCapital`,
 `AdjacentConstructible`, `AdjacentResource`, `AdjacentToLand`, `AdjacentToMountain`,
 `MustBeLake`, `MustNotBeLake`, `BuildOnFrontier`, `RequiredConstructibleInSettlement`,
 `RequiredConstructibleInSettlementCount`
 
 ```sql
 INSERT INTO Constructibles(ConstructibleType,Name,ConstructibleClass,Age,Cost)
-VALUES('WONDER_MOJ_ZAMEK','LOC_WONDER_MOJ_ZAMEK_NAME','WONDER','AGE_EXPLORATION',600);
+VALUES('WONDER_MY_CASTLE','LOC_WONDER_MY_CASTLE_NAME','WONDER','AGE_EXPLORATION',600);
 INSERT INTO Wonders(ConstructibleType,MaxWorldInstances,AdjacentToMountain)
-VALUES('WONDER_MOJ_ZAMEK',1,1);
+VALUES('WONDER_MY_CASTLE',1,1);
 ```
 
-## Ulepszenie (`Improvements`) ✅
+## An improvement (`Improvements`) ✅
 
-Kolumny (wybrane z 31): `ConstructibleType`, `TraitType`, `UnitBuildable`,
+Columns (a selection out of 31): `ConstructibleType`, `TraitType`, `UnitBuildable`,
 `CityBuildable`, `TownBuildable`, `CanBuildOutsideTerritory`, `CanBuildOnNonDistrict`,
 `OnePerSettlement`, `ResourceTier`, `Domain`, `DefenseModifier`, `BarbarianCamp`,
 `Workable`, `MinimumPopulation`, `Icon`
 
-## Tradycja ✅
+## A tradition ✅
 
 ```sql
-INSERT INTO Types(Type,Kind) VALUES('TRADITION_MOJA_I','KIND_TRADITION');
+INSERT INTO Types(Type,Kind) VALUES('TRADITION_MINE_I','KIND_TRADITION');
 
 INSERT INTO Traditions(TraditionType,Name,Description,TraitType,AgeType,
     CultureSlotType,ObsoletesTraditionType,IgnoreInitializeUnlock,AllowInitializeAdvancedStart)
-VALUES('TRADITION_MOJA_I','LOC_TRADITION_MOJA_I_NAME','LOC_TRADITION_MOJA_I_DESCRIPTION',
-    'TRAIT_MOJA','AGE_ANTIQUITY','TRADITION_CULTURE_SLOT',NULL,0,0);
+VALUES('TRADITION_MINE_I','LOC_TRADITION_MINE_I_NAME','LOC_TRADITION_MINE_I_DESCRIPTION',
+    'TRAIT_MINE','AGE_ANTIQUITY','TRADITION_CULTURE_SLOT',NULL,0,0);
 
 INSERT INTO TraditionModifiers(TraditionType,ModifierId)
-VALUES('TRADITION_MOJA_I','MOD_MOJA_TRADYCJA_BONUS');
+VALUES('TRADITION_MINE_I','MOD_MY_TRADITION_BONUS');
 ```
-Tradycja musi być **odblokowana** przez węzeł drzewa rozwoju
-(`ProgressionTreeNodeUnlocks`, patrz [04](04-ages-and-civilizations.md)).
+A tradition has to be **unlocked** by a progression tree node
+(`ProgressionTreeNodeUnlocks`, see [04](04-ages-and-civilizations.md)).
 
-## Checklist dla każdego nowego obiektu
+## Checklist for every new object
 
-1. ☐ wiersz w `Types` z właściwym `Kind`
-2. ☐ wiersz w tabeli głównej (`Units` / `Constructibles`)
-3. ☐ wiersz w tabeli szczegółowej (`Unit_Stats` / `Buildings`)
-4. ☐ koszt (`Unit_Costs` / kolumna `Cost`)
-5. ☐ teksty `LOC_*` (nazwa + opis) — bez nich w UI zobaczysz surowy klucz
-6. ☐ ikona (`IconDefinitions`)
-7. ☐ model 3D (`VisualRemaps`)
-8. ☐ odblokowanie (drzewo rozwoju / `RequiresUnlock`)
-9. ☐ przypisanie do epoki (`Age`) i cywilizacji (`TraitType`)
+1. ☐ a row in `Types` with the right `Kind`
+2. ☐ a row in the main table (`Units` / `Constructibles`)
+3. ☐ a row in the detail table (`Unit_Stats` / `Buildings`)
+4. ☐ cost (`Unit_Costs` / the `Cost` column)
+5. ☐ `LOC_*` texts (name + description) — without them the UI shows the raw key
+6. ☐ an icon (`IconDefinitions`)
+7. ☐ a 3D model (`VisualRemaps`)
+8. ☐ an unlock (progression tree / `RequiresUnlock`)
+9. ☐ assignment to an age (`Age`) and a civilization (`TraitType`)

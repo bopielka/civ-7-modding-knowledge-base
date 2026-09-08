@@ -1,146 +1,125 @@
-# Baza wiedzy: modowanie Civilization VII
+# Knowledge base: Civilization VII modding
 
-Notatki budowane przez kolejne sesje pracy z AI nad modami do Civ VII.
-Źródłem prawdy są **pliki zainstalowanej gry** i **49 działających modów ze Steam Workshop**,
-a nie dokumentacja producenta (Firaxis praktycznie jej nie wydał).
+Notes built up over successive AI-assisted work sessions on Civ VII mods.
+The sources of truth are the **installed game files** and **49 working mods from the Steam Workshop**,
+not the publisher's documentation (Firaxis has essentially never released any).
 
-## ⚠️ ZASADA NADRZĘDNA: baza wiedzy jest żywa
+## ⚠️ OVERRIDING RULE: the knowledge base is a living document
 
-**Za każdym razem, gdy podczas pracy nad modem wyjdzie na jaw coś nowego —
-trzeba to tu dopisać.** Baza wiedzy nie jest dokumentem archiwalnym: jej wartość
-bierze się z tego, że rośnie razem z doświadczeniem.
+**Every time something new comes to light while working on a mod,
+it has to be written down here.** The knowledge base is not an archive: its value
+comes from growing along with experience.
 
-Dotyczy to zarówno agenta AI, jak i użytkownika. Szczegółowa procedura:
+This applies to the AI agent and to the user alike. Detailed procedure:
 [24-kb-maintenance.md](24-kb-maintenance.md).
 
-**Co zapisywać:**
-- rzecz, która zadziałała inaczej, niż opisano w bazie → **popraw wpis**
-- ⚠️ lub ❓ potwierdzone w praktyce → **zmień na ✅** i dopisz jak zweryfikowano
-- błąd, który kosztował więcej niż kilka minut → **[14-quirks-and-gotchas.md](14-quirks-and-gotchas.md)**
-- nowa tabela / efekt / API, którego tu nie ma → do właściwego pliku tematycznego
-- rozwiązanie nieoczywistego problemu → cookbook albo quirks
+**What to record:**
+- something that behaved differently than described here → **fix the entry**
+- a ⚠️ or ❓ confirmed in practice → **change it to ✅** and note how it was verified
+- a mistake that cost more than a few minutes → **[14-quirks-and-gotchas.md](14-quirks-and-gotchas.md)**
+- a new table / effect / API that is missing here → into the appropriate topic file
+- the solution to a non-obvious problem → cookbook or quirks
 
-**Kiedy:** od razu po ustaleniu faktu, nie „później". Później nie ma.
+**When:** immediately after establishing the fact, not "later". Later never comes.
 
-## ⚠️⚠️ ZASADA: budujemy na NOWYM systemie UI (`ui-next` / Solid)
+## Marking convention
 
-**Polecenie użytkownika, 2026-08-27.** Dotyczy wszystkich modów w `mod-projects/`.
+Throughout the knowledge base I use confidence markers — this matters so that future sessions
+do not treat guesses as facts:
 
-Gra ma **dwa** frameworki UI naraz i Firaxis przenosi ekrany ze starego na nowy, po jednym.
-**Wszystko, co mod buduje od zera, powstaje w `ui-next`.** Stary framework nie ma zagnieżdżonych
-ani blokowanych tooltipów, a każdy ekran, który na nim został, może zostać przeniesiony — i wtedy
-po cichu przestaje działać wszystko, co wisiało na jego starych uchwytach. Tak `f1rstdan-cool-ui`
-straciło swoją sztandarową funkcję i nie odzyskało jej przez dwa wydania.
+- ✅ **verified** — checked directly in the game files or in a working mod
+- ⚠️ **inferred** — a logical conclusion from a schema/pattern, but not confirmed in practice
+- ❓ **open question** — conflicting data or no verification; needs an in-game test
 
-⚠️ **Jedyny uczciwy wyjątek:** panel, który gra nadal definiuje przez `Controls.define`, da się
-zacząć wyłącznie przez `Controls.decorate` albo patch prototypu — nie ma dla niego drogi
-`ui-next`, bo nie jest komponentem `ui-next`. Czyli: **zaczepienie** — czym się da;
-**budowanie** — zawsze `ui-next`.
+## Where the data comes from
 
-Szczegóły, API tooltipów i most `defineLegacyComponent`: [25-ui-next-solidjs.md](25-ui-next-solidjs.md).
-
-## Konwencja oznaczeń
-
-W całej bazie wiedzy stosuję znaczniki wiarygodności — to ważne, żeby przyszłe sesje
-nie traktowały domysłów jak faktów:
-
-- ✅ **zweryfikowane** — sprawdzone bezpośrednio w plikach gry lub w działającym modzie
-- ⚠️ **wywnioskowane** — logiczny wniosek ze schematu/wzorca, ale nie potwierdzony w działaniu
-- ❓ **otwarte pytanie** — sprzeczne dane albo brak weryfikacji; wymaga testu w grze
-
-## Skąd pochodzą dane
-
-| Źródło | Ścieżka |
+| Source | Path |
 |---|---|
-| Instalacja gry | `C:\Program Files (x86)\Steam\steamapps\common\Sid Meier's Civilization VII` |
-| Dokumentacja społeczności ⚠️ | `civ7community.mintlify.app` — patrz [22](22-source-evaluation.md) o jej wiarygodności |
-| Framework TypeScript | `github.com/izica/civ7-modding-tools` |
-| Mody z Workshop (49 szt.) | `C:\Program Files (x86)\Steam\steamapps\workshop\content\1295660` |
-| Schematy SQL | `Base\Assets\schema\` |
-| Moduły gry bazowej | `Base\modules\{core,base-standard,age-antiquity,age-exploration,age-modern}` |
-| Moduły DLC | `DLC\<nazwa>\modules\` |
-| **Logi gry** (debugowanie) | `C:\Users\najan\AppData\Local\Firaxis Games\Sid Meier's Civilization VII\Logs\` |
-| Baza moddingu | `...\Firaxis Games\Sid Meier's Civilization VII\Mods.sqlite` |
-| **Mody użytkownika** ❗ | `C:\Users\najan\AppData\Local\Firaxis Games\Sid Meier's Civilization VII\Mods\` |
+| Game installation | `C:\Program Files (x86)\Steam\steamapps\common\Sid Meier's Civilization VII` |
+| Community documentation ⚠️ | `civ7community.mintlify.app` — see [22](22-source-evaluation.md) on its reliability |
+| TypeScript framework | `github.com/izica/civ7-modding-tools` |
+| Workshop mods (49 of them) | `C:\Program Files (x86)\Steam\steamapps\workshop\content\1295660` |
+| SQL schemas | `Base\Assets\schema\` |
+| Base game modules | `Base\modules\{core,base-standard,age-antiquity,age-exploration,age-modern}` |
+| DLC modules | `DLC\<name>\modules\` |
+| **Game logs** (debugging) | `C:\Users\najan\AppData\Local\Firaxis Games\Sid Meier's Civilization VII\Logs\` |
+| Modding database | `...\Firaxis Games\Sid Meier's Civilization VII\Mods.sqlite` |
+| **User mods** ❗ | `C:\Users\najan\AppData\Local\Firaxis Games\Sid Meier's Civilization VII\Mods\` |
 
-## Spis treści
+## Table of contents
 
-**Fundamenty**
-- [01-architecture.md](01-architecture.md) — układ instalacji, moduły, pipeline ładowania, scope
-- [02-database.md](02-database.md) — warstwa bazodanowa, XML vs SQL, operacje, kluczowe tabele
-- [03-modifiers-effects.md](03-modifiers-effects.md) — system GameEffects: modyfikatory, kolekcje, wymagania
-- [04-ages-and-civilizations.md](04-ages-and-civilizations.md) — epoki, cywilizacje, tradycje, drzewa rozwoju
-- [05-ui-javascript.md](05-ui-javascript.md) — architektura UI (**stary** framework `ui/`), Controls, dekoratory, zdarzenia
-- [25-ui-next-solidjs.md](25-ui-next-solidjs.md) — ⚠️ **drugi framework UI: `ui-next` na Solid.js**;
-  zawiera też ✅ **jak budować ładne tooltipy** z komponentów gry zamiast gołego `data-tooltip-content`;
-  nowe ekrany są tam i `Controls.decorate` ich nie dotyka
+**Foundations**
+- [01-architecture.md](01-architecture.md) — installation layout, modules, loading pipeline, scope
+- [02-database.md](02-database.md) — the database layer, XML vs SQL, operations, key tables
+- [03-modifiers-effects.md](03-modifiers-effects.md) — the GameEffects system: modifiers, collections, requirements
+- [04-ages-and-civilizations.md](04-ages-and-civilizations.md) — ages, civilizations, traditions, progression trees
+- [05-ui-javascript.md](05-ui-javascript.md) — UI architecture (**the old** `ui/` framework), Controls, decorators, events
+- [25-ui-next-solidjs.md](25-ui-next-solidjs.md) — ⚠️ **the second UI framework: `ui-next` on Solid.js**;
+  it also covers ✅ **how to build good-looking tooltips** out of the game's components instead of bare `data-tooltip-content`;
+  new screens live there and `Controls.decorate` does not touch them
 
-**Cookbooki (przepisy krok po kroku)**
-- [06-cookbook-new-civilization.md](06-cookbook-new-civilization.md) — nowa cywilizacja
-- [07-cookbook-new-leader.md](07-cookbook-new-leader.md) — nowy lider
-- [08-cookbook-units-buildings-traditions.md](08-cookbook-units-buildings-traditions.md) — jednostki, budynki, tradycje
-- [09-cookbook-ui-mod.md](09-cookbook-ui-mod.md) — mod modyfikujący interfejs
+**Cookbooks (step-by-step recipes)**
+- [06-cookbook-new-civilization.md](06-cookbook-new-civilization.md) — a new civilization
+- [07-cookbook-new-leader.md](07-cookbook-new-leader.md) — a new leader
+- [08-cookbook-units-buildings-traditions.md](08-cookbook-units-buildings-traditions.md) — units, buildings, traditions
+- [09-cookbook-ui-mod.md](09-cookbook-ui-mod.md) — a mod that modifies the interface
 
-**Proces**
-- [24-kb-maintenance.md](24-kb-maintenance.md) — ⚠️ **jak i kiedy aktualizować tę bazę wiedzy**
+**Process**
+- [24-kb-maintenance.md](24-kb-maintenance.md) — ⚠️ **how and when to update this knowledge base**
 
-**Praktyka**
-- [10-tools-frameworks.md](10-tools-frameworks.md) — narzędzia i biblioteki
-- [11-distribution-and-managers.md](11-distribution-and-managers.md) — dystrybucja, Workshop, menedżery modów
-- [12-assets-icons-localization.md](12-assets-icons-localization.md) — grafika, ikony, zasoby
-- [23-localization-i18n.md](23-localization-i18n.md) — **lokalizacja i i18n**: języki, liczba mnoga, rodzaj, odmiana przez przypadki
-- [13-references-and-community.md](13-references-and-community.md) — społeczność i zasoby zewnętrzne
-- [14-quirks-and-gotchas.md](14-quirks-and-gotchas.md) — pułapki, dziwactwa, rzeczy które zaskakują
-- [19-workflow-and-debugging.md](19-workflow-and-debugging.md) — workflow pracy i debugowanie
+**Practice**
+- [10-tools-frameworks.md](10-tools-frameworks.md) — tools and libraries
+- [11-distribution-and-managers.md](11-distribution-and-managers.md) — distribution, Workshop, mod managers
+- [12-assets-icons-localization.md](12-assets-icons-localization.md) — graphics, icons, assets
+- [23-localization-i18n.md](23-localization-i18n.md) — **localization and i18n**: languages, plurals, gender, case inflection
+- [13-references-and-community.md](13-references-and-community.md) — community and external resources
+- [14-quirks-and-gotchas.md](14-quirks-and-gotchas.md) — traps, oddities, things that catch you out
+- [19-workflow-and-debugging.md](19-workflow-and-debugging.md) — working workflow and debugging
 
-**Mapy konkretnych ekranów**
-- [26-commerce-screen.md](26-commerce-screen.md) — ekran Handlu (zasoby + szlaki handlowe),
-  czyli `screen-resource-allocation` napisany w `ui-next`
-- [28-city-screen.md](28-city-screen.md) — ✅ **ekran miasta**: lista produkcji, szczegóły miasta,
-  panel wzrostu, tryby stawiania budynków, warstwy soczewek. ⚠️ To **stary** framework `ui/`,
-  więc `Controls.decorate` tu **działa** (odwrotnie niż na ekranie Handlu). Zawiera też wzorce
-  patchowania sprawdzone w modzie `bz-city-hall` i listę plików, których nie wolno podmieniać.
+**Maps of specific screens**
+- [26-commerce-screen.md](26-commerce-screen.md) — the Commerce screen (resources + trade routes),
+  i.e. `screen-resource-allocation` written in `ui-next`
 
-**Materiał referencyjny**
-- [27-resources.md](27-resources.md) — ⚠️ **co daje który zasób i pod jakim warunkiem**, per epoka;
-  wzorzec „bonus rozgałęziony" (ryby z portem 8 / bez portu 4) i dlaczego łamie naiwne
-  pytanie „czy warunek jest spełniony"
-- [15-schema-reference.md](15-schema-reference.md) — kolumny najważniejszych tabel
-- [16-ui-source-reference.md](16-ui-source-reference.md) — jak czytać źródła UI gry (TypeScript!)
-- [17-advanced-and-undocumented.md](17-advanced-and-undocumented.md) — rzeczy nieudokumentowane
-- [18-reference-enumerations.md](18-reference-enumerations.md) — pełne listy efektów/kolekcji/wymagań
+**Reference material**
+- [27-resources.md](27-resources.md) — ⚠️ **what each resource gives and under what condition**, per age;
+  the "branched bonus" pattern (fish with a port 8 / without a port 4) and why it breaks the naive
+  question "is the condition met"
+- [15-schema-reference.md](15-schema-reference.md) — columns of the most important tables
+- [16-ui-source-reference.md](16-ui-source-reference.md) — how to read the game's UI sources (TypeScript!)
+- [17-advanced-and-undocumented.md](17-advanced-and-undocumented.md) — undocumented things
+- [18-reference-enumerations.md](18-reference-enumerations.md) — full lists of effects/collections/requirements
 
-**Wiedza z dokumentacji społeczności**
-- [20-typescript-tooling.md](20-typescript-tooling.md) — `civ7-modding-tools`: mody w TypeScript
-- [21-gameplay-mechanics.md](21-gameplay-mechanics.md) — jak Civ VII działa jako gra (czego NIE ma!)
-- [22-source-evaluation.md](22-source-evaluation.md) — ⚠️ **przeczytaj przed korzystaniem z zewnętrznych źródeł**
+**Knowledge from the community documentation**
+- [20-typescript-tooling.md](20-typescript-tooling.md) — `civ7-modding-tools`: mods in TypeScript
+- [21-gameplay-mechanics.md](21-gameplay-mechanics.md) — how Civ VII works as a game (what it does NOT have!)
+- [22-source-evaluation.md](22-source-evaluation.md) — ⚠️ **read before using external sources**
 
-## Jeśli wracasz do pracy nad modem — start tutaj
+## If you are coming back to mod work — start here
 
-1. **[24-kb-maintenance.md](24-kb-maintenance.md)** — zasada aktualizowania tej bazy
-2. **[19-workflow-and-debugging.md](19-workflow-and-debugging.md)** — logi i pętla pracy;
-   `console.log` **nie** trafia do `UI.log`, używaj `console.error`
-3. **[14-quirks-and-gotchas.md](14-quirks-and-gotchas.md)** — 70 pułapek; przejrzyj, zanim
-   zaczniesz debugować cokolwiek „dziwnego"
-4. Mod „Better Specialists UI" — źródła i stan projektu:
+1. **[24-kb-maintenance.md](24-kb-maintenance.md)** — the rule for updating this knowledge base
+2. **[19-workflow-and-debugging.md](19-workflow-and-debugging.md)** — logs and the work loop;
+   `console.log` does **not** reach `UI.log`, use `console.error`
+3. **[14-quirks-and-gotchas.md](14-quirks-and-gotchas.md)** — 31 traps; skim them before you
+   start debugging anything "weird"
+4. The "Better Specialists UI" mod — sources and project state:
    `../mod-projects/najane-common-specialists-yields/README.md`
-   (edytuj tam, wdrażaj `./deploy.sh` — **nie** edytuj folderu gry, deploy go nadpisze)
+   (edit there, deploy with `./deploy.sh` — do **not** edit the game folder, deploy will overwrite it)
 
-**Cztery rzeczy, które kosztowały najwięcej czasu w praktyce** — warto mieć z tyłu głowy:
-- mod „się ładuje", jest zaznaczony w menu Modów, a jego skrypty milczą → sprawdź
-  **listę włączonych modów w `Modding.log`** tuż przed „Applying mod components".
-  Nie ma go tam? Albo nie jest włączony (#37), albo ma `version="0.x"` w `.modinfo`,
-  co daje `Version = 0` i ciche pominięcie (#39)
-- mod „się ładuje", ale nic nie robi → sprawdź, czy patchowany obiekt **już istnieje**
-  w momencie patcha (warstwy soczewek rejestrują się później niż skrypty moda)
-- zmiana widoczna w kodzie, ale nie w grze → sprawdź, czy nie wstrzykujesz DOM do
-  kontenera, który gra właśnie **ukrywa** w tym trybie
-- akcja `UpdateDatabase` cicho nie działa → jeden plik w złym zakresie (`game` vs `shell`)
-  wywołuje **rollback całej akcji**, nie tylko tego pliku
+**The four things that cost the most time in practice** — worth keeping in the back of your mind:
+- the mod "loads", it is ticked in the Mods menu, and its scripts stay silent → check the
+  **list of enabled mods in `Modding.log`** just before "Applying mod components".
+  Not there? Either it is not enabled (#37), or it has `version="0.x"` in `.modinfo`,
+  which yields `Version = 0` and a silent skip (#39)
+- the mod "loads" but does nothing → check whether the patched object **already exists**
+  at the moment of the patch (lens layers register later than mod scripts)
+- the change is visible in the code but not in the game → check whether you are injecting DOM into
+  a container that the game is currently **hiding** in that mode
+- the `UpdateDatabase` action silently does nothing → a single file in the wrong scope (`game` vs `shell`)
+  triggers a **rollback of the whole action**, not just that file
 
-## Liczby, które warto mieć w głowie
+## Numbers worth keeping in your head
 
-- **493** tabele w bazie gameplay
-- **387** typów efektów (`EFFECT_*`), **38** kolekcji (`COLLECTION_*`), **270** typów wymagań (`REQUIREMENT_*`)
-- **8640** modyfikatorów zdefiniowanych w samej grze bazowej
-- **~1400** plików JS UI + **~1419** sourcemap z **pełnym oryginalnym kodem TypeScript**
+- **493** tables in the gameplay database
+- **387** effect types (`EFFECT_*`), **38** collections (`COLLECTION_*`), **270** requirement types (`REQUIREMENT_*`)
+- **8640** modifiers defined in the base game alone
+- **~1400** UI JS files + **~1419** sourcemaps with the **full original TypeScript code**

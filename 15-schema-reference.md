@@ -1,17 +1,17 @@
-# 15 — Referencja schematu (kolumny tabel)
+# 15 — Schema reference (table columns)
 
-Wygenerowane z `Base\Assets\schema\gameplay\01_GameplaySchema.sql` (493 tabele).
-Poniżej **kolumny** najważniejszych z nich dla modowania. Wszystko ✅.
+Generated from `Base\Assets\schema\gameplay\01_GameplaySchema.sql` (493 tables).
+Below are the **columns** of the ones that matter most for modding. All ✅.
 
-Pełny schemat (z typami, kluczami obcymi, wartościami domyślnymi) czytaj wprost
-z pliku schematu — jest czytelny i ma komentarze.
+For the full schema (with types, foreign keys, default values) read the schema file
+directly — it is readable and has comments.
 
-## Jak sprawdzić dowolną inną tabelę
+## How to check any other table
 
 ```bash
 G="/c/Program Files (x86)/Steam/steamapps/common/Sid Meier's Civilization VII"
 S="$G/Base/Assets/schema/gameplay/01_GameplaySchema.sql"
-T=Traditions   # <- nazwa tabeli
+T=Traditions   # <- the table name
 awk -v w="CREATE TABLE '$T' (" 'index($0,w)==1{f=1} f{print} f&&/^\);/{exit}' "$S"
 ```
 

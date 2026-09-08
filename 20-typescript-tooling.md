@@ -1,46 +1,46 @@
-# 20 — `civ7-modding-tools`: mody w TypeScript
+# 20 — `civ7-modding-tools`: mods in TypeScript
 
-> ⚠️ **Korekta wcześniejszego ustalenia.** W [10-tools-frameworks.md](10-tools-frameworks.md)
-> napisałem początkowo, że nie istnieje SDK do Civ VII. To było **błędne** — wynikało
-> z analizy wyłącznie plików lokalnych. Społecznościowe narzędzie istnieje i jest aktywne.
+> ⚠️ **A correction to an earlier finding.** In [10-tools-frameworks.md](10-tools-frameworks.md)
+> I initially wrote that no SDK for Civ VII exists. That was **wrong** — it came
+> from analyzing local files only. The community tool exists and is active.
 
-Źródło: dokumentacja społeczności `civ7community.mintlify.app` + repozytorium GitHub.
+Source: the community documentation `civ7community.mintlify.app` + the GitHub repository.
 
-## Czym to jest ✅
+## What it is ✅
 
 | | |
 |---|---|
-| **Pakiet npm** | `civ7-modding-tools` |
-| **Repozytorium** | `github.com/izica/civ7-modding-tools` |
-| **Autor** | `izica` — ⚠️ ten sam, którego mod `izica-advanced-yield-bar` masz zainstalowany (Workshop `3512790304`) |
-| **Powstało** | marzec 2025 |
-| **Status** | aktywny rozwój, ~171 commitów na `main` |
+| **npm package** | `civ7-modding-tools` |
+| **Repository** | `github.com/izica/civ7-modding-tools` |
+| **Author** | `izica` — ⚠️ the same one whose `izica-advanced-yield-bar` mod you have installed (Workshop `3512790304`) |
+| **Created** | March 2025 |
+| **Status** | active development, ~171 commits on `main` |
 
-Deklarowana motywacja autora: ręczna edycja XML przy tworzeniu własnej cywilizacji
-była zbyt uciążliwa. Narzędzie **generuje pliki XML moda** z deklaratywnego kodu
-TypeScript — nie zastępuje systemu modów, tylko warstwę pisania plików.
+The author's stated motivation: hand-editing XML while creating a civilization of their own
+was too tedious. The tool **generates a mod's XML files** from declarative TypeScript
+code — it does not replace the mod system, only the file-writing layer.
 
-## Co daje w porównaniu z ręcznym XML
+## What it gives you compared with hand-written XML
 
-| Aspekt | Ręcznie (XML/SQL) | civ7-modding-tools |
+| Aspect | By hand (XML/SQL) | civ7-modding-tools |
 |---|---|---|
-| Błędy | wykrywane dopiero przy starcie gry | **kontrola typów w czasie kompilacji** |
-| Wsparcie IDE | brak | autouzupełnianie, podpowiedzi |
-| Identyfikatory | wpisywane ręcznie, literówki | stałe: `TRAIT.*`, `EFFECT.*`, `COLLECTION.*` |
-| Pętla pracy | edytuj XML → uruchom → debuguj | koduj → build → wygenerowany XML |
+| Errors | only found when the game starts | **type checking at compile time** |
+| IDE support | none | autocompletion, hints |
+| Identifiers | typed by hand, typos | constants: `TRAIT.*`, `EFFECT.*`, `COLLECTION.*` |
+| Work loop | edit XML → launch → debug | code → build → generated XML |
 
-Największa realna korzyść: **stałe zamiast stringów**. Zamiast pamiętać
-`EFFECT_UNIT_ADJUST_COMBAT_STRENGTH` piszesz `EFFECT.UNIT_ADJUST_COMBAT_STRENGTH`
-i literówka nie skompiluje się.
+The biggest real benefit: **constants instead of strings**. Instead of remembering
+`EFFECT_UNIT_ADJUST_COMBAT_STRENGTH` you write `EFFECT.UNIT_ADJUST_COMBAT_STRENGTH`
+and a typo will not compile.
 
-## Instalacja
+## Installation
 
 ```bash
-# wymagane: Node.js 14+ (u Ciebie jest v20.19.5 ✅)
+# required: Node.js 14+ (you have v20.19.5 ✅)
 pnpm init
 pnpm add civ7-modding-tools typescript ts-node
 ```
-albo z repozytorium:
+or from the repository:
 ```bash
 git clone https://github.com/izica/civ7-modding-tools
 cd civ7-modding-tools
@@ -48,20 +48,20 @@ pnpm install
 pnpm run build
 ```
 
-## Struktura projektu
+## Project structure
 
 ```
-moj-civ7-mod/
-├── src/            kod moda
-├── assets/         ikony i zasoby
-├── build.ts        skrypt budujący
+my-civ7-mod/
+├── src/            the mod's code
+├── assets/         icons and assets
+├── build.ts        the build script
 ├── package.json
-└── tsconfig.json   (target ES2020, moduły CommonJS)
+└── tsconfig.json   (target ES2020, CommonJS modules)
 ```
 
-Budowanie: `pnpm ts-node build.ts` → generuje gotowego moda w katalogu wyjściowym.
+Building: `pnpm ts-node build.ts` → generates a ready mod in the output directory.
 
-## Minimalny przykład
+## A minimal example
 
 ```typescript
 import { Mod } from 'civ7-modding-tools';
@@ -70,9 +70,9 @@ const mod = new Mod({ id: 'test-mod', version: '1' });
 mod.build('./dist');
 ```
 
-## Pełny przykład — cywilizacja z unikalną zdolnością
+## A full example — a civilization with a unique ability
 
-Za dokumentacją społeczności (przykład Dacia):
+Following the community documentation (the Dacia example):
 
 ```typescript
 import {
@@ -122,55 +122,55 @@ const uprisings = new ModifierBuilder({
     localizations: [{ description: '+5 Combat Strength for Melee units.' }]
 });
 
-dacia.bind([uprisings]);       // podpięcie zdolności do cywilizacji
+dacia.bind([uprisings]);       // attaching the ability to the civilization
 mod.add([dacia, civIcon]);
 mod.build('./dist');
 ```
 
-Zwróć uwagę, jak to mapuje się na wiedzę z [03-modifiers-effects.md](03-modifiers-effects.md):
-`collection` + `effect` + `requirements` + `arguments` to **dokładnie ta sama struktura**
-co `<Modifier>` w `<GameEffects>`. Narzędzie nie wymyśla nowego modelu — opakowuje istniejący.
+Note how this maps onto the knowledge in [03-modifiers-effects.md](03-modifiers-effects.md):
+`collection` + `effect` + `requirements` + `arguments` is **exactly the same structure**
+as `<Modifier>` in `<GameEffects>`. The tool does not invent a new model — it wraps the existing one.
 
-## Architektura narzędzia
+## The tool's architecture
 
-**Buildery** (dziedziczą po `BaseBuilder`): `CivilizationBuilder`, `UnitBuilder`,
+**Builders** (extending `BaseBuilder`): `CivilizationBuilder`, `UnitBuilder`,
 `ConstructibleBuilder`, `ModifierBuilder`, `ImportFileBuilder`.
-Zadania: tworzą węzły, wiążą encje (`bind`), zwracają pliki do dołączenia.
+Their jobs: create nodes, bind entities (`bind`), return files to include.
 
-**Węzły** (dziedziczą po `BaseNode`, metoda `toXmlElement()`):
-`DatabaseNode` (cały plik XML), `TypeNode`, `UnitNode`, `CivilizationNode`,
+**Nodes** (extending `BaseNode`, with a `toXmlElement()` method):
+`DatabaseNode` (a whole XML file), `TypeNode`, `UnitNode`, `CivilizationNode`,
 `CivilizationTraitNode`.
 
-**Pliki**: `XmlFile` i `ImportFile` — każdy z `path`, `content`, `actionGroups`,
-`actionGroupActions` (czyli narzędzie samo generuje `.modinfo`).
+**Files**: `XmlFile` and `ImportFile` — each with `path`, `content`, `actionGroups`,
+`actionGroupActions` (i.e. the tool generates the `.modinfo` itself).
 
-**Stałe**: `UNIT_CLASS`, `CONSTRUCTIBLE_TYPE_TAG`, `ACTION_GROUP`, `EFFECT`, `TRAIT`,
+**Constants**: `UNIT_CLASS`, `CONSTRUCTIBLE_TYPE_TAG`, `ACTION_GROUP`, `EFFECT`, `TRAIT`,
 `COLLECTION`, `REQUIREMENT`, `TAG_TRAIT`, `ACTION_GROUP_BUNDLE`.
 
-⚠️ `ACTION_GROUP_BUNDLE` to koncept narzędzia, nie gry — pakietuje grupy akcji
-(np. „wszystko dla epoki starożytnej") zamiast pisać je ręcznie w `.modinfo`.
+⚠️ `ACTION_GROUP_BUNDLE` is a concept of the tool, not of the game — it packages action groups
+(e.g. "everything for the Antiquity age") instead of writing them by hand in `.modinfo`.
 
-## Zakres wsparcia (deklarowany przez autora)
+## Coverage (as declared by the author)
 
-✅ gotowe: modinfo, lokalizacja, jednostki, cywilizacje, konstrukcje (constructibles),
-nazwy miast, civics, tradycje, efekty gry
-🚧 w toku: węzły Wielkich Ludzi
-📋 planowane: węzły AI, zdolności jednostek, cuda
+✅ done: modinfo, localization, units, civilizations, constructibles,
+city names, civics, traditions, game effects
+🚧 in progress: Great People nodes
+📋 planned: AI nodes, unit abilities, wonders
 
-⚠️ To znaczy, że **narzędzie nie pokrywa wszystkiego**. Dla nieobsługiwanych elementów:
-- niskopoziomowe API węzłów (`UnitNode`, `DatabaseNode`, `XmlFile`)
-- własne buildery dziedziczące po klasie bazowej
-- albo po prostu dopisanie surowego XML/SQL obok
+⚠️ Which means **the tool does not cover everything**. For unsupported elements:
+- the low-level node API (`UnitNode`, `DatabaseNode`, `XmlFile`)
+- your own builders extending the base class
+- or simply adding raw XML/SQL alongside
 
-## Czy używać?
+## Should you use it?
 
-**Za:** typowanie, autouzupełnianie, mniej literówek, dobre przy dużym modzie (cywilizacja).
+**For:** typing, autocompletion, fewer typos, good for a large mod (a civilization).
 
-**Przeciw:** dodatkowa warstwa abstrakcji; gdy coś nie działa, debugujesz
-**wygenerowany XML**, więc i tak musisz rozumieć format z plików
-[02](02-database.md)–[04](04-ages-and-civilizations.md). Nie pokrywa modów UI
-(te i tak pisze się w JS — patrz [09](09-cookbook-ui-mod.md)).
+**Against:** an extra layer of abstraction; when something does not work, you debug
+the **generated XML**, so you still have to understand the format from files
+[02](02-database.md)–[04](04-ages-and-civilizations.md). It does not cover UI mods
+(those are written in JS anyway — see [09](09-cookbook-ui-mod.md)).
 
-**Rekomendacja:** zrób pierwszy, mały mod ręcznie, żeby zrozumieć format.
-Do dużego moda z cywilizacją — rozważ to narzędzie.
-Do modów UI — nieprzydatne.
+**Recommendation:** make your first, small mod by hand, to understand the format.
+For a large mod with a civilization — consider this tool.
+For UI mods — not useful.

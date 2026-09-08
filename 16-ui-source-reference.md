@@ -1,44 +1,44 @@
-# 16 — Źródła UI gry: pełny TypeScript
+# 16 — The game's UI sources: the full TypeScript
 
-**To jest najcenniejsze odkrycie z całej analizy.** Firaxis wysłał grę z sourcemapami
-zawierającymi **kompletny oryginalny kod TypeScript** interfejsu.
+**This is the most valuable find of the whole analysis.** Firaxis shipped the game with sourcemaps
+containing the **complete original TypeScript code** of the interface.
 
-## Fakty ✅
+## Facts ✅
 
-- **1419** plików `.js.map` w `Base\modules\`
-- w próbce 400 plików **394 zawierały `sourcesContent`** (~98,5%)
-- JavaScript **nie jest zminifikowany** — czytelne nazwy, komentarze, `console.error`
-- brak plików `.d.ts` — ale sourcemapy je zastępują (typy są w kodzie TS)
+- **1419** `.js.map` files in `Base\modules\`
+- in a sample of 400 files, **394 contained `sourcesContent`** (~98.5%)
+- the JavaScript **is not minified** — readable names, comments, `console.error`
+- no `.d.ts` files — but the sourcemaps replace them (the types are in the TS code)
 
-Przykład nagłówka sourcemapy:
+An example sourcemap header:
 ```json
 {"version":3,"file":"framework.js",
  "sources":["../../../modules/core/ui/framework.ts"],
  "sourcesContent":["/**\n * @file framework.ts\n * @copyright 2021-2024, Firaxis Games\n ..."]}
 ```
 
-## Narzędzie ✅ (przetestowane)
+## The tool ✅ (tested)
 
 `C:\Users\najan\Documents\Civ7Modding\tools\extract_ts.py`
 
 ```bash
-# pojedynczy plik
+# a single file
 python "C:\Users\najan\Documents\Civ7Modding\tools\extract_ts.py" ^
   "C:\Program Files (x86)\Steam\steamapps\common\Sid Meier's Civilization VII\Base\modules\core\ui\framework.js.map" ^
   "C:\Users\najan\Documents\Civ7Modding\ts-sources"
 
-# cały katalog rekurencyjnie (1419 map -> pełne źródła UI)
+# a whole directory recursively (1419 maps -> the complete UI sources)
 python "C:\Users\najan\Documents\Civ7Modding\tools\extract_ts.py" ^
   "C:\Program Files (x86)\Steam\steamapps\common\Sid Meier's Civilization VII\Base\modules" ^
   "C:\Users\najan\Documents\Civ7Modding\ts-sources"
 ```
 
-⚠️ Python w tym środowisku jest natywnie windowsowy — podawaj **ścieżki Windows**
-(`C:\...`), nie MSYS-owe (`/c/...`), inaczej dostaniesz `FileNotFoundError`.
+⚠️ Python in this environment is natively Windows — pass **Windows paths**
+(`C:\...`), not MSYS ones (`/c/...`), or you will get a `FileNotFoundError`.
 
-Wynik zapisuje się w strukturze `modules/core/ui/framework.ts` itd.
+The output is written in a `modules/core/ui/framework.ts` structure and so on.
 
-## Jak wygląda odzyskany kod ✅
+## What the recovered code looks like ✅
 
 ```ts
 /**
@@ -61,55 +61,55 @@ const Framework = {
 export function setContextManager(value: typeof ContextManager) { ... }
 ```
 
-Pełne adnotacje typów, komentarze JSDoc z opisami, aliasy importów `#core/...`.
+Full type annotations, JSDoc comments with descriptions, `#core/...` import aliases.
 
-## Po co to modderowi
+## What this is for as a modder
 
-1. **Zamiast dokumentacji API** — widzisz sygnatury metod i typy parametrów
-2. **Nazwy komponentów do dekoracji** — `Controls.define(...)` w źródłach
-3. **Nazwy zdarzeń** do `engine.on(...)`
-4. **Zrozumienie kontraktów** — np. cykl życia komponentu, kolejność `onInitialize`/`onAttach`
-5. **Kopiowanie wzorców** — jak Firaxis rozwiązał podobny problem
+1. **Instead of API documentation** — you see method signatures and parameter types
+2. **Names of components to decorate** — `Controls.define(...)` in the sources
+3. **Event names** for `engine.on(...)`
+4. **Understanding the contracts** — e.g. a component's lifecycle, the order of `onInitialize`/`onAttach`
+5. **Copying patterns** — how Firaxis solved a similar problem
 
-## Mapa źródeł UI ✅
+## Map of the UI sources ✅
 
-| Lokalizacja | Plików JS | Zawartość |
+| Location | JS files | Contents |
 |---|---|---|
-| `core/ui` | 373 | framework, komponenty bazowe, dialogi, input, lensy, opcje |
-| `core/ui-next` | 186 | nowe komponenty (Solid.js) |
-| `core/vendor` | — | Solid.js, biblioteki |
-| `base-standard/ui` | 601 | ekrany rozgrywki: miasta, dyplomacja, drzewa, jednostki |
-| `base-standard/ui-next` | 132 | nowe wersje ekranów (m.in. plot-tooltip) |
+| `core/ui` | 373 | the framework, base components, dialogs, input, lenses, options |
+| `core/ui-next` | 186 | the new components (Solid.js) |
+| `core/vendor` | — | Solid.js, libraries |
+| `base-standard/ui` | 601 | gameplay screens: cities, diplomacy, trees, units |
+| `base-standard/ui-next` | 132 | new versions of screens (including plot-tooltip) |
 
-Kluczowe pliki na start:
-- `core/ui/framework.js` — punkt wejścia frameworka
-- `core/ui/component-support.js` — **`Controls.define` / `Controls.decorate`** (tu jest kontrakt)
-- `core/ui/panel-support.js` — panele
-- `base-standard/ui/app.js` — montowanie aplikacji Solid.js
+Key files to start with:
+- `core/ui/framework.js` — the framework's entry point
+- `core/ui/component-support.js` — **`Controls.define` / `Controls.decorate`** (the contract is here)
+- `core/ui/panel-support.js` — panels
+- `base-standard/ui/app.js` — mounting the Solid.js application
 
-## Dwa systemy — jak rozpoznać ✅
+## The two systems — how to tell them apart ✅
 
 ```js
-// KLASYCZNY (ui/) — framework Firaxis
-class MojKomponent extends Component {
+// CLASSIC (ui/) — the Firaxis framework
+class MyComponent extends Component {
     onInitialize() { this.Root... }
 }
-Controls.define('moj-komponent', { createInstance: MojKomponent });
+Controls.define('my-component', { createInstance: MyComponent });
 
-// NOWY (ui-next/) — Solid.js
+// NEW (ui-next/) — Solid.js
 import { render } from '../../core/vendor/solid-js/web/dist/web.js';
 import { createComponent, Show } from '../../core/vendor/solid-js/dist/solid.js';
 function App() { return [createComponent(PlotTooltip, {})]; }
 render(App, document.getElementById('solidjs-root'));
 ```
 
-Silnik renderujący: **Coherent Labs cohtml** (`core/ui/cohtml.js`) — HTML/CSS/JS,
-ale nie przeglądarka; część API DOM zachowuje się inaczej.
+The rendering engine: **Coherent Labs cohtml** (`core/ui/cohtml.js`) — HTML/CSS/JS,
+but not a browser; parts of the DOM API behave differently.
 
-## Sugerowany workflow
+## Suggested workflow
 
-1. Wyekstrahuj całość raz do `Civ7Modding\ts-sources\`
-2. Otwórz ten katalog w VS Code
-3. Szukaj po nim (`Ctrl+Shift+F`) zamiast po plikach gry — szybciej i czytelniej
-4. ⚠️ To kod **własności Firaxis** — używaj do nauki i pisania własnego moda,
-   nie redystrybuuj wyekstrahowanych źródeł
+1. Extract everything once into `Civ7Modding\ts-sources\`
+2. Open that directory in VS Code
+3. Search it (`Ctrl+Shift+F`) instead of the game's files — faster and more readable
+4. ⚠️ This is code **owned by Firaxis** — use it to learn and to write your own mod,
+   do not redistribute the extracted sources

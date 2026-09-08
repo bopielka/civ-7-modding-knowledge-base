@@ -1,230 +1,230 @@
-# 26. Ekran Handlu (Commerce Screen) — mapa dla modów
+# 26. The Commerce Screen — a map for mods
 
-**Data ustalenia: 2026-08-10.** Wszystko poniżej ✅ przeczytane w plikach gry
-(wersja z 2026-07-28). Baza dla moda „Better Commerce Screen UI by Najane".
+**Established: 2026-08-10.** Everything below is ✅ read in the game's files
+(the 2026-07-28 build). The basis for the "Better Commerce Screen UI by Najane" mod.
 
-To ekran, na którym gracz **przydziela zasoby do osad i przegląda szlaki handlowe**.
-Otwiera się przez `ContextManager.push("screen-resource-allocation", …)`.
+This is the screen where the player **assigns resources to settlements and reviews trade routes**.
+It opens through `ContextManager.push("screen-resource-allocation", …)`.
 
-⚠️ **Napisany w `ui-next` / Solid.js**, nie w starym frameworku — przeczytaj najpierw
-[25-ui-next-solidjs.md](25-ui-next-solidjs.md). `Controls.decorate` tu **nie zadziała**.
+⚠️ **Written in `ui-next` / Solid.js**, not in the old framework — read
+[25-ui-next-solidjs.md](25-ui-next-solidjs.md) first. `Controls.decorate` **will not work** here.
 
-## Pułapka nazewnicza ⚠️
+## A naming trap ⚠️
 
-Nazwa elementu to nadal **`screen-resource-allocation`** (stara), a katalog i nazwy
-komponentów mówią **`commerce`** (nowa). W grze istnieją oba komplety plików:
+The element's name is still **`screen-resource-allocation`** (the old one), while the directory and the
+component names say **`commerce`** (the new one). Both sets of files exist in the game:
 
-| | ścieżka | status |
+| | path | status |
 |---|---|---|
-| stary | `base-standard/ui/resource-allocation/screen-resource-allocation.js` | ładowany, ale **przegrywa** |
-| stary model | `base-standard/ui/resource-allocation/model-resource-allocation.js` | jw. |
-| **nowy** | `base-standard/ui-next/screens/commerce/` | **to widzi gracz** ✅ |
+| old | `base-standard/ui/resource-allocation/screen-resource-allocation.js` | loaded, but **loses** |
+| old model | `base-standard/ui/resource-allocation/model-resource-allocation.js` | as above |
+| **new** | `base-standard/ui-next/screens/commerce/` | **this is what the player sees** ✅ |
 
-Oba są w `base-standard.modinfo` w `<UIScripts>`; nowy wygrywa priorytetem
-`Controls.define` (1 vs 0) — mechanizm opisany w [25](25-ui-next-solidjs.md).
-**Modyfikowanie starych plików nie da żadnego efektu na ekranie.**
+Both are in `base-standard.modinfo` under `<UIScripts>`; the new one wins on
+`Controls.define` priority (1 vs 0) — the mechanism is described in [25](25-ui-next-solidjs.md).
+**Modifying the old files has no effect on the screen.**
 
-Podobnie mylące sąsiedztwo (to **inne** ekrany, nie Commerce):
-`ui/city-trade/` (handel z konkretnym miastem), `ui/trade-route-chooser/`,
+Similarly misleading neighbors (these are **different** screens, not Commerce):
+`ui/city-trade/` (trade with a specific city), `ui/trade-route-chooser/`,
 `ui/lenses/layer/trade-layer.js`, `ui/interface-modes/interface-mode-resource-allocation.js`.
 
-## Pliki ✅
+## The files ✅
 
 ```
 base-standard/ui-next/screens/commerce/
-  commerce-screen.tsx                 szkielet: ScreenFrame + 4 zakładki
-  commerce-screen-model.ts            3334 linie — CAŁA logika i dane wszystkich zakładek
-  commerce-screen-base-tab-content.tsx wspólna ramka zakładki (tytuł, opis, pasek nagłówka)
-  commerce-screen-resources-tab.tsx   zakładka „Zasoby" (1640 linii, drag&drop)
-  commerce-screen-trade-tab.tsx       zakładka „Handel" (szlaki)
-  commerce-screen-empire-tab.tsx      zakładka „Imperium"
-  commerce-screen-treasure-tab.tsx    zakładka „Skarby" (tylko AGE_EXPLORATION)
-  trade-route-card.tsx                kafelek pojedynczego szlaku
-  treasure-convoy-card.tsx            kafelek konwoju skarbów
+  commerce-screen.tsx                 the skeleton: ScreenFrame + 4 tabs
+  commerce-screen-model.ts            3334 lines — ALL the logic and data of every tab
+  commerce-screen-base-tab-content.tsx the shared tab frame (title, description, header bar)
+  commerce-screen-resources-tab.tsx   the "Resources" tab (1640 lines, drag&drop)
+  commerce-screen-trade-tab.tsx       the "Trade" tab (routes)
+  commerce-screen-empire-tab.tsx      the "Empire" tab
+  commerce-screen-treasure-tab.tsx    the "Treasure" tab (AGE_EXPLORATION only)
+  trade-route-card.tsx                a single route's card
+  treasure-convoy-card.tsx            a treasure convoy's card
   treasure-convoy-progress-bar.tsx
-  factory-type-display.tsx            wybór zasobu fabrycznego
-  commerce-criteria-display.tsx       wiersz „warunek spełniony / niespełniony"
-  commerce-screen.css / .scss.js      style
+  factory-type-display.tsx            the factory resource picker
+  commerce-criteria-display.tsx       the "condition met / not met" row
+  commerce-screen.css / .scss.js      styles
 ```
 
-Teksty: `base-standard/text/en_us/CommerceScreenText.xml` — 109 wpisów, wszystkie
-z prefiksem `LOC_COMMERCE_*`. Starsze klucze zakładki zasobów to `LOC_UI_RESOURCE_*`.
+Texts: `base-standard/text/en_us/CommerceScreenText.xml` — 109 entries, all
+prefixed `LOC_COMMERCE_*`. The resources tab's older keys are `LOC_UI_RESOURCE_*`.
 
-## Struktura ekranu ✅
+## The screen's structure ✅
 
 ```
-<screen-resource-allocation>            (custom element, klasa .fullscreen)
+<screen-resource-allocation>            (a custom element, class .fullscreen)
 └ CommerceScreenContext.Provider        model = createCommerceScreenModel()
-  └ ScreenFrame  name="Commerce-Screen"  title = LOC_COMMERCE_SCREEN_TITLE(nazwa cywilizacji)
+  └ ScreenFrame  name="Commerce-Screen"  title = LOC_COMMERCE_SCREEN_TITLE(civilization name)
     └ Tab                               nextHotkey="nav-next" previousHotkey="nav-previous"
       ├ Tab.Item "Resources"  LOC_UI_RESOURCE_ALLOCATION_TITLE  → CommerceResourcesContainer
       ├ Tab.Item "Trade"      LOC_COMMERCE_TRADE_ROUTE_TAB      → TradeRoutesContainer
       ├ Tab.Item "Empire"     LOC_RESOURCECLASS_EMPIRE_NAME     → EmpireResourceContainer
       └ Tab.Item "Treasure"   LOC_RESOURCECLASS_TREASURE_NAME   → TreasureResourceContainer
-                                        ⚠️ tylko gdy Game.age == Database.makeHash("AGE_EXPLORATION")
+                                        ⚠️ only when Game.age == Database.makeHash("AGE_EXPLORATION")
 ```
 
-Każda zakładka opakowana jest w `CommerceScreenBaseTabContent`
-(tytuł + opis + `headerBar` na sortowanie/wyszukiwanie + ciemne tło + ramka `hud_section-line`).
+Every tab is wrapped in `CommerceScreenBaseTabContent`
+(title + description + a `headerBar` for sorting/searching + a dark background + a `hud_section-line` frame).
 
-## Punkty nadpisania (`ComponentRegistry.register`) ✅
+## Override points (`ComponentRegistry.register`) ✅
 
-To jedyne miejsca, w które mod może wejść bez podmiany całego ekranu:
+These are the only places a mod can enter without replacing the whole screen:
 
-| nazwa | co to jest | zasięg zmian |
+| name | what it is | scope of changes |
 |---|---|---|
-| `CommerceScreen` | cały ekran | wszystko, ale trzeba odtworzyć resztę |
-| `CommerceScreenBaseTabContent` | wspólna ramka **wszystkich** zakładek | dopisanie czegoś do każdej zakładki naraz — najtańszy haczyk |
-| `CommerceResourcesContainer` | cała zakładka „Zasoby" | |
-| `TradeRouteCard` | kafelek jednego szlaku | |
-| `TreasureConvoyCard`, `TreasureConvoyProgressBar` | konwoje skarbów | |
-| `FactoryTypeDisplay` | wybór zasobu fabrycznego | |
-| `CommerceCriteriaDisplay` | jeden wiersz warunku szlaku | |
+| `CommerceScreen` | the whole screen | everything, but you have to recreate the rest |
+| `CommerceScreenBaseTabContent` | the shared frame of **all** the tabs | adding something to every tab at once — the cheapest hook |
+| `CommerceResourcesContainer` | the whole "Resources" tab | |
+| `TradeRouteCard` | one route's card | |
+| `TreasureConvoyCard`, `TreasureConvoyProgressBar` | treasure convoys | |
+| `FactoryTypeDisplay` | the factory resource picker | |
+| `CommerceCriteriaDisplay` | one row of a route's condition | |
 
-❗ **Nie są zarejestrowane** (czyli nie da się ich nadpisać po nazwie):
+❗ **Not registered** (i.e. they cannot be overridden by name):
 `TradeRoutesContainer`, `EmpireResourceContainer`, `TreasureResourceContainer`
-oraz wszystkie komponenty wewnętrzne zakładki zasobów (`CityResourceContainer`,
+and all the internal components of the resources tab (`CityResourceContainer`,
 `AvailableResourcesSection`, `SettlementName`, `DraggableResource`, `ResourceSlot`,
-`WarningBanner`…). Żeby je zmienić, trzeba nadpisać ich rodzica.
+`WarningBanner`…). To change them you have to override their parent.
 
-⚠️ **`CommerceScreenModel` z `ModelRegistry` jest ślepą uliczką.** Model jest
-zarejestrowany (`ModelRegistry.register("CommerceScreenModel", SharedInstance,
-createCommerceScreenModel)`), ale `commerce-screen.tsx` **woła fabrykę bezpośrednio**
-(`const model = createCommerceScreenModel()`), więc nadpisanie rejestracji niczego nie
-zmieni. Żeby podmienić dane, trzeba nadpisać `CommerceScreen` i podać własny model
-do `CommerceScreenContext.Provider`.
+⚠️ **`CommerceScreenModel` from `ModelRegistry` is a dead end.** The model is
+registered (`ModelRegistry.register("CommerceScreenModel", SharedInstance,
+createCommerceScreenModel)`), but `commerce-screen.tsx` **calls the factory directly**
+(`const model = createCommerceScreenModel()`), so overriding the registration changes
+nothing. To replace the data you have to override `CommerceScreen` and pass your own model
+to `CommerceScreenContext.Provider`.
 
-Dostęp do modelu z wnętrza własnego komponentu:
-`useCommerceScreenContext()` z `/base-standard/ui-next/screens/commerce/commerce-screen-model.js`
-(rzuca wyjątkiem poza drzewem ekranu).
+Accessing the model from inside your own component:
+`useCommerceScreenContext()` from `/base-standard/ui-next/screens/commerce/commerce-screen-model.js`
+(it throws outside the screen's tree).
 
-## Model — co jest w środku ✅
+## The model — what is inside ✅
 
-`createCommerceScreenModel()` zwraca `createMutable(...)` z polami zebranymi w
-`CommerceScreenContextModel`. Najważniejsze:
+`createCommerceScreenModel()` returns a `createMutable(...)` with the fields collected in
+`CommerceScreenContextModel`. The most important ones:
 
-**Dane (`model.data`, typ `CommerceScreenData`):**
+**Data (`model.data`, type `CommerceScreenData`):**
 `resourceTabData`, `tradeRouteTabData`, `empireTabData`, `treasureTabData`, `ornatePanelData`.
 
-**Wybór/fokus (sygnały Solid):** `selectedResource`, `prevSelectedResource`,
+**Selection/focus (Solid signals):** `selectedResource`, `prevSelectedResource`,
 `focusedResource`, `selectedSettlementId`, `focusedSettlementId`, `selectedTradeRouteId`,
 `selectedEmpireResource`, `selectedTreasureConvoyId`, `ghostResourceFocused`.
 
-**Akcje:** `clickAvailableResource`, `slotSelectedResource(cityID, targetResourceValue?)`,
+**Actions:** `clickAvailableResource`, `slotSelectedResource(cityID, targetResourceValue?)`,
 `clickSlottedResource`, `unslotSelectedResource`, `deselectSelectedResource`,
 `clearAllResources(cityID?)`, `clearFactoryResources(cityID)`, `clickCityName`,
 `clickTreasureFleet`, `clickUnimprovedTreasure(location)`, `clickCloseButton`.
 
-**Reguły:** `canSelectResource`, `canDropResourceOnTarget`,
+**Rules:** `canSelectResource`, `canDropResourceOnTarget`,
 `canAssignSelectedResourceToSettlement`, `resourceIsConnectedToTradeNetwork`,
 `cityIsConnectedToTradeNetwork`, `settlementHasSlottedResources`, `hasUnassignedResources`.
 
-**Sortowanie/filtrowanie:** `selectedSettlementSortType` (enum `ResourceSettlementSortType`:
-typ osady, nazwa, wolne sloty, wszystkie sloty, magazyny, ląd bliski/daleki, kolej,
-fabryka, oraz każdy z 7 yieldów), `selectedTradeRouteSorting` (enum `TradeRouteSortType`),
-`selectedResourceFilter`, `tradeRouteSearch(text)` (rozmyte, `FullTextSearch`).
+**Sorting/filtering:** `selectedSettlementSortType` (the `ResourceSettlementSortType` enum:
+settlement type, name, free slots, all slots, warehouses, near/distant lands, rail,
+factory, and each of the 7 yields), `selectedTradeRouteSorting` (the `TradeRouteSortType` enum),
+`selectedResourceFilter`, `tradeRouteSearch(text)` (fuzzy, `FullTextSearch`).
 
-**Odświeżanie:** `onMount` podpina `createEngineEvent("ResourceCapChanged" |
-"ResourceAssigned" | "ResourceUnassigned")` i zbiera je starym `UpdateGate`
-w jedno przeliczenie.
+**Refreshing:** `onMount` hooks up `createEngineEvent("ResourceCapChanged" |
+"ResourceAssigned" | "ResourceUnassigned")` and batches them with the old `UpdateGate`
+into a single recomputation.
 
-## Zakładka „Handel" — jak powstają szlaki ✅
+## The "Trade" tab — how routes are built ✅
 
-`populateTradeRoutes()` woła
+`populateTradeRoutes()` calls
 `Players.get(GameContext.localPlayerID).Trade.projectPossibleTradeRoutes(
-INCLUDE_FAILED + EXTENDED_STATUS)` i rozdziela wynik na **trzy sekcje**
+INCLUDE_FAILED + EXTENDED_STATUS)` and splits the result into **three sections**
 (`CollapsibleContainer`):
 
-| sekcja | warunek (`route.status`) | `TradeRouteAvailabiltyType` |
+| section | condition (`route.status`) | `TradeRouteAvailabiltyType` |
 |---|---|---|
-| aktywne `LOC_COMMERCE_ACTIVE_TRADE_ROUTES_TITLE` | `ALREADY_EXISTS` | `Established` |
-| dostępne `LOC_COMMERCE_AVAILABLE_TRADE_ROUTES_TITLE` | `SUCCESS` | `Available` |
-| niedostępne `LOC_COMMERCE_UNAVAILABLE_TRADE_ROUTES_TITLE` (domyślnie zwinięta) | reszta | `Unavailable` |
+| active `LOC_COMMERCE_ACTIVE_TRADE_ROUTES_TITLE` | `ALREADY_EXISTS` | `Established` |
+| available `LOC_COMMERCE_AVAILABLE_TRADE_ROUTES_TITLE` | `SUCCESS` | `Available` |
+| unavailable `LOC_COMMERCE_UNAVAILABLE_TRADE_ROUTES_TITLE` (collapsed by default) | the rest | `Unavailable` |
 
-Trasy ze statusem `NO_RESOURCES` są **pomijane w całości**.
+Routes with the `NO_RESOURCES` status are **skipped entirely**.
 
-Jeden `TradeRouteData` niesie: nazwę i ikonę miasta (`res_capital` / `Yield_Towns` /
-`Yield_Cities`), `isCityState`, `domainString` („dostarczane do X drogą lądową/morską”),
-`incomingResources` (sortowane wg klasy zasobu: City → Bonus → Empire → Treasure →
-Factory, potem alfabetycznie), `yieldElement` (gotowy JSX z `LOC_TRADE_LENS_YIELD_EXPORT`),
+One `TradeRouteData` carries: the city's name and icon (`res_capital` / `Yield_Towns` /
+`Yield_Cities`), `isCityState`, `domainString` ("delivered to X by land/sea"),
+`incomingResources` (sorted by resource class: City → Bonus → Empire → Treasure →
+Factory, then alphabetically), `yieldElement` (ready JSX with `LOC_TRADE_LENS_YIELD_EXPORT`),
 `relationshipChange` (`getPotentialRelationshipGainFromTradeRouteWith`), `leaderId`,
-`cityID`, `fullText` (materiał dla wyszukiwarki) oraz `statuses`.
+`cityID`, `fullText` (material for the search) and `statuses`.
 
-`statuses` to zawsze **trzy** wpisy `CommerceCriteriaStatusEntry`
-(pojemność / zasięg / pokój), każdy z `isNegative` i kluczem tooltipa; pokazywane są
-tylko w kafelku niedostępnego szlaku. ⚠️ Komentarz Firaxis w kodzie przyznaje, że dla
-kryterium zasięgu nie da się z tego miejsca sprawdzić, czy jest spełnione
-(`appliesToCurrentCiv: true` na sztywno).
+`statuses` is always **three** `CommerceCriteriaStatusEntry` entries
+(capacity / range / peace), each with `isNegative` and a tooltip key; they are shown
+only on an unavailable route's card. ⚠️ A Firaxis comment in the code admits that for
+the range criterion it is not possible from that place to check whether it is satisfied
+(`appliesToCurrentCiv: true` hardcoded).
 
-**Układ kafelków** liczony jest ręcznie w `TradeRoutesContainer`: `ResizeObserver` +
-`checkForWrap()` mierzy kontener, dzieli szerokość przez `DEFAULT_CARD_WIDTH`
-(`Layout.pixelsToScreenPixels(512)`) i ustawia szerokość każdej karty w px.
-Do czasu pierwszego pomiaru karty mają `opacity-0`. ⚠️ Nadpisanie `TradeRouteCard`
-własną kartą o innych rozmiarach rozjedzie tę logikę — trzeba respektować
-`props.style.width` i klasę `.trade-route-card` (po niej `querySelectorAll` liczy karty).
+**The cards' layout** is computed by hand in `TradeRoutesContainer`: a `ResizeObserver` +
+`checkForWrap()` measures the container, divides the width by `DEFAULT_CARD_WIDTH`
+(`Layout.pixelsToScreenPixels(512)`) and sets each card's width in px.
+Until the first measurement the cards have `opacity-0`. ⚠️ Overriding `TradeRouteCard`
+with a card of your own with different dimensions will break that logic — you have to respect
+`props.style.width` and the `.trade-route-card` class (`querySelectorAll` counts cards by it).
 
-Sortowanie szlaków: liczba zasobów / nazwa lidera / relacja z liderem / nazwa osady /
-typ osady. Pasek wyszukiwania (`SearchBar`) pokazuje się **tylko** na
-`ViewExperience() === UIViewExperience.Desktop` i przy nieaktywnym padzie.
+Route sorting: number of resources / leader name / relationship with the leader / settlement name /
+settlement type. The search bar (`SearchBar`) is shown **only** on
+`ViewExperience() === UIViewExperience.Desktop` and when a gamepad is not active.
 
-## Zakładka „Zasoby" — struktura ✅
+## The "Resources" tab — structure ✅
 
-Największa i najbardziej złożona. Dwie kolumny danych w modelu:
+The biggest and most complex one. Two columns of data in the model:
 
-- `availableResourceSectionData[]` — nieprzydzielone zasoby, dzielone na podsekcje wg
-  klasy (City / Bonus / Factory…), z flagą `isConnectedToTradeNetwork`;
-- `slottedResourceSectionData[]` — osady (`CommerceCityResourceData`): nazwa i ikona
-  osady, `baseYields` + `yieldDeltas` (podgląd zmiany yieldów!), `slottedResources`,
+- `availableResourceSectionData[]` — unassigned resources, split into subsections by
+  class (City / Bonus / Factory…), with an `isConnectedToTradeNetwork` flag;
+- `slottedResourceSectionData[]` — settlements (`CommerceCityResourceData`): the settlement's name and icon,
+  `baseYields` + `yieldDeltas` (a preview of the yield change!), `slottedResources`,
   `availableSlots`, `factoryResourceData`;
-- `unslottedBonuses` — premia z zasobów nieprzydzielonych
+- `unslottedBonuses` — the bonus from unassigned resources
   (`getUnassignedResourceYieldBonus`).
 
-Przenoszenie zasobów to pełny **drag & drop** (`createTypedDragAndDrop` z
-`core/ui-next`), z osobną obsługą pada (`GamepadTrayItemProvider`, enumy
-`ResourceTabInteractionTypeFlag` / `ResourceTabInteractionCombo` kodujące bitowo
-kombinacje „zaznaczony zasób + najechana osada").
+Moving resources is full **drag & drop** (`createTypedDragAndDrop` from
+`core/ui-next`), with separate gamepad handling (`GamepadTrayItemProvider`, the
+`ResourceTabInteractionTypeFlag` / `ResourceTabInteractionCombo` enums bit-encoding
+the "selected resource + hovered settlement" combinations).
 
-`CommerceCityNameData` niesie gotowe liczniki, przydatne do własnych podsumowań:
+`CommerceCityNameData` carries ready-made counters, useful for summaries of your own:
 `warehouseCount`, `tradeConnectionCount`, `waterCount`, `hasRail`, `isTown`,
 `townFocusName/Icon`, `settlementDistanceTypeName`.
 
-## Zakładka „Imperium" i „Skarby" ✅
+## The "Empire" and "Treasure" tabs ✅
 
-- **Imperium**: `EmpireResourceData[]` — zasób, ile sztuk, z jakich miast i od jakich
-  liderów pochodzi (`resourceOriginData`, `tooltips` per gracz).
-- **Skarby**: tylko w epoce Odkryć. `TreasureFleetData` — miasto, lista zasobów
-  skarbowych, postęp (`progress`/`progressGoal`), `getTurnsUntilTreasureGenerated()`,
-  `isDistantLand`, plus `statuses` w tym samym formacie co szlaki.
+- **Empire**: `EmpireResourceData[]` — the resource, how many, which cities and which
+  leaders it comes from (`resourceOriginData`, `tooltips` per player).
+- **Treasure**: the Exploration age only. `TreasureFleetData` — the city, the list of treasure
+  resources, progress (`progress`/`progressGoal`), `getTurnsUntilTreasureGenerated()`,
+  `isDistantLand`, plus `statuses` in the same format as routes.
 
-## ⭐ Działający wzorzec z Workshop: mod **Resource+** ✅
+## ⭐ A working pattern from the Workshop: the **Resource+** mod ✅
 
-`steamapps\workshop\content\1295660\3756000777\ui\commerce\resource-plus.js` (1251 linii,
-id `brads-assign-all-resources`, autor Brad). **Jedyny znany mod, który modyfikuje ten
-ekran** — i dowód, że cała powyższa teoria działa w praktyce. Robi: przycisk
-„Assign All / Reassign All", per-osada wybór priorytetu yieldu, kłódki blokujące
-zasoby przed przenoszeniem.
+`steamapps\workshop\content\1295660\3756000777\ui\commerce\resource-plus.js` (1251 lines,
+id `brads-assign-all-resources`, by Brad). **The only known mod that modifies this
+screen** — and proof that all the theory above works in practice. It adds: an
+"Assign All / Reassign All" button, a per-settlement yield priority choice, and locks that keep
+resources from being moved.
 
-Cały mod to **jeden plik JS + `.modinfo`** — bez `text/`, bez CSS-a jako pliku,
-bez zależności. `AffectsSavedGames = 0`, `LoadOrder` 1100.
+The whole mod is **a single JS file + a `.modinfo`** — no `text/`, no CSS as a file,
+no dependencies. `AffectsSavedGames = 0`, `LoadOrder` 1100.
 
-**Technika (opisana szerzej w [25](25-ui-next-solidjs.md)):**
+**The technique (described at greater length in [25](25-ui-next-solidjs.md)):**
 
-1. importuje `CommerceResourcesContainer` z gry, bierze `.factory` jako `originalFactory`;
-2. rejestruje własny wrapper pod tą samą nazwą z `overridePriority: 1100`;
-3. wrapper woła `useCommerceScreenContext()` (działa — jesteśmy w drzewie Providera),
-   w `onMount` wstrzykuje **goły DOM** (`document.createElement`), a na końcu zwraca
+1. it imports `CommerceResourcesContainer` from the game and takes `.factory` as `originalFactory`;
+2. it registers its own wrapper under the same name with `overridePriority: 1100`;
+3. the wrapper calls `useCommerceScreenContext()` (which works — we are in the Provider's tree),
+   injects **raw DOM** (`document.createElement`) in `onMount`, and at the end returns
    `originalFactory(props)`;
-4. `<style id="brad-assign-all-style">` ląduje w `document.head`;
-5. `MutationObserver` na `document.body` wywołuje `reconcileUI()` po każdej przebudowie
-   drzewa przez Solid;
-6. `onCleanup` usuwa **każdy** wstrzyknięty element z osobna.
+4. a `<style id="brad-assign-all-style">` goes into `document.head`;
+5. a `MutationObserver` on `document.body` calls `reconcileUI()` after every rebuild
+   of the tree by Solid;
+6. `onCleanup` removes **every** injected element individually.
 
-❗ **`overridePriority: 1100` jest już zajęte** na `CommerceResourcesContainer`.
-Nasz mod musi dać więcej, jeśli chce być „na zewnątrz", i **musi delegować** do
-`originalFactory` — inaczej Resource+ zniknie (dokładnie ten sam błąd, co konflikt
-z City Hall, quirk #30).
+❗ **`overridePriority: 1100` is already taken** on `CommerceResourcesContainer`.
+Our mod has to give more if it wants to be "on the outside", and it **must delegate** to
+`originalFactory` — otherwise Resource+ will disappear (exactly the same bug as the conflict
+with City Hall, quirk #30).
 
-**Zmiany w grze robi przez oficjalne operacje gracza**, nie przez grzebanie w modelu:
+**It makes changes in the game through official player operations**, not by poking at the model:
 
 ```js
 Game.PlayerOperations.canStart(GameContext.localPlayerID,
@@ -233,32 +233,32 @@ Game.PlayerOperations.canStart(GameContext.localPlayerID,
     false).Success
 ```
 
-⚠️ To już **zmiana mechaniki**, nie tylko UI — jeśli nasz mod ma zostać czysto UI-owy,
-tego kroku nie powielamy.
+⚠️ That is already a **mechanics change**, not just UI — if our mod is to stay purely UI,
+we do not reproduce that step.
 
-## Haczyki DOM w zakładce „Zasoby" ✅
+## DOM hooks in the "Resources" tab ✅
 
-Atrybuty `data-name` i klasy używane przez Resource+, potwierdzone w źródłach gry
-(`name=` na `Activatable`/`SpatialSlot` renderuje się jako `data-name`):
+The `data-name` attributes and classes used by Resource+, confirmed in the game's sources
+(`name=` on an `Activatable`/`SpatialSlot` renders as `data-name`):
 
-| selektor | co to |
+| selector | what it is |
 |---|---|
-| `[data-name="available-resources-container"]` | lewa kolumna: zasoby nieprzydzielone |
-| `[data-name="commerce-unassigned-resources"]` | lista wewnątrz niej |
-| `[data-name="slotted-resource-container"]` | prawa kolumna: osady |
-| `[data-name="commerce-screen-base-tab-content"]` | wspólna treść **każdej** zakładki |
-| `[data-name$="-city-resource-activatable"]` | kafelek jednej osady |
-| `[data-name^="city-resource-container-"]` | wnętrze kafelka osady (z nazwą osady!) |
-| `.text-secondary.w-full.mb-2` | sekcja (połączone / rozłączone) |
-| `.flex.flex-row.flex-wrap.relative.w-full.justify-between` | nagłówek kafelka osady |
-| `.size-19` | pojedynczy slot na zasób w osadzie |
-| `[data-name="Commerce-Screen-Trade-Tab"]`, `…-Empire-Tab`, `…-Treasure-Tab` | korzenie zakładek |
-| `[data-name$="-Trade-Route-Card"]`, `.trade-route-card` | kafelek szlaku |
+| `[data-name="available-resources-container"]` | the left column: unassigned resources |
+| `[data-name="commerce-unassigned-resources"]` | the list inside it |
+| `[data-name="slotted-resource-container"]` | the right column: settlements |
+| `[data-name="commerce-screen-base-tab-content"]` | the shared content of **every** tab |
+| `[data-name$="-city-resource-activatable"]` | one settlement's card |
+| `[data-name^="city-resource-container-"]` | the inside of a settlement's card (with the settlement's name!) |
+| `.text-secondary.w-full.mb-2` | a section (connected / disconnected) |
+| `.flex.flex-row.flex-wrap.relative.w-full.justify-between` | a settlement card's header |
+| `.size-19` | a single resource slot in a settlement |
+| `[data-name="Commerce-Screen-Trade-Tab"]`, `…-Empire-Tab`, `…-Treasure-Tab` | the tabs' roots |
+| `[data-name$="-Trade-Route-Card"]`, `.trade-route-card` | a route's card |
 
-⚠️ Klasowe selektory (`.text-secondary.w-full.mb-2`) są kruche — to zwykłe klasy
-układu, nie identyfikatory. `data-name` jest bezpieczniejsze.
+⚠️ Class-based selectors (`.text-secondary.w-full.mb-2`) are brittle — those are ordinary
+layout classes, not identifiers. `data-name` is safer.
 
-**Mapowanie model → DOM** Resource+ robi po indeksie, nie po id:
+Resource+ does the **model → DOM mapping** by index, not by id:
 
 ```js
 const sections = container.querySelectorAll('.text-secondary.w-full.mb-2');
@@ -268,88 +268,88 @@ model.data.resourceTabData.slottedResourceSectionData.forEach((section, i) => {
 });
 ```
 
-⚠️ Zakłada, że kolejność w DOM = kolejność w modelu. Przy sortowaniu/filtrowaniu
-osad to założenie może pęknąć — lepszym kluczem jest nazwa osady z
-`data-name="city-resource-container-<nazwa>"`.
+⚠️ It assumes the DOM order = the model's order. With settlement sorting/filtering
+that assumption can break — a better key is the settlement's name from
+`data-name="city-resource-container-<name>"`.
 
-## Inny sąsiad: „Trade Chooser Improvements" (Slothoth) ✅
+## Another neighbor: "Trade Chooser Improvements" (Slothoth) ✅
 
-Workshop 3570879406, id `resource-fixes-deadbeef`, katalog nazwany
-`Resource-Screen-Improvements` — **mylące, to NIE jest ekran Handlu.** Dotyczy
-`ui/trade-route-chooser/` (panel wyboru szlaku przy jednostce handlowej), czyli
-**starego** frameworka, i używa `<ImportFiles>` do podmiany całych plików gry
-(`trade-route-chooser.js`, `trade-routes-model.js`) — najbardziej inwazyjnej techniki,
-gwarantującej konflikt z każdym innym modem ruszającym te pliki. Dorzuca też własne
-ikony (`UpdateIcons` + `.dds`) i teksty przez `.sql`.
+Workshop 3570879406, id `resource-fixes-deadbeef`, in a directory named
+`Resource-Screen-Improvements` — **misleading, this is NOT the Commerce screen.** It concerns
+`ui/trade-route-chooser/` (the route picker on a trade unit), i.e. the
+**old** framework, and it uses `<ImportFiles>` to replace whole game files
+(`trade-route-chooser.js`, `trade-routes-model.js`) — the most invasive technique,
+guaranteed to conflict with any other mod touching those files. It also adds its own
+icons (`UpdateIcons` + `.dds`) and texts through `.sql`.
 
-## Cofanie przypisania zasobu ✅
+## Un-assigning a resource ✅
 
-Gra robi to jedną operacją gracza (`commerce-screen-model.ts`, `unassignResource`):
+The game does it with one player operation (`commerce-screen-model.ts`, `unassignResource`):
 
 ```js
 Game.PlayerOperations.sendRequest(GameContext.localPlayerID,
     PlayerOperationTypes.ASSIGN_RESOURCE, {
         Location: GameplayMap.getLocationFromIndex(resourceValue),
         City: cityID.id,
-        Action: PlayerOperationParameters.Deactivate,   // ← to odróżnia od przypisania
+        Action: PlayerOperationParameters.Deactivate,   // ← this is what distinguishes it from assigning
     });
 ```
 
-Czyli **ta sama operacja co przypisanie**, tylko z `Action: Deactivate`. Przypisanie to
-ten sam obiekt bez pola `Action`. Zamiana miejscami to osobna operacja `SWAP_RESOURCES`
-z `{ Location, Location2 }`.
+So it is **the same operation as assigning**, only with `Action: Deactivate`. Assigning is
+the same object without the `Action` field. Swapping places is a separate `SWAP_RESOURCES` operation
+with `{ Location, Location2 }`.
 
-Po wysłaniu nic nie trzeba odświeżać ręcznie — model nasłuchuje `ResourceUnassigned`
-i przelicza się przez `UpdateGate`.
+After sending, nothing has to be refreshed by hand — the model listens for `ResourceUnassigned`
+and recomputes through an `UpdateGate`.
 
-⚠️ Modelowe `unslotSelectedResource()` działa na **aktualnie zaznaczonym** zasobie, więc
-do cofania konkretnego trzeba by go najpierw zaznaczyć. Przy operacji masowej to znaczy
-tyle zmian sygnału zaznaczenia, ile zasobów — lepiej wołać operację wprost.
+⚠️ The model's `unslotSelectedResource()` operates on the **currently selected** resource, so
+to un-assign a specific one you would have to select it first. In a bulk operation that means
+as many selection-signal changes as there are resources — better to call the operation directly.
 
-**Identyfikacja rodzaju zasobu:** `ResourceSlotData.resourceType` to
-`ResourceDefinition.ResourceType`, czyli `"RESOURCE_CAMELS"` itp. ⚠️ Nie mylić z
-`ResourceProps.resourceType`, które trzyma **klasę** zasobu jako klucz lokalizacji
-(`LOC_RESOURCECLASS_CITY_NAME`) — to dwa różne pola o tej samej nazwie.
+**Identifying a resource's kind:** `ResourceSlotData.resourceType` is
+`ResourceDefinition.ResourceType`, i.e. `"RESOURCE_CAMELS"` and so on. ⚠️ Not to be confused with
+`ResourceProps.resourceType`, which holds the resource's **class** as a localization key
+(`LOC_RESOURCECLASS_CITY_NAME`) — two different fields with the same name.
 
-## Przypisywanie zasobu — obie drogi kończą się w jednym miejscu ✅
+## Assigning a resource — both routes end in one place ✅
 
-**2026-08-10.** Gracz może przypisać zasób na dwa sposoby, ale w kodzie schodzą się one
-do **jednego wywołania modelu**:
+**2026-08-10.** The player can assign a resource in two ways, but in the code they converge
+on **a single model call**:
 
-| droga | miejsce w `commerce-screen-resources-tab.tsx` | wywołanie |
+| route | place in `commerce-screen-resources-tab.tsx` | call |
 |---|---|---|
-| kliknięcie w osadę | `Activatable` karty osady, `onActivate` | `model.slotSelectedResource(cityID)` |
-| kliknięcie w pusty slot | „ghost" `Activatable`, `onActivate` | `model.slotSelectedResource(cityID)` |
-| przeciągnięcie | `<DragAndDrop onDragDrop={…}>` w `CommerceResourcesContainerComponent` | `model.slotSelectedResource(cityID)` |
+| clicking a settlement | the settlement card's `Activatable`, `onActivate` | `model.slotSelectedResource(cityID)` |
+| clicking an empty slot | the "ghost" `Activatable`, `onActivate` | `model.slotSelectedResource(cityID)` |
+| dragging | `<DragAndDrop onDragDrop={…}>` in `CommerceResourcesContainerComponent` | `model.slotSelectedResource(cityID)` |
 
-Dlatego mod, który chce zmienić zachowanie **przy każdym** sposobie przypisania,
-opakowuje jedną metodę zamiast trzech komponentów. Model to `createMutable`, więc
-własność da się po prostu podmienić i przywrócić przy sprzątaniu:
+That is why a mod that wants to change the behavior of **every** way of assigning
+wraps one method instead of three components. The model is a `createMutable`, so the
+property can simply be replaced and restored during cleanup:
 
 ```js
 const original = model.slotSelectedResource;
 model.slotSelectedResource = (cityID, targetResourceValue) => {
-    const assigned = model.selectedResource().resourceValue;   // ⚠️ przed wywołaniem!
+    const assigned = model.selectedResource().resourceValue;   // ⚠️ before the call!
     original.call(model, cityID, targetResourceValue);
     …
 };
 ```
 
-⚠️ Zaznaczenie czytaj **przed** wywołaniem oryginału — `handleSlotSelectedResource`
-kończy się `handleDeselectSelectedResource()`, więc potem jest już puste.
+⚠️ Read the selection **before** calling the original — `handleSlotSelectedResource`
+ends with `handleDeselectSelectedResource()`, so afterwards it is already empty.
 
-⚠️ Wywołanie z drugim argumentem (`targetResourceValue`) to **zamiana dwóch zasobów
-miejscami**, a nie wstawienie w wolny slot. Jeśli Twoja logika dotyczy tylko
-przypisywania, pomijaj takie wywołania.
+⚠️ A call with a second argument (`targetResourceValue`) is a **swap of two resources**,
+not an insertion into a free slot. If your logic is only about
+assignment, skip such calls.
 
-Zdarzenia potwierdzające ze strony silnika: **`ResourceAssigned`** i
-**`ResourceUnassigned`** (`engine.on` / `engine.off`) — model ekranu nasłuchuje ich tak
-samo, dodatkowo z `ResourceCapChanged`.
+The confirming events from the engine's side: **`ResourceAssigned`** and
+**`ResourceUnassigned`** (`engine.on` / `engine.off`) — the screen's model listens for them the
+same way, additionally with `ResourceCapChanged`.
 
-## Zasoby, które same dają sloty — `BonusResourceSlots` ✅
+## Resources that provide slots themselves — `BonusResourceSlots` ✅
 
-**2026-08-10.** Wielbłądy dają osadzie **dwa dodatkowe sloty na zasoby**, i nie jest to
-zaszyte w kodzie, tylko w danych:
+**2026-08-10.** Camels give a settlement **two extra resource slots**, and this is not
+hardcoded but held in the data:
 
 ```xml
 <!-- base-standard/data/resources.xml -->
@@ -357,81 +357,81 @@ zaszyte w kodzie, tylko w danych:
      Weight="10" BonusResourceSlots="2" UnlocksCiv="true"/>
 ```
 
-`BonusResourceSlots` to **kolumna schematu** (`Base\Assets\schema\gameplay\01_GameplaySchema.sql`,
-`INTEGER NOT NULL DEFAULT 0`). Na 2026-08-10 wielbłądy są jedynym zasobem z wartością
-niezerową w całej grze wraz z DLC — ale nie zakładaj tego na stałe, tylko czytaj kolumnę:
+`BonusResourceSlots` is a **schema column** (`Base\Assets\schema\gameplay\01_GameplaySchema.sql`,
+`INTEGER NOT NULL DEFAULT 0`). As of 2026-08-10 camels are the only resource with a non-zero
+value in the entire game including DLC — but do not assume that permanently, read the column:
 
 ```js
 GameInfo.Resources.forEach((r) => { if (r.BonusResourceSlots > 0) … });
 ```
 
-⚠️ **Konsekwencja przy cofaniu przypisania:** wyjęcie takiego zasobu **zmniejsza
-pojemność osady**, więc tyle samo innych zasobów musi wyjść razem z nim, inaczej osada
-trzymałaby więcej, niż ma slotów. Przy wielbłądzie to 2 dodatkowe zasoby, przy dwóch
-wielbłądach 4. Kolejność ma znaczenie: **najpierw towarzysze, potem zasób dający sloty.**
+⚠️ **The consequence when un-assigning:** taking such a resource out **reduces
+the settlement's capacity**, so the same number of other resources has to leave with it, otherwise the settlement
+would hold more than it has slots for. With one camel that is 2 extra resources, with two
+camels 4. Order matters: **the companions first, then the slot-granting resource.**
 
-⚠️ Na towarzyszy nie wybieraj zasobów, które **same** dają sloty — to zmniejszyłoby
-pojemność jeszcze raz i zrobiła się kaskada.
+⚠️ Do not pick resources that **themselves** grant slots as companions — that would reduce
+capacity again and you would get a cascade.
 
-❗ **`sendRequest` tylko KOLEJKUJE operację.** Zapytanie `canStart` o kolejny zasób
-w tym samym takcie widzi jeszcze stary stan. Wysłanie towarzyszy i wielbłąda naraz
-kończy się tak: towarzysze wychodzą, wielbłąd **zostaje** (odmowa), a następne
-kliknięcie znów nalicza towarzyszy za usunięcie, które ich już nie potrzebuje.
+❗ **`sendRequest` only QUEUES the operation.** A `canStart` query about the next resource
+in the same tick still sees the old state. Sending the companions and the camel at once
+ends like this: the companions leave, the camel **stays** (refused), and the next
+click charges companions again for a removal that no longer needs them.
 
-Poprawnie jest **sekwencyjnie i pytając zamiast licząc**:
+The correct way is **sequential, and asking instead of computing**:
 
-1. spróbuj `canStart` na właściwym zasobie — jeśli przechodzi, wyślij i koniec;
-2. jeśli nie: zwolnij **jednego** towarzysza (od końca listy), poczekaj na potwierdzenie,
-   wróć do 1;
-3. przerwij po wyczerpaniu puli kandydatów (ogranicz ją liczbą traconych slotów).
+1. try `canStart` on the actual resource — if it passes, send it and stop;
+2. if not: release **one** companion (from the end of the list), wait for confirmation,
+   go back to 1;
+3. stop once the candidate pool runs out (limit it by the number of slots lost).
 
-Dzięki temu osada nigdy nie traci więcej, niż silnik faktycznie wymaga — a wymagania
-nie trzeba znać z góry.
+This way the settlement never loses more than the engine actually requires — and the requirement
+does not have to be known in advance.
 
-Na potwierdzenie zmiany czekaj na zdarzenie silnika **`ResourceUnassigned`**
-(`engine.on` / `engine.off`), z zabezpieczeniem czasowym na wypadek operacji, która
-cicho przepadnie.
+For confirmation of the change wait for the engine event **`ResourceUnassigned`**
+(`engine.on` / `engine.off`), with a timeout in case an operation quietly
+gets lost.
 
-`GameInfo.Resources` czyta się iteracyjnie (`forEach`), nie zapytaniem — tak samo robi
-model ekranu w `indexResourceTypes()`.
+`GameInfo.Resources` is read iteratively (`forEach`), not with a query — the screen's model does
+the same in `indexResourceTypes()`.
 
-## Otwarte pytania ❓
+## Open questions ❓
 
-- Jak `ScreenFrame` / `ornatePanelData` reaguje na zmianę wysokości treści zakładki.
-- Czy da się wstrzyknąć własną **piątą zakładkę** do `<Tab>` bez nadpisywania całego
-  `CommerceScreen` (`Tab.Item` to dzieci `CommerceScreen`, więc raczej nie).
-- Czy `MutationObserver` na `document.body` (technika Resource+) zauważalnie kosztuje
-  na dużych mapach — czy da się zawęzić do kontenera zakładki.
+- How `ScreenFrame` / `ornatePanelData` reacts to a change in a tab's content height.
+- Whether a **fifth tab** of your own can be injected into `<Tab>` without overriding the whole
+  `CommerceScreen` (`Tab.Item`s are `CommerceScreen`'s children, so probably not).
+- Whether a `MutationObserver` on `document.body` (the Resource+ technique) costs noticeably
+  on large maps — whether it can be narrowed to the tab's container.
 
-## Zaczepy do zmiany wyglądu zakładki „Zasoby" ✅
+## Hooks for changing the "Resources" tab's appearance ✅
 
-**2026-08-10.** Struktura paska nagłówka (`headerBar` przekazany do
-`CommerceScreenBaseTabContent` w `commerce-screen-resources-tab.tsx`):
+**2026-08-10.** The header bar's structure (the `headerBar` passed to
+`CommerceScreenBaseTabContent` in `commerce-screen-resources-tab.tsx`):
 
 ```
-div.flex.flex-row.w-full.items-center                    ← korzeń paska
-├ div[style="width: 28%"]                                ← kolumna „NIEPRZYDZIELONE"
-│  ├ div  (tytuł LOC_COMMERCE_AVAILABLE_RESOURCES_TITLE)
-│  └ div.flex.flex-row                                   ← wiersz sum yieldów
-│     └ div.ml-2.flex.flex-row × N                       ← jedna suma: ikona + „+54"
-├ div  (tytuł LOC_COMMERCE_SETTLEMENTS_TITLE)
-└ [data-name="filter-and-sort"]                          ← ⭐ stabilny uchwyt
-   ├ etykieta FILTRUJ + <Dropdown class="… min-h-14">
-   └ etykieta SORTUJ  + <Dropdown class="… min-h-14">
+div.flex.flex-row.w-full.items-center                    ← the bar's root
+├ div[style="width: 28%"]                                ← the "UNASSIGNED" column
+│  ├ div  (the LOC_COMMERCE_AVAILABLE_RESOURCES_TITLE title)
+│  └ div.flex.flex-row                                   ← the row of yield totals
+│     └ div.ml-2.flex.flex-row × N                       ← one total: an icon + "+54"
+├ div  (the LOC_COMMERCE_SETTLEMENTS_TITLE title)
+└ [data-name="filter-and-sort"]                          ← ⭐ a stable handle
+   ├ the FILTER label + <Dropdown class="… min-h-14">
+   └ the SORT label   + <Dropdown class="… min-h-14">
 ```
 
-`[data-name="filter-and-sort"]` pochodzi z `HSlot name="filter-and-sort"` i jest
-**jedynym nazwanym elementem w tym pasku** — od niego najłatwiej dojść strukturalnie do
-reszty (`.parentElement` to korzeń paska, jego pierwsze dziecko to kolumna
-nieprzydzielonych, jej ostatnie dziecko to wiersz sum).
+`[data-name="filter-and-sort"]` comes from `HSlot name="filter-and-sort"` and is
+**the only named element in that bar** — it is the easiest starting point for reaching the
+rest structurally (`.parentElement` is the bar's root, its first child is the unassigned
+column, its last child is the row of totals).
 
-Wysokość rozwijanych list bierze się z klasy `min-h-14` = **3.1111rem**
-(`core/ui/themes/default/default.css`). Dla porównania `min-h-10` = 2.2222rem,
+The dropdowns' height comes from the `min-h-14` class = **3.1111rem**
+(`core/ui/themes/default/default.css`). For comparison `min-h-10` = 2.2222rem,
 `min-h-8` = 1.7777rem.
 
-**Rozpoznanie, do którego yieldu należy dana suma:** `YieldBonus` niesie tylko
-`iconSrc` i `bonusAmount`, bez typu. Nie zgaduj z kolejności — zbuduj mapę tą samą
-funkcją, której użył model:
+**Working out which yield a given total belongs to:** `YieldBonus` carries only
+`iconSrc` and `bonusAmount`, with no type. Do not guess from the order — build a map with the same
+function the model used:
 
 ```js
 import { Icon } from '/core/ui/utilities/utilities-image.js';
@@ -439,23 +439,23 @@ const byIcon = new Map();
 GameInfo.Yields.forEach((y) => byIcon.set(`url(${Icon.getYieldIcon(y.YieldType)})`, y.YieldType));
 ```
 
-**Linia z instrukcją nad panelem** (`LOC_COMMERCE_RESOURCE_ALLOCATION_DESCRIPTION`)
-renderuje `CommerceScreenBaseTabContent` jako `div.text-base.w-full.text-center.my-4`,
-**rodzeństwo** ramki z treścią — nie da się do niej dojść z wnętrza zakładki, zostaje
-selektor CSS. Zakres najlepiej dać przez element `screen-resource-allocation`, czyli
-korzeń całego ekranu (nazwa custom elementu z `defineLegacyComponent`).
+**The instruction line above the panel** (`LOC_COMMERCE_RESOURCE_ALLOCATION_DESCRIPTION`)
+is rendered by `CommerceScreenBaseTabContent` as a `div.text-base.w-full.text-center.my-4`, a
+**sibling** of the content frame — you cannot reach it from inside the tab, so a
+CSS selector is what is left. The scope is best given through the `screen-resource-allocation` element, i.e. the
+root of the whole screen (the custom element's name from `defineLegacyComponent`).
 
-⚠️ Ten komponent jest wspólny dla **wszystkich czterech zakładek**. Jeśli zmiana ma
-dotyczyć tylko jednej, nie kombinuj z selektorem — **dołączaj arkusz w `onMount`
-komponentu tej zakładki i usuwaj w `onCleanup`**. Zakres wychodzi wtedy z cyklu życia,
-a nie z CSS-a.
+⚠️ That component is shared by **all four tabs**. If a change is meant to apply
+to only one, do not fiddle with the selector — **attach the stylesheet in the tab component's `onMount`
+and remove it in `onCleanup`**. The scope then comes from the lifecycle,
+not from CSS.
 
-## Wygląd plakietek jak w Drongo's Top Panel ✅
+## Badges that look like Drongo's Top Panel ✅
 
-Mod **Drongo's Top Panel** (Workshop 3734234006) nie rysuje własnych plakietek — dokłada
-tło do elementów, które gra już renderuje, przez arkusz w
-`ui/diplo-ribbon/css-constants.js`. Przepis (do skopiowania, gdy coś ma wyglądać „jak
-na górnym pasku"):
+The **Drongo's Top Panel** mod (Workshop 3734234006) does not draw its own badges — it adds
+a background to elements the game already renders, through a stylesheet in
+`ui/diplo-ribbon/css-constants.js`. The recipe (to copy when something should look "like
+the top bar"):
 
 ```css
 height: 1.7777777778rem;            /* = min-h-8 */
@@ -466,50 +466,50 @@ background-clip: padding-box;
 color: #FFFFFF;
 ```
 
-Barwy tła per yield: złoto `rgba(255,235,75,.3)`, zadowolenie `rgba(253,175,50,.3)`,
-nauka `rgba(50,151,255,.3)`, kultura `rgba(197,75,255,.3)`, produkcja
-`rgba(204,118,52,.34)`, wpływ/dyplomacja `rgba(88,192,231,.3)`, reszta
-`rgba(228,228,228,.3)`. Przy najechaniu ten sam kolor z alfą `.5`.
+Background colors per yield: gold `rgba(255,235,75,.3)`, happiness `rgba(253,175,50,.3)`,
+science `rgba(50,151,255,.3)`, culture `rgba(197,75,255,.3)`, production
+`rgba(204,118,52,.34)`, influence/diplomacy `rgba(88,192,231,.3)`, the rest
+`rgba(228,228,228,.3)`. On hover, the same color with alpha `.5`.
 
-## Odczyt bieżących yieldów osady (w tym zadowolenia) ✅
+## Reading a settlement's current yields (including happiness) ✅
 
-**2026-08-10.** `CommerceCityResourceData.yieldDeltas` to tablica `YieldDeltaProps`
-z polami **`yieldIconSrc`**, **`yieldTotal`** i `yieldDelta`. Typu yieldu tam nie ma —
-wyciąga się go z URL-a ikony:
+**2026-08-10.** `CommerceCityResourceData.yieldDeltas` is an array of `YieldDeltaProps`
+with the fields **`yieldIconSrc`**, **`yieldTotal`** and `yieldDelta`. The yield's type is not there —
+it is extracted from the icon's URL:
 
 ```js
 const type = String(entry.yieldIconSrc).match(/YIELD_[A-Z_]+/)?.[0] ?? null;
 const total = Number(entry.yieldTotal) || 0;
 ```
 
-`yieldTotal` to wartość pokazywana na karcie osady (np. `-10` zadowolenia), więc to
-najprostsze źródło informacji „która osada jest nieszczęśliwa". ⚠️ `yieldDelta` to
-podgląd **zmiany** przy najechaniu, nie stan — nie myl ich.
+`yieldTotal` is the value shown on the settlement's card (e.g. `-10` happiness), so it is
+the simplest source of "which settlement is unhappy". ⚠️ `yieldDelta` is
+a preview of the **change** on hover, not the state — do not confuse them.
 
-**Odświeżanie:** po każdej operacji przypisania model przelicza się sam
-(zdarzenie `ResourceAssigned` + `UpdateGate`), więc algorytm działający w pętli powinien
-czytać `yieldDeltas` **na nowo w każdym przebiegu**. To wystarcza, żeby rozdzielać zasoby
-równomiernie: wybierasz zawsze aktualnie najgorszą osadę, a ona przestaje być najgorsza,
-gdy tylko dostanie dość — bez żadnego planowania z góry.
+**Refreshing:** after every assignment operation the model recomputes itself
+(the `ResourceAssigned` event + an `UpdateGate`), so an algorithm running in a loop should
+read `yieldDeltas` **anew on every pass**. That is enough to distribute resources
+evenly: you always pick the currently worst settlement, and it stops being the worst
+as soon as it has had enough — with no planning ahead at all.
 
-## Ikony gry przydatne na tym ekranie ✅
+## Game icons useful on this screen ✅
 
-**2026-08-10.** Ścieżki BLP wprost z `base-standard/data/icons/` — można ich użyć jako
-`url(blp:…)` w stylu, tak jak robi to sama gra w `commerce-screen-empire-tab.tsx`:
+**2026-08-10.** BLP paths straight from `base-standard/data/icons/` — they can be used as
+`url(blp:…)` in a style, exactly as the game does in `commerce-screen-empire-tab.tsx`:
 
-| co | BLP | wygląd |
+| what | BLP | appearance |
 |---|---|---|
-| klasa zasobu: miejski | `blp:restype_city_v2` | niebieski budynek |
-| klasa zasobu: dodatkowy | `blp:restype_bonus_v2` | zielony listek z plusem |
-| klasa zasobu: imperium | `blp:restype_empire_v2` | pomarańczowy heksagon |
-| klasa zasobu: skarb | `blp:restype_treasure_v3` | złota skrzynka |
-| flota skarbów | `blp:restype_treasure_v2` | |
-| zasoby (ogólnie) | `blp:radial_resources` | zielony listek |
-| szlaki handlowe | `blp:Action_Trade` | dwie strzałki |
+| resource class: city | `blp:restype_city_v2` | a blue building |
+| resource class: bonus | `blp:restype_bonus_v2` | a green leaf with a plus |
+| resource class: empire | `blp:restype_empire_v2` | an orange hexagon |
+| resource class: treasure | `blp:restype_treasure_v3` | a golden chest |
+| treasure fleet | `blp:restype_treasure_v2` | |
+| resources (in general) | `blp:radial_resources` | a green leaf |
+| trade routes | `blp:Action_Trade` | two arrows |
 
-Drugi sposób, którego używa mod **Trade Chooser Improvements** (Slothoth): atrybuty
-`data-icon-id` + `data-icon-context` na elemencie, albo `UI.getIconCSS(id, context)`.
-Konteksty potwierdzone przez tamten mod „na żywo":
+The second way, used by the **Trade Chooser Improvements** mod (Slothoth): the
+`data-icon-id` + `data-icon-context` attributes on an element, or `UI.getIconCSS(id, context)`.
+Contexts confirmed "live" by that mod:
 
 ```js
 UI.getIconCSS('RESOURCECLASS_EMPIRE', 'RESOURCECLASS')
@@ -520,20 +520,20 @@ UI.getIconCSS('CITY_YIELDS_HI', 'DEFAULT')
 UI.getIconCSS('UNKNOWN_LEADER', 'LEADER')
 ```
 
-⚠️ Ten sam `ID` bywa w kilku kontekstach z różnymi ścieżkami (np. `RESOURCECLASS_*`
-występuje osobno dla mgły wojny, `Context=FOW`). Bez podania kontekstu można dostać
-nie tę grafikę.
+⚠️ The same `ID` sometimes exists in several contexts with different paths (e.g. `RESOURCECLASS_*`
+occurs separately for the fog of war, `Context=FOW`). Without giving a context you can get
+the wrong image.
 
-## Pasek zakładek — podmiana napisów na ikony ✅
+## The tab bar — replacing labels with icons ✅
 
-`[data-name="TabList"]` zawiera `[data-name="TabListItem"]` **w kolejności deklaracji**
-z `commerce-screen.tsx` (Zasoby, Szlaki, Imperium, Skarb — ten ostatni tylko w epoce
-Odkryć). Na elemencie zakładki nie ma nic, co mówi, którą jest — **pozycja jest jedyną
-tożsamością**.
+`[data-name="TabList"]` contains `[data-name="TabListItem"]` **in the declaration order**
+from `commerce-screen.tsx` (Resources, Routes, Empire, Treasure — the last only in the Exploration
+age). There is nothing on a tab element saying which one it is — **its position is the only
+identity**.
 
-❗ **KOREKTA: `font-size: 0` na zakładkach NIE działa.** Etykiety mają klasę
-`font-fit-shrink`, czyli koherentowe `coh-font-fit-mode: shrink` — silnik sam dobiera
-rozmiar tego tekstu i ignoruje zadeklarowany. Trzeba **usunąć węzły tekstowe**:
+❗ **CORRECTION: `font-size: 0` on the tabs does NOT work.** The labels have the
+`font-fit-shrink` class, i.e. Coherent's `coh-font-fit-mode: shrink` — the engine picks
+that text's size itself and ignores the declared one. You have to **remove the text nodes**:
 
 ```js
 for (const node of Array.from(item.childNodes)) {
@@ -541,149 +541,149 @@ for (const node of Array.from(item.childNodes)) {
 }
 ```
 
-Usuwaj **wyłącznie węzły tekstowe** — ikona, którą dokładasz, jest elementem i ma zostać.
-Tytuły zakładek są statyczne, więc Solid ich nie odtwarza, ale obserwator i tak powinien
-to powtarzać na wszelki wypadek. Zdjęty tekst zachowaj na tooltip.
+Remove **text nodes only** — the icon you add is an element and should stay.
+The tab titles are static, so Solid does not recreate them, but the observer should
+repeat this anyway just in case. Keep the removed text for the tooltip.
 
-⚠️ Pasek zakładek żyje dłużej niż pojedyncza zakładka. Jeśli podpinasz się z komponentu
-jednej z nich, **nie sprzątaj ikon w jej `onCleanup`** — zniknęłyby przy przejściu na inną
-zakładkę. Podepnij obserwator do samego paska: gdy ekran się zamyka, element przepada
-i obserwator przestaje cokolwiek dostawać, bez potrzeby sprzątania.
+⚠️ The tab bar outlives an individual tab. If you hook in from one tab's component,
+**do not clean the icons up in its `onCleanup`** — they would disappear on switching to another
+tab. Attach the observer to the bar itself: when the screen closes, the element is gone
+and the observer stops receiving anything, with no cleanup needed.
 
 
-## Przyciski „cofnij przydzielenia" — gdzie są ✅
+## The "un-assign everything" buttons — where they are ✅
 
-| co | gdzie | wywołanie |
+| what | where | call |
 |---|---|---|
-| całe imperium | na samym dole kolumny osad, `div.self-end` wewnątrz `[data-name="slotted-resource-container"]` | `model.clearAllResources()` |
-| jedna osada | po prawej stronie karty osady, `.fxs-image-button` | `model.clearAllResources(cityID)` |
+| the whole empire | at the very bottom of the settlements column, a `div.self-end` inside `[data-name="slotted-resource-container"]` | `model.clearAllResources()` |
+| one settlement | on the right of the settlement's card, `.fxs-image-button` | `model.clearAllResources(cityID)` |
 
-Oba to `ReturnResourceButton`, czyli `ImageButton` z grafiką
-`blp:resource_return_button_default.png` (najechanie: `..._hover.png`) i klasą
-**`fxs-image-button`** — to najwygodniejszy uchwyt, bo `data-name` tam nie ma.
+Both are a `ReturnResourceButton`, i.e. an `ImageButton` with the artwork
+`blp:resource_return_button_default.png` (hover: `..._hover.png`) and the class
+**`fxs-image-button`** — that is the most convenient handle, because there is no `data-name` there.
 
-Ten dla imperium jest dodatkowo owinięty w `ConfirmationDialog`; ten dla osady nie.
-Przenosząc którykolwiek gdzie indziej **ukryj oryginał i wystaw własny przycisk**
-wołający tę samą metodę — przenoszenie poddrzewa zarządzanego przez Solida biłoby się
-z tym, co je odtwarza.
+The empire one is additionally wrapped in a `ConfirmationDialog`; the settlement one is not.
+When moving either of them elsewhere, **hide the original and expose your own button**
+calling the same method — moving a subtree managed by Solid would fight with
+whatever recreates it.
 
-⚠️ Ukrywanie powtarzaj przy każdym przebiegu obserwatora: karta osady jest przebudowywana
-i przywraca oryginał.
+⚠️ Repeat the hiding on every pass of the observer: the settlement's card is rebuilt
+and restores the original.
 
-Gotowa etykieta z nazwą osady:
+A ready-made label with the settlement's name:
 `Locale.compose('LOC_COMMERCE_UNASSIGN_RESOURCES', Locale.compose(city.name))`.
 
-## Zakładki a epoka — nie ma piątej kategorii ✅
+## Tabs and the age — there is no fifth category ✅
 
-**2026-08-10.** W `commerce-screen.tsx` są **dokładnie cztery** `Tab.Item`, a jedynym
-warunkiem jest epoka przy „Skarbie":
+**2026-08-10.** `commerce-screen.tsx` has **exactly four** `Tab.Item`s, and the only
+condition is the age on "Treasure":
 
-| epoka | widoczne zakładki |
+| age | visible tabs |
 |---|---|
-| Antyk | Zasoby, Szlaki handlowe, Imperium |
-| Odkrycia | Zasoby, Szlaki handlowe, Imperium, **Skarb** |
-| Nowożytność | Zasoby, Szlaki handlowe, Imperium |
+| Antiquity | Resources, Trade Routes, Empire |
+| Exploration | Resources, Trade Routes, Empire, **Treasure** |
+| Modern | Resources, Trade Routes, Empire |
 
-❗ **Zasoby fabryczne NIE mają własnej zakładki.** Pojawiają się jako **podsekcja
-w kolumnie nieprzydzielonych** (`AvailableResourceSubSection` o `type =
-"RESOURCECLASS_FACTORY"`, tytuł `LOC_RESOURCECLASS_FACTORY_NAME`) oraz jako rozwijana
-lista przy osadzie z fabryką (`FactoryTypeDisplay`). Żaden DLC nie nadpisuje tego ekranu.
+❗ **Factory resources do NOT have a tab of their own.** They appear as a **subsection
+in the unassigned column** (an `AvailableResourceSubSection` with `type =
+"RESOURCECLASS_FACTORY"`, title `LOC_RESOURCECLASS_FACTORY_NAME`) and as a dropdown
+list on a settlement with a factory (`FactoryTypeDisplay`). No DLC overrides this screen.
 
-⚠️ Wniosek dla mapowania ikon zakładek po indeksie: 0/1/2 to zawsze Zasoby/Szlaki/Imperium,
-a 3 istnieje wyłącznie w epoce Odkryć — więc indeksy nie przesuwają się między epokami.
+⚠️ The consequence for mapping tab icons by index: 0/1/2 are always Resources/Routes/Empire,
+and 3 exists only in the Exploration age — so the indices do not shift between ages.
 
-## Etykiety zakładek bywają zapisane WERSALIKAMI w lokalizacji ⚠️
+## Tab labels are sometimes written in CAPITALS in the localization ⚠️
 
-`LOC_COMMERCE_TRADE_ROUTE_TAB` to w danych dosłownie `TRADE ROUTES`, nie „Trade Routes".
-To nie `text-transform` w CSS — sam tekst jest wielkimi literami. Jeśli przenosisz taką
-etykietę gdzie indziej (np. do tooltipa), trzeba ją złagodzić samemu:
+`LOC_COMMERCE_TRADE_ROUTE_TAB` is literally `TRADE ROUTES` in the data, not "Trade Routes".
+This is not a CSS `text-transform` — the text itself is uppercase. If you move such
+a label elsewhere (e.g. into a tooltip), you have to soften it yourself:
 
 ```js
 if (text === text.toUpperCase() && text !== text.toLowerCase()) {
-    const lower = Locale.toLower(text);            // ⚠️ Locale.toLower, nie toLowerCase
+    const lower = Locale.toLower(text);            // ⚠️ Locale.toLower, not toLowerCase
     text = lower.charAt(0).toUpperCase() + lower.slice(1);
 }
 ```
 
-Warunek `text !== text.toLowerCase()` jest po to, żeby nie ruszać pism bez wielkości
-liter (chiński, japoński, koreański), gdzie obie wersje to ten sam string.
+The `text !== text.toLowerCase()` condition is there so as not to touch scripts without letter
+case (Chinese, Japanese, Korean), where both versions are the same string.
 
-## Zasoby zwiększające produkcję jednostek ✅
+## Resources that boost unit production ✅
 
-Efekty `*_ADJUST_UNIT_PRODUCTION_*` przypięte do zasobu są kwalifikowane **dokładnie
-jednym** z trzech argumentów — i to jedyny sposób, żeby odróżnić wojsko od reszty:
+`*_ADJUST_UNIT_PRODUCTION_*` effects attached to a resource are qualified by **exactly
+one** of three arguments — and that is the only way to tell military apart from the rest:
 
-| argument | znaczenie | przykłady |
+| argument | meaning | examples |
 |---|---|---|
-| `Domain` = `DOMAIN_LAND` / `DOMAIN_SEA` | jednostki **bojowe** | Bawełna, Twarde drewno, Cytrusy |
-| `UnitClass` = `UNIT_CLASS_NON_COMBAT` | osadnicy itp. | Twarde drewno (nowożytność) |
-| `UnitTag` = `UNIT_CLASS_RELIGIOUS` | misjonarze | Kadzidło |
+| `Domain` = `DOMAIN_LAND` / `DOMAIN_SEA` | **combat** units | Cotton, Hardwood, Citrus |
+| `UnitClass` = `UNIT_CLASS_NON_COMBAT` | settlers etc. | Hardwood (Modern) |
+| `UnitTag` = `UNIT_CLASS_RELIGIOUS` | missionaries | Incense |
 
-Zasoby z takimi modyfikatorami na 2026-08-10: `RESOURCE_CITRUS`, `RESOURCE_COTTON`,
+Resources with such modifiers as of 2026-08-10: `RESOURCE_CITRUS`, `RESOURCE_COTTON`,
 `RESOURCE_HARDWOOD`, `RESOURCE_INCENSE`, `RESOURCE_SALT`, `RESOURCE_TRUFFLES`.
 
-⚠️ Nie zaszywaj tej listy w kodzie — czytaj `ModifierMetadatas` (`FieldName="ResourceType"`)
-→ `ModifierArguments` → `Modifiers` → `DynamicModifiers.EffectType`, tak samo jak przy
-odczycie efektów yieldowych. Ten sam zasób bywa w różnych epokach różnie skonfigurowany
-(Twarde drewno: morskie w antyku i odkryciach, cywilne w nowożytności), więc cache
-kluczuj po `Game.age`.
+⚠️ Do not hardcode that list — read `ModifierMetadatas` (`FieldName="ResourceType"`)
+→ `ModifierArguments` → `Modifiers` → `DynamicModifiers.EffectType`, just as when
+reading yield effects. The same resource is sometimes configured differently in different ages
+(Hardwood: naval in Antiquity and Exploration, civilian in the Modern age), so key the cache
+by `Game.age`.
 
-## Dodanie własnej zakładki do ekranu ✅
+## Adding a tab of your own to the screen ✅
 
-**2026-08-10.** `Tab.Item` są **dziećmi `CommerceScreen`**, wypisanymi wprost w jego JSX.
-Framework nie daje żadnego sposobu, żeby dorzucić kolejną z zewnątrz — nie ma rejestru
-zakładek ani API na `TabContext`. Jedyna droga to **zarejestrować własny `CommerceScreen`**
-z wyższym `overridePriority` i odtworzyć w nim całe drzewo.
+**2026-08-10.** The `Tab.Item`s are **children of `CommerceScreen`**, written out directly in its JSX.
+The framework offers no way to add another one from outside — there is no registry
+of tabs and no API on `TabContext`. The only route is to **register your own `CommerceScreen`**
+with a higher `overridePriority` and recreate the whole tree inside it.
 
-Czyli jedyne miejsce w modzie, gdzie się **zastępuje**, a nie owija. Praktyczne wnioski:
+So it is the one place in the mod where you **replace** rather than wrap. Practical conclusions:
 
-- przepisz komponent gry **linia w linię**, dokładając tylko swoje — po patchu można
-  wtedy zrobić diff z oryginałem i zobaczyć, co doszło;
-- zachowaj `styles: [screenStyle]` przy rejestracji (import
-  `commerce-screen.scss.js`), inaczej ekran straci własny arkusz;
-- pisz w postaci skompilowanej Solida (`createComponent`, gettery na propsach) — mod nie
-  ma buildu, więc JSX odpada. **Gettery są konieczne**: zwykła wartość odczyta model raz
-  i nigdy się nie odświeży;
-- `model.onTabChanged` to `switch` po `tab.name` **bez `default`**, więc nowa nazwa
-  zakładki niczego nie psuje — po prostu nie wywołuje resetu.
+- rewrite the game's component **line for line**, adding only your own — after a patch you can
+  then diff against the original and see what changed;
+- keep `styles: [screenStyle]` at registration (importing
+  `commerce-screen.scss.js`), otherwise the screen loses its own stylesheet;
+- write in Solid's compiled form (`createComponent`, getters on props) — the mod has
+  no build, so JSX is out. **The getters are mandatory**: a plain value reads the model once
+  and never refreshes;
+- `model.onTabChanged` is a `switch` on `tab.name` **with no `default`**, so a new tab
+  name breaks nothing — it simply does not trigger a reset.
 
-Ikony zakładek mapowane po indeksie muszą wtedy **zależeć od epoki**: czwarte miejsce to
-Skarb w Odkryciach, a np. własna zakładka w Nowożytności. Sztywna tablica wstawi skrzynkę
-skarbów na cudzej zakładce.
+Tab icons mapped by index then have to **depend on the age**: the fourth position is
+Treasure in Exploration, but e.g. your own tab in the Modern age. A fixed array will put the treasure
+chest on somebody else's tab.
 
-## Audyt zasobów: co mówią dane, a co zakłada kod ✅
+## A resource audit: what the data says and what the code assumes ✅
 
-**2026-08-10.** Przeskanowałem wszystkie **111 wystąpień zasobów** (wszystkie zasoby ×
-wszystkie epoki) i porównałem dane gry z założeniami algorytmu przypisań. Skrypt audytu:
-`mod-projects/better-commerce-screen-ui` → historia sesji; wyniki poniżej są trwałe.
+**2026-08-10.** I scanned all **111 resource occurrences** (all resources ×
+all ages) and compared the game's data with the assignment algorithm's assumptions. The audit script:
+`mod-projects/better-commerce-screen-ui` → the session history; the results below are permanent.
 
-### 1. Modyfikator nie zawsze jest w `ModifierMetadatas` ❗
+### 1. A modifier is not always in `ModifierMetadatas` ❗
 
-Powiązanie zasób ↔ modyfikator bywa zapisane na **dwa sposoby**:
+The resource ↔ modifier link is sometimes written in **two ways**:
 
 ```xml
-<!-- pośrednio, tabelą metadanych -->
+<!-- indirectly, through the metadata table -->
 <ModifierMetadatas>
     <Row ModifierId="MOD_TRUFFLES_UNIT_PRODUCTION" FieldName="ResourceType" String="RESOURCE_TRUFFLES"/>
 </ModifierMetadatas>
 
-<!-- bezpośrednio, argumentem samego modyfikatora -->
+<!-- directly, through the modifier's own argument -->
 <Modifier id="MOD_NICKEL_CITY_SCIENCE" effect="EFFECT_CITY_ADJUST_YIELD_PER_RESOURCE">
     <Argument name="ResourceType">RESOURCE_NICKEL</Argument>
 </Modifier>
 ```
 
-⚠️ Kto czyta tylko `ModifierMetadatas`, **nie zobaczy nic** dla: **Niklu** (nowożytność,
-2 modyfikatory), jednego modyfikatora **Gipsu** (antyk) oraz `GOLD_DISTANT_LANDS` /
-`SILVER_DISTANT_LANDS`. Nikiel wychodził wtedy jako zasób bez żadnych dochodów.
+⚠️ Anyone reading only `ModifierMetadatas` **will see nothing** for: **Nickel** (Modern,
+2 modifiers), one **Gypsum** modifier (Antiquity) and `GOLD_DISTANT_LANDS` /
+`SILVER_DISTANT_LANDS`. Nickel then came out as a resource with no yields at all.
 
-**Czytaj obie drogi** i scal w jeden indeks.
+**Read both routes** and merge them into a single index.
 
-### 2. Modyfikatory mają warunki i przeważnie znaczą „tylko miasta" ❗
+### 2. Modifiers have conditions and mostly they mean "cities only" ❗
 
-Rozkład `SubjectRequirements` przy modyfikatorach zasobów:
+The distribution of `SubjectRequirements` on resource modifiers:
 
-| warunek | wystąpień |
+| condition | occurrences |
 |---|---|
 | `REQUIREMENT_CITY_HAS_BUILD_QUEUE` | 29 |
 | `REQUIREMENT_CITY_IS_DISTANT_LANDS` | 22 |
@@ -694,61 +694,61 @@ Rozkład `SubjectRequirements` przy modyfikatorach zasobów:
 | `REQUIREMENT_CITY_IS_CAPITAL` | 3 |
 | `REQUIREMENT_PLAYER_IS_IN_GOLDEN_AGE` | 3 |
 
-❗ **`CITY_HAS_BUILD_QUEUE` to gra-owy sposób na napisanie „tylko miasta"** — miasteczko
-nie ma kolejki produkcji. Tak bramkowane są duże bonusy: Jade +10 złota, Jedwab
-+10 kultury, Lapis Lazuli +4 produkcji i +10 złota, Goździki +10 złota, Kadzidło
-+10 nauki. Algorytm, który ich nie sprawdza, przypisze te zasoby do miasteczka, gdzie
-nie dadzą **niczego**.
+❗ **`CITY_HAS_BUILD_QUEUE` is the game's way of writing "cities only"** — a town
+has no production queue. The big bonuses are gated this way: Jade +10 gold, Silk
++10 culture, Lapis Lazuli +4 production and +10 gold, Cloves +10 gold, Incense
++10 science. An algorithm that does not check them will assign those resources to a town, where
+they give **nothing**.
 
-Inne zasoby dzielą się wprost po typie osady — i wtedy wzięcie mniejszej z dwóch
-wartości (co robi kod grupujący warianty przez `Math.min`) zaniża obie:
+Other resources split straight by settlement type — and there, taking the smaller of the two
+values (which is what code grouping variants by `Math.min` does) understates both:
 
-| zasób | miasto | miasteczko |
+| resource | city | town |
 |---|---|---|
-| Cyna (antyk) | +2 produkcji | +4 produkcji |
-| Dziczyzna (antyk) | +2 żywności | +4 żywności |
-| Dziczyzna (odkrycia) | +3 żywności | +6 żywności |
-| Kauri | +4/5/6 złota | +2/3/4 nauki |
+| Tin (Antiquity) | +2 production | +4 production |
+| Wild game (Antiquity) | +2 food | +4 food |
+| Wild game (Exploration) | +3 food | +6 food |
+| Cowrie | +4/5/6 gold | +2/3/4 science |
 
-**Ścieżka złączenia** (wszystko w `GameInfo`):
+**The join path** (all in `GameInfo`):
 `Modifiers.SubjectRequirementSetId` → `RequirementSetRequirements` → `Requirements`
 (`RequirementType`, `Inverse`) → `RequirementArguments`.
-`RequirementSets.RequirementSetType` mówi ALL czy ANY (domyślnie `REQUIREMENTSET_TEST_ALL`).
+`RequirementSets.RequirementSetType` says ALL or ANY (by default `REQUIREMENTSET_TEST_ALL`).
 
-⚠️ Warunku, którego nie umiesz ocenić, **uznawaj za spełniony**. Zbyt gorliwe liczenie
-psuje trochę punktację; zbyt surowe wycina zasób z rozważań całkowicie i nikt tego nie
-zauważy.
+⚠️ Treat a condition you cannot evaluate **as satisfied**. Being too eager
+spoils the scoring a little; being too strict cuts the resource out of consideration entirely and nobody
+notices.
 
-### 3. Ręczna tabela warunków w Resource+ jest ODWRÓCONA ❗
+### 3. Resource+'s hand-written condition table is INVERTED ❗
 
-Mod Resource+ trzyma listę nazw zasobów per epoka zamiast czytać warunki. Ta lista
-**przeczy danym**:
+The Resource+ mod keeps a list of resource names per age instead of reading the conditions. That list
+**contradicts the data**:
 
-- antyk, gips/kaolin/perły — dane: bonus wymaga `CITY_IS_CAPITAL`; kod: siła 1, **gdy
-  osada NIE jest stolicą**;
-- odkrycia, przyprawy/cukier/herbata — dane: `CITY_HAS_BUILD_QUEUE + CITY_IS_DISTANT_LANDS`;
-  kod: `!isDistantLands && !isTown`;
-- kakao — dane: `CITY_IS_TOWN + CITY_IS_DISTANT_LANDS`; kod: `!isDistantLands && isTown`.
+- Antiquity, gypsum/kaolin/pearls — the data: the bonus requires `CITY_IS_CAPITAL`; the code: strength 1 **when
+  the settlement is NOT the capital**;
+- Exploration, spices/sugar/tea — the data: `CITY_HAS_BUILD_QUEUE + CITY_IS_DISTANT_LANDS`;
+  the code: `!isDistantLands && !isTown`;
+- cocoa — the data: `CITY_IS_TOWN + CITY_IS_DISTANT_LANDS`; the code: `!isDistantLands && isTown`.
 
-Do tego **31 zasobów z warunkami w danych w ogóle nie ma w tej tabeli**.
+On top of that, **31 resources with conditions in the data are not in that table at all**.
 
-### 4. Pozostałe ustalenia ✅
+### 4. Other findings ✅
 
-- **Sloty dodatkowe daje wyłącznie wielbłąd**, i to tylko w antyku i epoce odkryć —
-  w nowożytności `BonusResourceSlots > 0` nie ma żadnego zasobu.
-- **Skalowanie magazynami**: glina, kraby, żółwie (antyk i odkrycia), same kraby
-  w nowożytności — rozpoznawalne po `Tag = WAREHOUSE`.
-- **Bonus do produkcji jednostek** ma 8 wystąpień: Twarde drewno (3 epoki), Sól,
-  Kadzidło, Trufle, Cytrusy, Bawełna (nowożytność). ⚠️ Każdy z nich ma też **+1 dochodu
-  bazowego** (np. Sól +1 żywności, Bawełna +1 złota) — spychając je na koniec kolejki,
-  świadomie rezygnujesz z tego +1.
-- `REQUIREMENT_PLAYER_IS_IN_GOLDEN_AGE` (Wino, Futra) zależy od stanu gry, nie osady —
-  nie da się go sensownie ocenić przy planowaniu przypisań.
+- **Extra slots are granted only by camels**, and only in Antiquity and Exploration —
+  in the Modern age no resource has `BonusResourceSlots > 0`.
+- **Warehouse scaling**: clay, crabs, turtles (Antiquity and Exploration), crabs alone
+  in the Modern age — recognizable by `Tag = WAREHOUSE`.
+- **The unit production bonus** has 8 occurrences: Hardwood (3 ages), Salt,
+  Incense, Truffles, Citrus, Cotton (Modern). ⚠️ Each of them also has **+1 base
+  yield** (e.g. Salt +1 food, Cotton +1 gold) — by pushing them to the back of the queue,
+  you are deliberately giving up that +1.
+- `REQUIREMENT_PLAYER_IS_IN_GOLDEN_AGE` (Wine, Furs) depends on the game's state, not a settlement's —
+  it cannot be sensibly evaluated when planning assignments.
 
-## `ResourceSlotData.yieldTypes` NIE pochodzi z dochodów zasobu ❗✅
+## `ResourceSlotData.yieldTypes` does NOT come from the resource's yields ❗✅
 
-**2026-08-10.** Pole `yieldTypes` przy zasobie model buduje z **`GameInfo.TypeTags`**, a nie
-z `Resource_YieldChanges`:
+**2026-08-10.** The model builds a resource's `yieldTypes` field from **`GameInfo.TypeTags`**, not
+from `Resource_YieldChanges`:
 
 ```js
 const yieldTagTypes = new Map([
@@ -758,58 +758,58 @@ const yieldTagTypes = new Map([
 GameInfo.TypeTags.forEach((t) => { /* Type == ResourceType, Tag == FOOD/PRODUCTION/... */ });
 ```
 
-Czyli zasób otagowany `PRODUCTION` „dotyczy produkcji" niezależnie od tego, czy ma płaski
-dochód z produkcji. ⚠️ Zwróć uwagę, że **wpływu (`YIELD_DIPLOMACY`) na tej liście nie ma** —
-to nie przeoczenie, tylko stan mapy w grze.
+So a resource tagged `PRODUCTION` "concerns production" regardless of whether it has a flat
+production yield. ⚠️ Note that **influence (`YIELD_DIPLOMACY`) is not on that list** —
+that is not an oversight, it is the state of the map in the game.
 
-Kosztowało to całą rundę: przy odtwarzaniu danych modelu poza ekranem zostawiłem
-`yieldTypes: []`, a kod planujący ma fallback
+This cost a whole round: while reconstructing the model's data outside the screen I left
+`yieldTypes: []`, and the planning code has a fallback
 
 ```js
 if (resource.yieldTypes?.length) return resource.yieldTypes;
-// w przeciwnym razie Resource_YieldChanges
+// otherwise Resource_YieldChanges
 ```
 
-więc **nic się nie zepsuło — po prostu wyszedł inny wynik**. Ten sam algorytm dawał inny
-układ zasobów przy zamkniętym ekranie niż przy otwartym, a ratowanie zadowolenia się nie
-uruchamiało.
+so **nothing broke — the result simply came out different**. The same algorithm gave a different
+arrangement of resources with the screen closed than with it open, and the happiness rescue never
+kicked in.
 
-**Reguła:** odtwarzając struktury modelu poza jego kontekstem, każde pole buduj **tą samą
-drogą co model**, a nie „byle było". Pola z cichym fallbackiem są najgorsze — nie rzucają
-błędu, tylko po cichu zmieniają decyzje.
+**The rule:** when reconstructing the model's structures outside its context, build every field **the same
+way the model does**, not "whatever works". Fields with a silent fallback are the worst — they throw no
+error, they just quietly change decisions.
 
-## Nagłówek karty osady — struktura i jak w nim coś umieścić ✅
+## A settlement card's header — its structure and how to put something into it ✅
 
-Szablon `_tmpl$15` w `commerce-screen-resources-tab.js`:
+The `_tmpl$15` template in `commerce-screen-resources-tab.js`:
 
 ```
 <div class="flex flex-row flex-wrap relative w-full justify-between">
-    <SettlementName/>          ← "flex flex-row items-center": herb, nazwa, plakietki
+    <SettlementName/>          ← "flex flex-row items-center": the crest, the name, badges
     <Show when={hasFactory}><FactoryTypeDisplay/></Show>   ← "flex flex-row items-center h-10"
 </div>
 ```
 
-`FactoryTypeDisplay` (`factory-type-display.js`) to zębatka `blp:restype_factory_v2.png`
-plus czarna pigułka z aktualnym zasobem fabrycznym i przyciskiem zwrotu. Istnieje
-**tylko w epoce nowożytnej** i tylko dla osad z fabryką.
+`FactoryTypeDisplay` (`factory-type-display.js`) is the `blp:restype_factory_v2.png` cogwheel
+plus a black pill with the current factory resource and a return button. It exists
+**only in the Modern age** and only for settlements with a factory.
 
-**Dwie konsekwencje, obie widoczne w UI:**
+**Two consequences, both visible in the UI:**
 
-- `justify-between` przy dwóch dzieciach odrzuca zębatkę do samej krawędzi karty —
-  daleko od czegokolwiek, co się dołoży po prawej stronie.
-- `flex-wrap` sprawia, że przy dużej liczbie plakietek (miasteczko z placówką handlową
-  i stacją kolejową) **zębatka zawija się do drugiej linii**.
+- `justify-between` with two children pushes the cogwheel to the very edge of the card —
+  far from anything added on the right-hand side.
+- `flex-wrap` means that with many badges (a town with a trading post
+  and a rail station) **the cogwheel wraps onto a second line**.
 
-**Wstawianie własnych kontrolek — własny kontener, razem z zębatką.** Dwa podejścia
-odpadły w praktyce:
+**Inserting your own controls — your own container, together with the cogwheel.** Two approaches
+failed in practice:
 
-- **absolutne** ze sztywnym odsunięciem pod zębatkę (`right: 6.25rem`) — nie zna
-  szerokości plakietek ani tego, czy zębatka jest w tej samej linii;
-- **w przepływie z `margin-left: auto`**, w nadziei że `justify-between` przyciągnie
-  zębatkę — zębatka i tak została przy krawędzi.
+- **absolute** with a fixed offset to clear the cogwheel (`right: 6.25rem`) — it does not know
+  the badges' width, nor whether the cogwheel is on the same line;
+- **in the flow with `margin-left: auto`**, hoping `justify-between` would pull the cogwheel
+  in — the cogwheel stayed at the edge anyway.
 
-Działa dopiero zabranie zębatki do własnego kontenera, gdzie sąsiedztwo nie zależy od
-niczyjego układu:
+What does work is taking the cogwheel into a container of your own, where adjacency does not depend on
+anybody else's layout:
 
 ```js
 const header = card.querySelector('.flex.flex-row.flex-wrap.relative.w-full.justify-between');
@@ -817,329 +817,329 @@ header.classList.add(MY_HEADER_CLASS);
 
 let actions = header.querySelector('.my-actions');
 if (!actions) { actions = makeElement('div', 'my-actions'); header.appendChild(actions); }
-// blok nazwy = pierwsze dziecko nagłówka, ale oznacz je Z JS, nie przez :first-child
+// the name block = the header's first child, but mark it FROM JS, not with :first-child
 for (const child of header.children) {
     if (child !== actions) { child.classList.add('my-name'); break; }
 }
 actions.appendChild(control);
-// zębatka: po wewnętrznej czarnej pigułce, bo klasy zewnętrznego diva są generyczne
+// the cogwheel: found via the inner black pill, because the outer div's classes are generic
 const factory = header.querySelector('.bg-black.rounded-lg')?.parentElement;
 if (factory && factory.parentElement !== actions) actions.appendChild(factory);
 ```
 
 ```css
-.my-header { flex-wrap: nowrap; }                      /* nagłówek nie łamie się nigdy */
-.my-name { flex: 0 1 auto; min-width: 0;               /* zamiast tego zawijają się    */
-           flex-wrap: wrap; overflow: hidden; }        /* plakietki wewnątrz nazwy     */
+.my-header { flex-wrap: nowrap; }                      /* the header never breaks       */
+.my-name { flex: 0 1 auto; min-width: 0;               /* instead, the badges inside    */
+           flex-wrap: wrap; overflow: hidden; }        /* the name block wrap           */
 .my-header .text-xs.text-accent-1 { flex-wrap: wrap; }
 .my-actions { display: flex; flex-wrap: nowrap; flex: 0 0 auto; margin-left: auto; }
-.my-actions > .h-10 { flex: 0 0 auto; margin-left: 0.75rem; }   /* zębatka             */
+.my-actions > .h-10 { flex: 0 0 auto; margin-left: 0.75rem; }   /* the cogwheel          */
 ```
 
-⚠️ **Bloku nazwy nie da się złapać przez `:first-child`.** Dopóki żaden zasób nie jest
-zaznaczony, nazwa jest opakowana w `Activatable` — pierwsze dziecko nagłówka i jego klasy
-zależą od tego, co robi gracz. Oznaczenie klasą z JS jest jedynym pewnym sposobem.
+⚠️ **The name block cannot be caught with `:first-child`.** As long as no resource is
+selected, the name is wrapped in an `Activatable` — the header's first child and its classes
+depend on what the player is doing. Marking it with a class from JS is the only reliable way.
 
-⚠️ Przeniesienie zębatki to reparenting węzła Solid — dopuszczalne **tylko dlatego**, że
-`hasFactory` nie zmienia się przy otwartym ekranie, a przebudowana karta i tak przechodzi
-przez tę samą funkcję.
+⚠️ Moving the cogwheel is a reparenting of a Solid node — permissible **only because**
+`hasFactory` does not change while the screen is open, and a rebuilt card goes through
+the same function anyway.
 
-⚠️ `position: relative` na kontrolce, a nie `static` — rozwijane menu jest jej dzieckiem
-i pozycjonuje się względem niej. Przy `static` zaczepiłoby się o nagłówek (ma `relative`)
-i przeskoczyło w inne miejsce.
+⚠️ `position: relative` on the control, not `static` — the dropdown menu is its child
+and positions itself relative to it. With `static` it would latch onto the header (which has `relative`)
+and jump somewhere else.
 
-## Przycisk zwrotu osady vs. przycisk zwrotu fabryki ❗✅
+## The settlement's return button vs. the factory's return button ❗✅
 
-W karcie osady są **dwa** `.fxs-image-button` z tą samą grafiką
-`blp:resource_return_button_default.png`:
+A settlement's card has **two** `.fxs-image-button`s with the same
+`blp:resource_return_button_default.png` artwork:
 
-| gdzie | co robi | uwagi |
+| where | what it does | notes |
 |---|---|---|
-| w nagłówku, wewnątrz `FactoryTypeDisplay` | `model.clearFactoryResources(cityID)` | tylko przy fabryce |
-| pod nagłówkiem, w `_tmpl$16` (klasa `mr-1`) | `model.clearAllResources(cityID)` | zawsze |
+| in the header, inside `FactoryTypeDisplay` | `model.clearFactoryResources(cityID)` | only with a factory |
+| below the header, in `_tmpl$16` (class `mr-1`) | `model.clearAllResources(cityID)` | always |
 
-`card.querySelector('.fxs-image-button')` zwraca **ten z nagłówka**, bo nagłówek jest
-wcześniej w DOM. Kod ukrywający „zwrot wszystkich zasobów osady" chował więc przycisk
-fabryki, a właściwy zostawał na ekranie — przy osadach bez fabryki wszystko wyglądało
-poprawnie, więc błąd ujawnił się dopiero w epoce nowożytnej.
+`card.querySelector('.fxs-image-button')` returns **the one in the header**, because the header comes
+earlier in the DOM. So code hiding "return all of the settlement's resources" was hiding the factory
+button while the real one stayed on screen — for settlements without a factory everything looked
+right, so the bug only surfaced in the Modern age.
 
 ```js
 for (const button of card.querySelectorAll('.fxs-image-button')) {
-    if (!header.contains(button)) button.classList.add(HIDDEN_CLASS);  // wszystko w
-}                                                                      // nagłówku = fabryka
+    if (!header.contains(button)) button.classList.add(HIDDEN_CLASS);  // everything in
+}                                                                      // the header = the factory
 ```
 
-## Zasoby fabryczne — reguła gry ❗✅
+## Factory resources — the game's rule ❗✅
 
-Z pedii (`LOC_PEDIA_CONCEPTS_FACTORY_RESOURCES_TOOLTIP`, en_us):
+From the pedia (`LOC_PEDIA_CONCEPTS_FACTORY_RESOURCES_TOOLTIP`, en_us):
 
 > "Factory Resources must be assigned to a Settlement with a Factory to give empire-wide
 > bonuses. **Only one type of Factory Resource can be assigned to a Settlement at a time.**"
 
-i z opisu fabryki:
+and from the factory's description:
 
 > "**You can assign multiple copies of the same Factory Resource to a Settlement**, so it
 > pays to be efficient!"
 
-**Konsekwencja dla algorytmu przypisywania:** rozkładanie „po jednym do każdej fabryki"
-jest najgorszą możliwą strategią. Zajmuje każdą fabrykę innym rodzajem, a wtedy każda
-nadmiarowa kopia ma dokładnie jedno legalne miejsce. Przy większej liczbie rodzajów niż
-fabryk większość puli staje się nieprzypisywalna i w grze widać „przypisało tylko kilka
-sztuk mimo 5 wolnych fabryk".
+**The consequence for an assignment algorithm:** spreading "one into each factory"
+is the worst possible strategy. It occupies every factory with a different kind, and then every
+surplus copy has exactly one legal place. With more kinds than
+factories most of the pool becomes unassignable and in game you see "it assigned only a few
+items despite 5 free factories".
 
-Właściwa kolejność:
+The right order:
 
-1. **dokładaj do fabryki, która już coś produkuje** (tylko ten sam rodzaj jest legalny);
-2. **pustą fabrykę zaczynaj od rodzaju z największą liczbą kopii w puli** — tego, którym da
-   się ją zapełnić.
+1. **add to a factory that is already producing something** (only the same kind is legal);
+2. **start an empty factory with the kind that has the most copies in the pool** — the one you can
+   fill it with.
 
-Dodatkowe fakty z modelu (`commerce-screen-model.js`):
+Additional facts from the model (`commerce-screen-model.js`):
 
-- `factoryResourceData.hasFactory` **nie znaczy „ma budynek fabryki"**:
+- `factoryResourceData.hasFactory` **does not mean "it has a factory building"**:
   `isTreasureConstructiblePrereqMet() && Game.age == AGE_MODERN && (getNumFactoryResources() == 0 || factoryResourceDefinition != null)`.
-- `getFactoryResource()` zwraca **jeden** typ na osadę, `getNumFactoryResources()` liczy kopie.
-- Zasoby fabryczne **zajmują zwykłe sloty**: `availableSlots = getAssignedResourcesCap() -
-  getAssignedResources().length`, a `getAssignedResources()` zawiera także fabryczne.
-- Fabryki można stawiać tylko w osadach w sieci kolejowej (stąd plakietka „Stacja kolejowa").
+- `getFactoryResource()` returns **one** type per settlement, `getNumFactoryResources()` counts copies.
+- Factory resources **occupy ordinary slots**: `availableSlots = getAssignedResourcesCap() -
+  getAssignedResources().length`, and `getAssignedResources()` includes factory ones too.
+- Factories can be built only in settlements on the rail network (hence the "Rail Station" badge).
 
-## Zakładka szlaków handlowych — struktura karty ✅
+## The trade routes tab — a card's structure ✅
 
-`trade-route-card.js`, komponent `TradeRouteCard` — **zarejestrowany w `ComponentRegistry`**,
-więc da się go owinąć. ⚠️ Sam kontener zakładki (`TradeRoutesContainer` w
-`commerce-screen-trade-tab.js`) to zwykła eksportowana funkcja — **nie jest** zarejestrowany,
-więc jedynym sygnałem montowania tej zakładki jest karta.
+`trade-route-card.js`, the `TradeRouteCard` component — **registered in `ComponentRegistry`**,
+so it can be wrapped. ⚠️ The tab's container itself (`TradeRoutesContainer` in
+`commerce-screen-trade-tab.js`) is a plain exported function — it is **not** registered,
+so the only signal that this tab has mounted is a card.
 
-Kolejność dzieci karty (`CardFrame`):
+The order of a card's (`CardFrame`) children:
 
-| szablon | co to jest | klasy |
+| template | what it is | classes |
 |---|---|---|
-| `_tmpl$` | nagłówek: herb + nazwa miasta źródłowego | `flex flex-row text-secondary uppercase text-lg mb-1 items-center`, nazwa w `.font-title` |
-| `_tmpl$2` | „Dostarczono do osiedla X przez Morskie" | `p.mt-1.mr-13.font-fit-shrink` |
-| `_tmpl$3` | zasoby przychodzące | `flex flex-row flex-wrap mt-4 mr-13` |
-| `_tmpl$4` | „+24 do złota do <przywódca>" | **`<div class=mt-2>`** |
-| `_tmpl$6` | portret przywódcy + zmiana relacji (`+10`) | `absolute top-1 right-1`, w środku `size-12 mt-2 …` |
+| `_tmpl$` | the header: the crest + the source city's name | `flex flex-row text-secondary uppercase text-lg mb-1 items-center`, the name in `.font-title` |
+| `_tmpl$2` | "Delivered to settlement X by Sea" | `p.mt-1.mr-13.font-fit-shrink` |
+| `_tmpl$3` | the incoming resources | `flex flex-row flex-wrap mt-4 mr-13` |
+| `_tmpl$4` | "+24 gold to <leader>" | **`<div class=mt-2>`** |
+| `_tmpl$6` | the leader's portrait + relationship change (`+10`) | `absolute top-1 right-1`, inside it `size-12 mt-2 …` |
 
-⚠️ Ukrywając wiersz dochodów celuj **`[class="mt-2"]`** (dokładne dopasowanie atrybutu).
-Zwykłe `.mt-2` trafia też w plakietkę relacji w rogu, która ma `mt-2` wśród wielu innych klas.
+⚠️ When hiding the yields row target **`[class="mt-2"]`** (an exact attribute match).
+A plain `.mt-2` also hits the relationship badge in the corner, which has `mt-2` among many other classes.
 
-**Dane szlaku bierz z API, nie z tekstu.** Model podaje karcie tylko `domainString` —
-gotowe, przetłumaczone zdanie złożone z `LOC_COMMERCE_TRADE_DELIVERED_TO`. Rozbieranie go
-z powrotem pęknie w każdym języku o innym szyku. Źródłem jest to samo wywołanie, którego
-używa model:
+**Take a route's data from the API, not from the text.** The model gives the card only `domainString` —
+a ready, translated sentence composed from `LOC_COMMERCE_TRADE_DELIVERED_TO`. Taking it back
+apart will break in every language with a different word order. The source is the same call the
+model uses:
 
 ```js
 const trade = Players.get(GameContext.localPlayerID)?.Trade;
 const options = TradeRouteSearchOptions.INCLUDE_FAILED + TradeRouteSearchOptions.EXTENDED_STATUS;
 trade.projectPossibleTradeRoutes(options).forEach((route) => {
-    route.domain === DomainType.DOMAIN_LAND;   // lądowy czy morski
-    Cities.get(route.targetCityId);            // miasto z nagłówka karty
-    Cities.get(route.nearestCityId);           // nasza osada, do której trafiają zasoby
+    route.domain === DomainType.DOMAIN_LAND;   // land or sea
+    Cities.get(route.targetCityId);            // the city from the card's header
+    Cities.get(route.nearestCityId);           // our settlement the resources go to
 });
 ```
 
-⚠️ To wywołanie jest **kosztowne** — to nim model buduje całą zakładkę. Cache'uj wynik i
-unieważniaj na `TradeRouteAddedToMap` / `TradeRouteChanged` / `LocalPlayerTurnBegin`.
+⚠️ That call is **expensive** — it is what the model builds the whole tab from. Cache the result and
+invalidate on `TradeRouteAddedToMap` / `TradeRouteChanged` / `LocalPlayerTurnBegin`.
 
-**Ikony domeny** są w `base-standard/data/icons/trade-icons.xml`: `TRADE_ROUTE_LAND`
+**The domain icons** are in `base-standard/data/icons/trade-icons.xml`: `TRADE_ROUTE_LAND`
 (`blp:city_add`), `TRADE_ROUTE_SEA` (`blp:city_searoute`), plus `_WAR`, `_OUT_OF_RANGE`,
-`_ALLIANCE`. Bierz przez `UI.getIcon('TRADE_ROUTE_SEA')` — tej samej pary używa kreator
-szlaków (`trade-routes-model.js`, `getTradeRouteStatusIcon`).
+`_ALLIANCE`. Take them via `UI.getIcon('TRADE_ROUTE_SEA')` — the route chooser uses the same pair
+(`trade-routes-model.js`, `getTradeRouteStatusIcon`).
 
-**Linia instrukcji nad panelem** (`.text-base.w-full.text-center.my-4` w obrębie
-`screen-resource-allocation`) jest na **każdej** zakładce. Regułę ukrywającą trzymaj w
-arkuszu przypiętym do ekranu, nie do zakładki zasobów — inaczej wraca po przejściu na
-szlaki handlowe.
+**The instruction line above the panel** (`.text-base.w-full.text-center.my-4` within
+`screen-resource-allocation`) is on **every** tab. Keep the hiding rule in a
+stylesheet attached to the screen, not to the resources tab — otherwise it comes back on switching to
+trade routes.
 
-### Podpowiedź stosunków — dlaczego jest wąska ❗✅
+### The relationship tooltip — why it is narrow ❗✅
 
-Podpowiedź spod portretu przywódcy (`base-standard/ui-next/tooltips/relationship-tooltip.js`,
-korzeń ma `data-name="Relationship-Tooltip"` oraz klasy `fxs-tooltip fxs-relationship-tooltip`)
-otwiera się tak wąska, że każdy powód zmiany stosunków łamie się na trzy linijki.
+The tooltip under a leader's portrait (`base-standard/ui-next/tooltips/relationship-tooltip.js`,
+whose root has `data-name="Relationship-Tooltip"` and the classes `fxs-tooltip fxs-relationship-tooltip`)
+opens so narrow that every reason for a relationship change breaks across three lines.
 
-**Nic jej nie ogranicza od góry.** `Tooltip.Frame` ma `img-tooltip-border img-tooltip-bg
-p-4 min-w-48` — sam dół, żadnego `max-width`. Przyczyna jest subtelniejsza: wszystkie
-wiersze w środku mają `w-full`, a dziecko o szerokości procentowej **nie wnosi nic do
-szerokości naturalnej rodzica**. Ramka spada więc do `min-w-72` z zawartości (ok. 16 rem)
-i przy tej szerokości tekst się zawija.
+**Nothing constrains it from above.** `Tooltip.Frame` has `img-tooltip-border img-tooltip-bg
+p-4 min-w-48` — a floor only, no `max-width`. The cause is subtler: all the
+rows inside have `w-full`, and a child with a percentage width **contributes nothing to
+its parent's natural width**. So the frame falls back to `min-w-72` from its contents (about 16 rem)
+and at that width the text wraps.
 
-Wystarczy podnieść podłogę — wiersze `w-full` same wypełnią to, co dostaną:
+It is enough to raise the floor — the `w-full` rows will fill whatever they are given:
 
 ```css
 [data-name="Relationship-Tooltip"] { min-width: 30rem; }
 ```
 
-⚠️ Skala jednostek tego UI: `w-187` = 41,5555 rem, czyli **1 jednostka = 0,2222 rem**.
-Stąd `min-w-72` ≈ 16 rem, a `min-w-48` ≈ 10,7 rem.
+⚠️ This UI's unit scale: `w-187` = 41.5555 rem, i.e. **1 unit = 0.2222 rem**.
+Hence `min-w-72` ≈ 16 rem, and `min-w-48` ≈ 10.7 rem.
 
-**Plakietka „+10" pod portretem** (zmiana stosunków) to `_tmpl$5` z `trade-route-card.js`,
-bezpośrednie dziecko rogu `.absolute.top-1.right-1`, rozpoznawalna po `.size-12`.
+**The "+10" badge under the portrait** (the relationship change) is `_tmpl$5` from `trade-route-card.js`,
+a direct child of the `.absolute.top-1.right-1` corner, recognizable by `.size-12`.
 
-## Zasoby imperialne — jak policzyć FAKTYCZNY efekt ❗✅
+## Empire resources — how to compute the ACTUAL effect ❗✅
 
-Karta w zakładce imperium pokazuje regułę zasobu („+1 do złota i zadowolenia we wszystkich
-osiedlach"), niezależnie od tego, ile masz osiedli i ile kopii zasobu. Żeby policzyć sumę,
-trzeba wiedzieć, **z czym skaluje się dany efekt** — a to jest cecha efektu, nie zasobu.
-Nazwy efektów mówią to wprost:
+The card in the empire tab shows the resource's rule ("+1 gold and happiness in all
+settlements"), regardless of how many settlements you have or how many copies of the resource. To compute the total,
+you have to know **what a given effect scales with** — and that is a property of the effect, not the resource.
+The effect names say it plainly:
 
-| efekt | skaluje się z | przykład |
+| effect | scales with | example |
 |---|---|---|
-| `EFFECT_CITY_ADJUST_YIELD_PER_AVAILABLE_RESOURCE_TYPE` | **liczbą osiedli**, NIE liczbą kopii | `MOD_GOLD_SETTLEMENT_FLAT_GOLD`, Amount 1 → 12 osiedli = +12 |
-| `EFFECT_UNIT_ADJUST_COMBAT_STRENGTH_PER_RESOURCE` | **liczbą kopii**, z limitem | `MOD_NITER_…`, Amount 1, 10 kopii → +6 (limit) |
-| `EFFECT_CITY_ADJUST_YIELD_PER_RESOURCE` | kopiami × osiedlami spełniającymi wymagania | `MOD_IVORY_CITY_FLAT_HAPPINESS`, Amount 4 |
-| `EFFECT_ADJUST_PLAYER_YIELD_PER_SLOTTED_RESOURCE` | liczbą przypisanych kopii | `MOD_COCOA_EXCESS_HAPPINESS` |
+| `EFFECT_CITY_ADJUST_YIELD_PER_AVAILABLE_RESOURCE_TYPE` | **the number of settlements**, NOT the number of copies | `MOD_GOLD_SETTLEMENT_FLAT_GOLD`, Amount 1 → 12 settlements = +12 |
+| `EFFECT_UNIT_ADJUST_COMBAT_STRENGTH_PER_RESOURCE` | **the number of copies**, with a cap | `MOD_NITER_…`, Amount 1, 10 copies → +6 (the cap) |
+| `EFFECT_CITY_ADJUST_YIELD_PER_RESOURCE` | copies × settlements meeting the requirements | `MOD_IVORY_CITY_FLAT_HAPPINESS`, Amount 4 |
+| `EFFECT_ADJUST_PLAYER_YIELD_PER_SLOTTED_RESOURCE` | the number of assigned copies | `MOD_COCOA_EXCESS_HAPPINESS` |
 
-⚠️ **`PER_AVAILABLE_RESOURCE_TYPE` to nie to samo co `PER_RESOURCE`.** Pierwsze liczy
-posiadanie *typu* (raz), drugie każdą *kopię*. Pomylenie ich daje przy sześciu sztukach
-złota i dwunastu osiedlach 72 zamiast 12.
+⚠️ **`PER_AVAILABLE_RESOURCE_TYPE` is not the same as `PER_RESOURCE`.** The first counts
+owning the *type* (once), the second every *copy*. Confusing them gives, with six units
+of gold and twelve settlements, 72 instead of 12.
 
-⚠️ **Limit +6 dla siły bojowej nie istnieje w danych.** Nie ma go w argumentach modyfikatora,
-nie ma pliku `globalparameters.xml`, nie ma tabeli — trzyma go silnik, a w danych jest tylko
-w treści opisu („maksymalnie +6"). W modzie jest to stała z komentarzem; to jedyna liczba
-w kalkulatorze, która nie pochodzi z gry.
+⚠️ **The +6 combat strength cap does not exist in the data.** It is not in the modifier's arguments,
+there is no `globalparameters.xml`, there is no table — the engine holds it, and in the data it appears only
+in the text of the description ("maximum +6"). In the mod it is a constant with a comment; it is the only number
+in the calculator that does not come from the game.
 
-**Wymagania modyfikatorów trzeba honorować** przy liczeniu zasięgu: „w ojczyźnie",
-„tylko miasta" itd. zawężają liczbę osiedli — używamy tego samego ewaluatora, co punktacja
-przypisań (`planner/effects.js`, `modifierApplies`).
+**Modifier requirements have to be honored** when computing the reach: "in the homeland",
+"cities only" and so on narrow the number of settlements — we use the same evaluator as the assignment
+scoring (`planner/effects.js`, `modifierApplies`).
 
-**Dane karty** dostarcza model (`populateEmpireResources`): `type`, `amount`, `iconSrc`,
-`title` (klucz `Name`), `description` (klucz `Tooltip`), `originLeaderIds` oraz
-`tooltips[leaderId]` — gotowe stringi „ile z którego miasta". Klasy zasobów w tej zakładce:
-`RESOURCECLASS_EMPIRE` **i** `RESOURCECLASS_TREASURE`.
+**The card's data** is supplied by the model (`populateEmpireResources`): `type`, `amount`, `iconSrc`,
+`title` (the `Name` key), `description` (the `Tooltip` key), `originLeaderIds` and
+`tooltips[leaderId]` — ready strings of "how much from which city". The resource classes in this tab:
+`RESOURCECLASS_EMPIRE` **and** `RESOURCECLASS_TREASURE`.
 
-**Podmiana zakładki:** `EmpireResourceContainer` (jak `TradeRoutesContainer`) **nie jest**
-zarejestrowany w `ComponentRegistry`. Ponieważ mod i tak zastępuje cały `CommerceScreen`
-(patrz „Dodanie własnej zakładki"), własny komponent wstawia się po prostu w `body:`
-odpowiedniego `Tab.Item`. Tło karty jak w zakładce szlaków daje klasa gry **`card-frame-bg`**.
+**Replacing the tab:** `EmpireResourceContainer` (like `TradeRoutesContainer`) is **not**
+registered in `ComponentRegistry`. Since the mod replaces the whole `CommerceScreen` anyway
+(see "Adding a tab of your own"), your own component simply goes into the `body:` of the
+appropriate `Tab.Item`. A card background like the routes tab's is given by the game's **`card-frame-bg`** class.
 
-### Sufiks efektu = reguła zliczania ❗✅
+### The effect's suffix = the counting rule ❗✅
 
-W plikach `resources-gameeffects.xml` te cztery warianty występują **obok siebie**,
-wybierane modyfikator po modyfikatorze:
+In the `resources-gameeffects.xml` files these four variants occur **side by side**,
+chosen modifier by modifier:
 
-| sufiks | użyć | liczy |
+| suffix | uses | counts |
 |---|---|---|
-| `PER_RESOURCE` | 62 | **każdą kopię** posiadaną przez imperium |
-| `PER_AVAILABLE_RESOURCE_TYPE` | 29 | **typ raz**, niezależnie ile masz |
-| `PER_RESOURCE_TYPE` | 3 | jw., na poziomie gracza |
-| `PER_SLOTTED_RESOURCE` | 7 | tylko kopie **przypisane** do osad |
+| `PER_RESOURCE` | 62 | **every copy** the empire owns |
+| `PER_AVAILABLE_RESOURCE_TYPE` | 29 | **the type once**, no matter how many you have |
+| `PER_RESOURCE_TYPE` | 3 | as above, at the player level |
+| `PER_SLOTTED_RESOURCE` | 7 | only copies **assigned** to settlements |
 
-Gdyby `PER_RESOURCE` też znaczyło „raz", nie byłoby powodu, żeby istniał osobny
-`PER_AVAILABLE_RESOURCE_TYPE`. Stąd:
+If `PER_RESOURCE` also meant "once", there would be no reason for a separate
+`PER_AVAILABLE_RESOURCE_TYPE` to exist. Hence:
 
-- węgiel, `+10%` na stacje i porty przez `EFFECT_CITY_ADJUST_CONSTRUCTIBLE_PRODUCTION_PER_RESOURCE`
-  → przy 6 sztukach **+60%**;
-- złoto, `+1` we wszystkich osiedlach przez `..._PER_AVAILABLE_RESOURCE_TYPE`
-  → `+1 × liczba osiedli`, **bez** mnożenia przez liczbę sztuk.
+- coal, `+10%` for stations and ports through `EFFECT_CITY_ADJUST_CONSTRUCTIBLE_PRODUCTION_PER_RESOURCE`
+  → with 6 units **+60%**;
+- gold, `+1` in all settlements through `..._PER_AVAILABLE_RESOURCE_TYPE`
+  → `+1 × the number of settlements`, **without** multiplying by the number of units.
 
-⚠️ Argument `Empire="true"` **nie znaczy „raz na imperium"** — mówi, KTÓRE kopie liczyć
-(wszystkie należące do imperium, a nie tylko przypisane do budującej osady). Mnożnik i tak
-niesie sufiks efektu.
+⚠️ The `Empire="true"` argument **does not mean "once per empire"** — it says WHICH copies to count
+(all belonging to the empire, not only those assigned to the building settlement). The multiplier is still
+carried by the effect's suffix.
 
-⚠️ Opisy zasobów tego nie zdradzają: są pisane ręcznie, w formie „+10% do produkcji…",
-bez „za każdy". Nie da się z nich wyczytać reguły zliczania — trzeba iść do modyfikatora.
+⚠️ The resources' descriptions do not give this away: they are written by hand, in the form "+10% production…",
+without "for each". You cannot read the counting rule out of them — you have to go to the modifier.
 
-### Kolekcja modyfikatora zawęża zasięg tak samo jak wymagania ❗✅
+### A modifier's collection narrows the reach just as the requirements do ❗✅
 
-Licząc efekt na całe imperium nie wystarczy sprawdzić `SubjectRequirements` — osobną
-informacją jest **kolekcja**, czyli do kogo modyfikator w ogóle się stosuje. W plikach
-zasobów występują cztery:
+When computing an effect across the whole empire it is not enough to check `SubjectRequirements` — a separate
+piece of information is the **collection**, i.e. who the modifier applies to at all. Four occur in the
+resource files:
 
-| kolekcja | użyć | mnożnik |
+| collection | uses | multiplier |
 |---|---|---|
-| `COLLECTION_ALL_CITIES` | 115 | liczba osad (po filtrze wymagań) |
-| `COLLECTION_ALL_UNITS` | 10 | brak — dotyczy jednostek |
-| `COLLECTION_ALL_PLAYERS` | 10 | 1 — raz na gracza |
-| `COLLECTION_ALL_CAPITAL_CITIES` | 6 | 1 — tylko stolica |
+| `COLLECTION_ALL_CITIES` | 115 | the number of settlements (after the requirement filter) |
+| `COLLECTION_ALL_UNITS` | 10 | none — it concerns units |
+| `COLLECTION_ALL_PLAYERS` | 10 | 1 — once per player |
+| `COLLECTION_ALL_CAPITAL_CITIES` | 6 | 1 — the capital only |
 
-⚠️ Futra (`MOD_FURS_FLAT_HAPPINESS`, +3 zadowolenia) używają `ALL_CAPITAL_CITIES`.
-Policzone jak `ALL_CITIES` dają wynik przemnożony przez wielkość imperium.
-Kolumna to `GameInfo.Modifiers[].CollectionType`.
+⚠️ Furs (`MOD_FURS_FLAT_HAPPINESS`, +3 happiness) use `ALL_CAPITAL_CITIES`.
+Counted like `ALL_CITIES` they give a result multiplied by the size of the empire.
+The column is `GameInfo.Modifiers[].CollectionType`.
 
-### ⚠️ `Locale.stylize` WYCINA HTML — tooltip to tekst, nie markup HTML ❗✅
+### ⚠️ `Locale.stylize` STRIPS HTML — a tooltip is text, not HTML markup ❗✅
 
-Kuszące jest wstawienie do tooltipa własnych elementów, bo renderer robi dosłownie:
+It is tempting to put your own elements into a tooltip, because the renderer literally does:
 
 ```js
 this.textElement.innerHTML = Locale.stylize(content);   // tooltip-controller.js
 ```
 
-**Nie działa.** `Locale.stylize` to translator znaczników GRY, nie przepustka — `<div>`
-i `<span>` **znikają razem ze swoimi łamaniami linii**, a cała lista zlewa się w jeden
-akapit. Sprawdzone na żywo: „Pochodzenie:Yi Sun-sin: 72x Abalasa1x Gongju1x Komarewski…".
+**It does not work.** `Locale.stylize` is a translator of the GAME's markers, not a pass — `<div>`
+and `<span>` **disappear along with their line breaks**, and the whole list merges into one
+paragraph. Verified live: "Origin:Yi Sun-sin: 72x Abalasa1x Gongju1x Komarewski…".
 
-Co działa:
+What does work:
 
-| chcesz | użyj |
+| you want | use |
 |---|---|
-| pogrubienie | `[B]…[/B]` (gra używa go ~950 razy) |
-| nowa linia | zwykłe `
-` **plus** `white-space: pre-wrap` na `#tooltip-root-content > div` |
-| ikona | `[icon:YIELD_GOLD]`, `[icon:ECONOMIC_VP]` |
-| wcięcie | spacje albo `	` |
+| bold | `[B]…[/B]` (the game uses it ~950 times) |
+| a new line | a plain `
+` **plus** `white-space: pre-wrap` on `#tooltip-root-content > div` |
+| an icon | `[icon:YIELD_GOLD]`, `[icon:ECONOMIC_VP]` |
+| indentation | spaces or `	` |
 
-Czyli „karta na lidera" w tooltipie robi się tak: `[B]Nazwa: suma[/B]`, pod spodem wcięte
-wiersze, pusta linia między blokami. Ramki, tła i zaokrągleń **nie da się** — do tego
-trzeba by własnego komponentu tooltipa zamiast `data-tooltip-content`.
+So a "leader card" in a tooltip is done like this: `[B]Name: total[/B]`, with indented
+rows below and a blank line between blocks. Frames, backgrounds and rounded corners **are not possible** — that would
+require a tooltip component of your own instead of `data-tooltip-content`.
 
-### Tekst tooltipa ląduje w `#tooltip-root-content` ❗✅
+### The tooltip's text lands in `#tooltip-root-content` ❗✅
 
-`tooltip-manager.js` przekazuje kontrolerowi dwa elementy z `root-game.html`:
-`tooltipRootElement: #tooltip-root` oraz `tooltipContentElement: #tooltip-root-content`.
-Tekst trafia do gołego `<div>` doklejanego do **tego drugiego**. Selektor
-`.tooltip__content` (kuszący, bo taka klasa istnieje w CSS) nie trafia w nic — reguła
-`white-space: pre-wrap` musi celować w `#tooltip-root-content > div`.
+`tooltip-manager.js` passes the controller two elements from `root-game.html`:
+`tooltipRootElement: #tooltip-root` and `tooltipContentElement: #tooltip-root-content`.
+The text goes into a bare `<div>` appended to **the second one**. The selector
+`.tooltip__content` (tempting, because such a class does exist in the CSS) matches nothing — the
+`white-space: pre-wrap` rule has to target `#tooltip-root-content > div`.
 
-### Klasy jednostek: LIGHT i HEAVY to klasy MORSKIE ❗✅
+### Unit classes: LIGHT and HEAVY are NAVAL classes ❗✅
 
-Tagów klas jednostek nic w grze nie wyświetla, więc łatwo je źle nazwać. Sprawdzone
-w `age-modern/data/units.xml`:
+Nothing in the game displays unit class tags, so it is easy to name them wrongly. Checked
+in `age-modern/data/units.xml`:
 
-| tag | jednostki |
+| tag | units |
 |---|---|
-| `UNIT_CLASS_LIGHT` | krążownik, niszczyciel, okręt pancerny → **lekkie okręty** |
-| `UNIT_CLASS_HEAVY` | pancernik, drednot, fregata → **ciężkie okręty** |
-| `UNIT_CLASS_NAVAL` | wszystko pływające |
-| `UNIT_CLASS_RANGED` / `SIEGE` / `INFANTRY` / `CAVALRY` / `AIRCRAFT` | lądowe (RANGED obejmuje też okręty) |
+| `UNIT_CLASS_LIGHT` | cruiser, destroyer, ironclad → **light ships** |
+| `UNIT_CLASS_HEAVY` | battleship, dreadnought, frigate → **heavy ships** |
+| `UNIT_CLASS_NAVAL` | everything that floats |
+| `UNIT_CLASS_RANGED` / `SIEGE` / `INFANTRY` / `CAVALRY` / `AIRCRAFT` | land (RANGED also covers ships) |
 
-⚠️ „lekkie" i „ciężkie" bez słowa „okręty" czyta się jako jednostki lądowe. Opisy gry
-piszą to wprost („lekkich jednostek pływających"), więc etykiety moda też muszą.
+⚠️ "light" and "heavy" without the word "ships" read as land units. The game's descriptions
+spell it out ("light naval units"), so a mod's labels must too.
 
-### ⚠️ Opisy zasobów bywają NIEZGODNE z modyfikatorami
+### ⚠️ Resource descriptions are sometimes INCONSISTENT with the modifiers
 
-Sprawdzone maszynowo: dla każdego zasobu porównano tagi z `REQUIREMENT_UNIT_TAG_MATCHES`
-z pojęciami linkowanymi w tekście `LOC_EXP_RESOURCE_*_TOOLTIP`.
+Checked mechanically: for every resource, the tags from `REQUIREMENT_UNIT_TAG_MATCHES` were compared
+with the concepts linked in the text of `LOC_EXP_RESOURCE_*_TOOLTIP`.
 
-**Saletra w epoce nowożytnej:**
+**Niter in the Modern age:**
 
-- modyfikator `MOD_NITER_INFANTRY_AND_RANGED_COMBAT_STRENGTH`: `UNIT_CLASS_RANGED, UNIT_CLASS_SIEGE`
-- polski opis: „jednostek oblężniczych, **dystansowych i ciężkich jednostek pływających**"
+- the modifier `MOD_NITER_INFANTRY_AND_RANGED_COMBAT_STRENGTH`: `UNIT_CLASS_RANGED, UNIT_CLASS_SIEGE`
+- the Polish description: "siege, **ranged and heavy naval units**"
 
-To jedyny modyfikator saletry w tej epoce (sprawdzone i po argumencie `ResourceType`,
-i po `ModifierMetadatas`). Wersja z eksploracji miała `NAVAL, SIEGE` — wygląda na to, że
-opis nie nadążył za zmianą efektu między epokami.
+That is niter's only modifier in that age (checked both by the `ResourceType` argument
+and by `ModifierMetadatas`). The Exploration version had `NAVAL, SIEGE` — it looks as though
+the description did not keep up with the effect's change between ages.
 
-**Wniosek:** przy liczeniu efektów **źródłem prawdy są modyfikatory, nie opisy**. Opis
-może wymieniać klasę jednostek, której modyfikator nie obejmuje.
+**The conclusion:** when computing effects, **the modifiers are the source of truth, not the descriptions**. A description
+may list a unit class the modifier does not cover.
 
-### ⚠️ KOREKTA: `PER_AVAILABLE_RESOURCE_TYPE` JEDNAK skaluje się z liczbą sztuk
+### ⚠️ CORRECTION: `PER_AVAILABLE_RESOURCE_TYPE` DOES scale with the number of units
 
-Wcześniejszy wpis w tym pliku twierdził, że złoto i srebro liczą się raz na imperium,
-bo ich efekt nazywa się „per available resource TYPE". **To było błędne.**
+An earlier entry in this file claimed that gold and silver count once per empire,
+because their effect is named "per available resource TYPE". **That was wrong.**
 
-**Pomiar w grze:** ulepszenie jednej dodatkowej kopii złota podniosło dochód o ok. tyle,
-ile gracz ma osad. Przy interpretacji „raz na typ" nie powinno zmienić się nic.
+**Measured in game:** improving one additional copy of gold raised the yield by roughly as much
+as the player has settlements. Under the "once per type" interpretation nothing should have changed.
 
-Obie rodziny — `PER_RESOURCE` i `PER_AVAILABLE_RESOURCE_TYPE` — mnożą się przez liczbę
-posiadanych kopii. Co rozróżnia ich nazwy, pozostaje nieznane; **nie jest to liczenie kopii**.
+Both families — `PER_RESOURCE` and `PER_AVAILABLE_RESOURCE_TYPE` — multiply by the number
+of copies owned. What distinguishes their names remains unknown; **it is not the counting of copies**.
 
-**Zasada ogólna:** nazwa w danych to hipoteza. Pomiar w działającej grze ją bije.
-Zanim oprzesz kalkulację na konwencji nazewniczej, poproś o jedną obserwację z rozgrywki.
+**The general principle:** a name in the data is a hypothesis. A measurement in a running game beats it.
+Before basing a calculation on a naming convention, ask for one observation from an actual game.
 
-### ⚠️ KOREKTA 2: `PER_RESOURCE_TYPE` (wariant gracza) TEŻ skaluje się z liczbą sztuk
+### ⚠️ CORRECTION 2: `PER_RESOURCE_TYPE` (the player variant) ALSO scales with the number of units
 
-Ta sama pomyłka, tylko w drugim wariancie — i przeżyła o rundę dłużej, bo korekta wyżej
-dotyczyła tylko `PER_AVAILABLE_RESOURCE_TYPE`. Objaw: **Wino [2]** pokazywało
-`Jeden: +10 kultury` i `Wszystkie: +10 kultury`.
+The same mistake, only in the other variant — and it survived a round longer, because the correction above
+concerned only `PER_AVAILABLE_RESOURCE_TYPE`. The symptom: **Wine [2]** showed
+`One: +10 culture` and `All: +10 culture`.
 
 ```xml
 <Modifier id="MOD_WINE_GOLDEN_AGE_CULTURE"
@@ -1150,96 +1150,96 @@ dotyczyła tylko `PER_AVAILABLE_RESOURCE_TYPE`. Objaw: **Wino [2]** pokazywało
 </Modifier>
 ```
 
-**Reguła końcowa: wszystkie cztery sufiksy liczą sztuki.** Sufiks nie mówi nic o zliczaniu.
-To, co je różni, to **zasięg** — a zasięg i tak siedzi w `collection`:
+**The final rule: all four suffixes count units.** The suffix says nothing about counting.
+What differs between them is the **reach** — and the reach sits in `collection` anyway:
 
-| efekt | zasięg | mnożnik |
+| effect | reach | multiplier |
 |---|---|---|
-| `CITY_ADJUST_YIELD_PER_RESOURCE` | osady z kolekcji | `kwota × osady × sztuki` |
-| `CITY_ADJUST_YIELD_PER_AVAILABLE_RESOURCE_TYPE` | osady z kolekcji | `kwota × osady × sztuki` |
-| `PLAYER_ADJUST_YIELD_PER_RESOURCE_TYPE` | `COLLECTION_ALL_PLAYERS` → **1** | `kwota × sztuki` |
+| `CITY_ADJUST_YIELD_PER_RESOURCE` | the collection's settlements | `amount × settlements × units` |
+| `CITY_ADJUST_YIELD_PER_AVAILABLE_RESOURCE_TYPE` | the collection's settlements | `amount × settlements × units` |
+| `PLAYER_ADJUST_YIELD_PER_RESOURCE_TYPE` | `COLLECTION_ALL_PLAYERS` → **1** | `amount × units` |
 
-Czyli w kodzie to jedna gałąź, nie trzy — różnicę załatwia funkcja licząca osady, bo dla
-kolekcji `PLAYER` zwraca `1`.
+So in code it is one branch, not three — the difference is handled by the function counting settlements, because for
+the `PLAYER` collection it returns `1`.
 
-Używają go dokładnie dwa zasoby: **Wino** (kultura, starożytność 5 / eksploracja 10) i
-**Futra** (złoto, eksploracja) — oba tylko podczas Święta.
+Exactly two resources use it: **Wine** (culture, Antiquity 5 / Exploration 10) and
+**Furs** (gold, Exploration) — both only during a Celebration.
 
-### Klasy jednostek NAKŁADAJĄ SIĘ — jeden okręt należy do czterech ❗✅
+### Unit classes OVERLAP — one ship belongs to four ❗✅
 
-Sprawdzone w `age-modern/data/units.xml`, wszystkie tagi pancernika (`UNIT_BATTLESHIP`):
+Checked in `age-modern/data/units.xml`, all of the battleship's tags (`UNIT_BATTLESHIP`):
 
 ```
 UNIT_CLASS_SIEGE, UNIT_CLASS_NAVAL, UNIT_CLASS_HEAVY, UNIT_CLASS_RANGED,
 UNIT_CLASS_COMBAT, UNIT_CLASS_ELITE_NAVAL_HEAVY, UNIT_CLASS_AUTOEXPLORE
 ```
 
-Dlatego ten sam okręt dostaje **i** premię z saletry (`RANGED, SIEGE`), **i** z ropy
-(`CAVALRY, HEAVY`) — widać to w grze w rozbiciu siły bojowej („+6 do saletry, +5 do ropy").
+That is why the same ship gets **both** the niter bonus (`RANGED, SIEGE`) **and** the oil one
+(`CAVALRY, HEAVY`) — you can see it in game in the combat strength breakdown ("+6 from niter, +5 from oil").
 
-⚠️ Konsekwencja dla wyświetlania: lista klas z modyfikatora **nie jest** rozłącznym
-podziałem jednostek. Napis „dystansowe, oblężnicze" jest prawdziwy, ale gracz patrzący na
-swój pancernik nie rozpozna, że jest w tym zbiorze. Opisy gry mówią o tym samym efekcie
-innymi słowami („ciężkich jednostek pływających”) i **oba są zgodne z mechaniką** —
-to nie jest sprzeczność, tylko dwa opisy tego samego zbioru okrętów.
+⚠️ The consequence for display: the list of classes from a modifier **is not** a disjoint
+partition of units. The label "ranged, siege" is true, but a player looking at
+their battleship will not recognize that it is in that set. The game's descriptions describe the same effect
+in different words ("heavy naval units") and **both agree with the mechanics** —
+this is not a contradiction, just two descriptions of the same set of ships.
 
-### Jak wypisać klasy jednostek objęte efektem: test ZAWIERANIA ✅
+### How to list the unit classes covered by an effect: a CONTAINMENT test ✅
 
-Skoro klasy się nakładają, sama lista tagów z modyfikatora jest myląca. Rozwiązanie, które
-daje pełny i prawdziwy zbiór:
+Since the classes overlap, the modifier's tag list alone is misleading. The solution that
+gives a complete and truthful set:
 
-1. zbierz jednostki mające **którykolwiek** z tagów modyfikatora → zbiór `covered`;
-2. wypisz każdą nazwaną klasę `C`, dla której **wszystkie** jednostki z `C` należą do
-   `covered` (zawieranie, nie przecięcie).
+1. collect the units having **any** of the modifier's tags → the set `covered`;
+2. list every named class `C` for which **all** of `C`'s units belong to
+   `covered` (containment, not intersection).
 
-Wynik na danych epoki nowożytnej:
+The result on the Modern age's data:
 
-| zasób | tagi modyfikatora | wypisane klasy |
+| resource | modifier's tags | listed classes |
 |---|---|---|
-| saletra | RANGED, SIEGE | dystansowe, oblężnicze, **ciężkie okręty** |
-| ropa | CAVALRY, HEAVY | kawaleria, ciężkie okręty |
-| węgiel | LIGHT | lekkie okręty |
-| kauczuk | AIRCRAFT, INFANTRY | lotnicze, piechota |
+| niter | RANGED, SIEGE | ranged, siege, **heavy ships** |
+| oil | CAVALRY, HEAVY | cavalry, heavy ships |
+| coal | LIGHT | light ships |
+| rubber | AIRCRAFT, INFANTRY | air, infantry |
 
-Saletra zyskuje „ciężkie okręty", bo **każdy** ciężki okręt w tej epoce jest też dystansowy
-albo oblężniczy — dokładnie to, o czym mówi opis gry. „Wszystkie okręty" nie dochodzą, bo
-lekkie okręty są morskie i nie są objęte; test zawierania nie pozwala obiecać klasy,
-której efekt nie pokrywa w całości.
+Niter gains "heavy ships", because **every** heavy ship in that age is also ranged
+or siege — exactly what the game's description says. "All ships" does not make it, because
+light ships are naval and are not covered; the containment test does not let you promise a class
+the effect does not cover entirely.
 
-Źródło: `GameInfo.TypeTags` ograniczone do wierszy, których `Type` występuje
-w `GameInfo.Units` (TypeTags trzyma tagi wszystkiego, także zasobów).
+The source: `GameInfo.TypeTags` restricted to rows whose `Type` occurs
+in `GameInfo.Units` (TypeTags holds tags for everything, including resources).
 
-**Doprecyzowanie:** po teście zawierania trzeba jeszcze usunąć **połówki morskie**, gdy
-pokryta jest cała klasa `UNIT_CLASS_NAVAL`. Inaczej w epoce eksploracji saletra
-(`NAVAL, SIEGE`) wypisuje „ciężkie okręty, lekkie okręty, wszystkie okręty, oblężnicze",
-co jest tym samym powiedzianym trzy razy.
+**A refinement:** after the containment test you also have to remove the **naval halves** when
+the whole `UNIT_CLASS_NAVAL` class is covered. Otherwise in the Exploration age niter
+(`NAVAL, SIEGE`) lists "heavy ships, light ships, all ships, siege",
+which is the same thing said three times.
 
-⚠️ **Nie rób z tego ogólnej reguły „usuń klasę zawartą w innej".** W epoce nowożytnej
-każdy ciężki okręt jest przypadkiem także dystansowy, więc reguła ogólna skasowałaby
-„ciężkie okręty" z saletry — czyli tę jedną pozycję, której szuka gracz patrzący na swój
-pancernik. Zawieranie między rolami (ciężkie ⊂ dystansowe) to przypadek składu jednostek
-w danej epoce; zawieranie w obrębie floty (lekkie, ciężkie ⊂ okręty) to taksonomia.
+⚠️ **Do not turn this into a general "remove a class contained in another" rule.** In the Modern age
+every heavy ship happens to be ranged as well, so the general rule would delete
+"heavy ships" from niter — the one entry a player looking at their battleship is
+looking for. Containment between roles (heavy ⊂ ranged) is an accident of the unit roster
+in that age; containment within the fleet (light, heavy ⊂ ships) is taxonomy.
 
-Wynik po obu krokach:
+The result after both steps:
 
-| epoka | zasób | karta pokazuje |
+| age | resource | the card shows |
 |---|---|---|
-| nowożytna | saletra | ciężkie okręty, dystansowe, oblężnicze |
-| nowożytna | ropa | kawaleria, ciężkie okręty |
-| eksploracji | saletra | wszystkie okręty, oblężnicze |
+| Modern | niter | heavy ships, ranged, siege |
+| Modern | oil | cavalry, heavy ships |
+| Exploration | niter | all ships, siege |
 
-### ⚠️ `CollectionType` jest w `DynamicModifiers`, nie w `Modifiers`
+### ⚠️ `CollectionType` is in `DynamicModifiers`, not in `Modifiers`
 
-Zapis w XML wygląda, jakby kolekcja była atrybutem modyfikatora:
+The XML makes it look as though the collection were an attribute of the modifier:
 
 ```xml
 <Modifier id="MOD_FURS_FLAT_HAPPINESS" collection="COLLECTION_ALL_CAPITAL_CITIES"
           effect="EFFECT_CITY_ADJUST_YIELD_PER_AVAILABLE_RESOURCE_TYPE">
 ```
 
-W bazie rozkłada się to inaczej: `collection` **i** `effect` trafiają do
-**`DynamicModifiers`**, kluczowane przez `ModifierType`. Wiersz w `Modifiers` ma tylko
-`ModifierId` i `ModifierType`.
+In the database it decomposes differently: `collection` **and** `effect` go into
+**`DynamicModifiers`**, keyed by `ModifierType`. The row in `Modifiers` has only
+`ModifierId` and `ModifierType`.
 
 ```js
 const byType = new Map();
@@ -1248,12 +1248,12 @@ GameInfo.DynamicModifiers.forEach((e) => byType.set(e.ModifierType,
 GameInfo.Modifiers.forEach((e) => { /* e.ModifierType -> byType */ });
 ```
 
-⚠️ `modifierRow.CollectionType` zwraca `undefined` **bez błędu**, więc kod czytający je
-stamtąd po prostu cicho traci informację o zasięgu. U nas skutek: futra (+3 zadowolenia
-**w stolicy**) były mnożone przez liczbę wszystkich osad — przy 12 osadach i 6 sztukach
-karta pokazywała +216 zamiast +18.
+⚠️ `modifierRow.CollectionType` returns `undefined` **without an error**, so code reading it
+from there simply loses the reach information silently. For us the result: furs (+3 happiness
+**in the capital**) were multiplied by the number of all settlements — with 12 settlements and 6 units
+the card showed +216 instead of +18.
 
-### ⚠️ Karta szlaku: widoczny panel to DZIECKO, nie `.trade-route-card`
+### ⚠️ A route's card: the visible panel is a CHILD, not `.trade-route-card`
 
 `trade-route-card.js`:
 
@@ -1263,154 +1263,154 @@ const content = createComponent(CardFrame, mergeProps(cardFrameProps, { … }));
 return createComponent(Activatable, { class: "focusable-card-activatable trade-route-card", children: content });
 ```
 
-`style` **nie jest** na liście `splitProps`, więc zostaje w `cardFrameProps` i trafia na
-**`CardFrame`**. To znaczy, że wyliczane przez zakładkę `width` i `margin-right` lądują na
-wewnętrznej ramce — tej, którą widać — a `.trade-route-card` to tylko `Activatable` wokół
-niej i gra **nigdy jej nie wymiarowuje**.
+`style` is **not** on the `splitProps` list, so it stays in `cardFrameProps` and lands on
+**`CardFrame`**. Which means the `width` and `margin-right` computed by the tab land on
+the inner frame — the one you see — while `.trade-route-card` is only the `Activatable` around
+it and the game **never sizes it**.
 
-**Konsekwencja:** wszelkie nadawanie szerokości `.trade-route-card` nie zmienia wyglądu
-panelu. Trzeba przypiąć dziecko:
+**The consequence:** setting any width on `.trade-route-card` does not change the panel's
+appearance. You have to target the child:
 
 ```css
 .trade-route-card > * {
     width: 100% !important;
-    margin-right: 0 !important;   /* 12px dla każdej karty poza ostatnią w rzędzie */
+    margin-right: 0 !important;   /* 12px for every card except the last in a row */
     margin-left: 0 !important;
 }
 ```
 
-⚠️ To `margin-right` było widoczną nierównością kolumn: zakładka daje 12 px marginesu
-każdej karcie **oprócz ostatniej w rzędzie**, więc trzecia kolumna wyglądała dokładnie
-o tyle szerzej.
+⚠️ That `margin-right` was the visible unevenness of the columns: the tab gives 12 px of margin
+to every card **except the last in a row**, so the third column looked exactly
+that much wider.
 
 
 ---
 
-## Karta konwoju skarbowego — co da się zmienić bez przepisywania komponentu ✅
+## The treasure convoy card — what can be changed without rewriting the component ✅
 
-`base-standard/ui-next/screens/commerce/treasure-convoy-card.js`. Karta jest
-`ComponentRegistry.register({ name: 'TreasureConvoyCard' })`, ale **rejestracja nie pomaga**
-przy usuwaniu czegoś ze środka: `createInstance` buduje całą zawartość w jednym wyrażeniu,
-więc nadpisanie z wyższym priorytetem to skopiowanie ~200 linii kodu gry. Dwie tańsze drogi:
+`base-standard/ui-next/screens/commerce/treasure-convoy-card.js`. The card is
+`ComponentRegistry.register({ name: 'TreasureConvoyCard' })`, but **registration does not help**
+when removing something from inside it: `createInstance` builds all of the content in a single expression,
+so an override with a higher priority means copying ~200 lines of the game's code. Two cheaper routes:
 
-### 1. Pola z modelu — podmieniamy dane, nie DOM ✅
+### 1. Fields from the model — we replace the data, not the DOM ✅
 
-Karta renderuje `props.fleet.treasureFleetText` przez `insert(_el$5, () => ...)`, więc
-**cokolwiek** tam włożymy, to się narysuje. Model buduje to jako `L10n.Stylize({ text })`,
-a `L10n.Stylize` robi `spread(_el$, mergeProps(other, { innerHTML }))` — czyli **dodatkowe
-propsy lądują jako atrybuty na elemencie**. Stąd tooltip bez dotykania DOM:
+The card renders `props.fleet.treasureFleetText` through `insert(_el$5, () => ...)`, so
+**whatever** we put there gets drawn. The model builds it as `L10n.Stylize({ text })`,
+and `L10n.Stylize` does `spread(_el$, mergeProps(other, { innerHTML }))` — i.e. **extra
+props land as attributes on the element**. Hence a tooltip without touching the DOM:
 
 ```js
 L10n.Stylize({
     text: `+${gold} [icon:YIELD_GOLD]   +${gdp} [icon:ECONOMIC_VP]`,
-    'data-tooltip-content': Locale.compose('LOC_MOJ_KLUCZ'),
+    'data-tooltip-content': Locale.compose('LOC_MY_KEY'),
 });
 ```
 
-Surowe liczby **nie są** na obiekcie floty (model wkłada je od razu w zdanie). Odczyt
-z osady:
+The raw numbers are **not** on the fleet object (the model puts them straight into a sentence). Reading
+them from the settlement:
 
 ```js
 const resources = Cities.get(fleet.cityID)?.Resources;
-resources.getProducedTreasureFleetGold();   // złoto za konwój
-resources.getProducedTreasureFleetGDP();    // PKB za konwój
+resources.getProducedTreasureFleetGold();   // gold per convoy
+resources.getProducedTreasureFleetGDP();    // GDP per convoy
 ```
 
-Token ikony PKB to `[icon:ECONOMIC_VP]`.
+The GDP icon's token is `[icon:ECONOMIC_VP]`.
 
-### 2. Nagłówek z `L10n.Compose` — CSS go NIE dosięgnie ❗✅
+### 2. A header from `L10n.Compose` — CSS will NOT reach it ❗✅
 
 ```js
 createComponent(L10n.Compose, { text: "LOC_COMMERCE_TREASURE_RESOURCES_TITLE" })
 ```
 
-`L10n.Compose` to `(props) => createMemo(() => Locale.compose(props.text ?? ''))` — zwraca
-**goły węzeł tekstowy**, bez żadnego elementu. Nie ma selektora, który by go trafił, a
-`MutationObserver` na kartach to dokładnie ta klasa rozwiązań, która wywołała zawieszenie
-gry (quirk #57).
+`L10n.Compose` is `(props) => createMemo(() => Locale.compose(props.text ?? ''))` — it returns
+a **bare text node**, with no element at all. There is no selector that would hit it, and
+a `MutationObserver` on the cards is exactly the class of solution that caused the game
+to hang (quirk #57).
 
-**Tańsze i bezpieczniejsze: wyzerować sam klucz lokalizacyjny** — o ile jest używany w
-jednym miejscu (tu: dokładnie jedno wystąpienie w całej grze, sprawdzone `grep`iem po
-`Base/`). Nadpisanie istniejącego klucza to `<Replace>`, nie `<Row>`:
+**Cheaper and safer: blank out the localization key itself** — as long as it is used in
+one place (here: exactly one occurrence in the whole game, checked with `grep` over
+`Base/`). Overriding an existing key is `<Replace>`, not `<Row>`:
 
 ```xml
-<!-- text/en_us/…: angielski siedzi w <EnglishText>, BEZ atrybutu Language -->
+<!-- text/en_us/…: English sits in <EnglishText>, WITHOUT a Language attribute -->
 <EnglishText>
     <Replace Tag="LOC_COMMERCE_TREASURE_RESOURCES_TITLE"><Text></Text></Replace>
 </EnglishText>
 
-<!-- text/pl_PL/…: reszta języków w <LocalizedText>, Z atrybutem Language -->
+<!-- text/pl_PL/…: the other languages in <LocalizedText>, WITH a Language attribute -->
 <LocalizedText>
     <Replace Tag="LOC_COMMERCE_TREASURE_RESOURCES_TITLE" Language="pl_PL"><Text></Text></Replace>
 </LocalizedText>
 ```
 
-⚠️ **Jeden wiersz na język.** Język bez takiego wiersza dalej widzi nagłówek — bo gra
-trzyma tłumaczenia w `base-standard/l10n/<locale>_Text.xml` jako `<Replace … Language=…>`,
-a nasz angielski wiersz ich nie przykrywa. Przy dodawaniu kolejnych lokalizacji do moda
-trzeba ten wiersz powielić razem z resztą.
+⚠️ **One row per language.** A language without such a row still sees the header — because the game
+keeps its translations in `base-standard/l10n/<locale>_Text.xml` as `<Replace … Language=…>`,
+and our English row does not cover them. When adding further locales to a mod
+this row has to be duplicated along with the rest.
 
-Pusty węzeł tekstowy w kontenerze `flex` nie zajmuje wysokości: `CardFrame` wstawia dzieci
-**bezpośrednio** do elementu z klasami (`insert(_el$, () => props.children)`), a anonimowy
-element flex bez treści się nie renderuje.
+An empty text node in a `flex` container takes up no height: `CardFrame` inserts children
+**directly** into the element with the classes (`insert(_el$, () => props.children)`), and an anonymous
+flex element with no content does not render.
 
 
 ---
 
-## Limit szlaków handlowych — API i pułapka ✅
+## The trade route limit — the API and a trap ✅
 
-Limit jest **per lider**, nie na imperium. Nie ma jednej liczby „ile szlaków mogę mieć":
+The limit is **per leader**, not per empire. There is no single number for "how many routes can I have":
 
 ```js
 const trade = Players.get(GameContext.localPlayerID)?.Trade;
 
-trade.countPlayerTradeRoutes();            // wszystkie nasze szlaki, łącznie
-trade.countPlayerTradeRoutesTo(playerId);  // szlaki do TEGO gracza
-trade.getTradeCapacityFromPlayer(playerId);// limit z TYM graczem
+trade.countPlayerTradeRoutes();            // all of our routes, in total
+trade.countPlayerTradeRoutesTo(playerId);  // routes to THAT player
+trade.getTradeCapacityFromPlayer(playerId);// the limit with THAT player
 ```
 
-Sumę robimy po `Players.getAlive()` z filtrem `player.isMajor`, pominięciem siebie i
-`Players.get(local).Diplomacy.hasMet(player.id)` — limit wobec nieznanego gracza to nie
-jest miejsce, którego da się użyć.
+We total it over `Players.getAlive()` with a `player.isMajor` filter, skipping ourselves and
+`Players.get(local).Diplomacy.hasMet(player.id)` — a limit against an unknown player is not
+a slot you can use.
 
-⚠️ **Nie mieszać `countPlayerTradeRoutes()` z sumą `...To(id)`.** Pierwsze liczy też szlaki
-poza tą sumą, więc nagłówek przestaje się zgadzać z rozpiską po liderach — a to rozpiskę
-gracz może sprawdzić wzrokiem. Albo suma, albo nic.
+⚠️ **Do not mix `countPlayerTradeRoutes()` with the sum of `...To(id)`.** The first also counts routes
+outside that sum, so the header stops matching the per-leader breakdown — and the breakdown is
+something the player can check by eye. Either the sum, or nothing.
 
-⚠️ **Wolny limit ≠ szlak, który da się zawrzeć.** Zasięg i wojna blokują niezależnie od
-limitu. Rozróżnienie bierzemy z projekcji, tej samej, której używa model:
+⚠️ **A free slot ≠ a route that can be established.** Range and war block independently of
+the limit. We take the distinction from the projection, the same one the model uses:
 
 ```js
 const options = TradeRouteSearchOptions.INCLUDE_FAILED + TradeRouteSearchOptions.EXTENDED_STATUS;
 trade.projectPossibleTradeRoutes(options).forEach((route) => {
     if (route.status?.includes(TradeRouteStatus.SUCCESS)) {
-        startable.add(Cities.get(route.targetCityId)?.owner);   // lider, z którym można OD RAZU
+        startable.add(Cities.get(route.targetCityId)?.owner);   // a leader we can trade with RIGHT NOW
     }
 });
 ```
 
-`SUCCESS` znaczy „wszystkie kryteria spełnione, zostaje podpisać".
+`SUCCESS` means "all criteria satisfied, all that is left is to sign".
 
 ---
 
-## Miejsce na własne podsumowanie nad zakładkami ✅
+## Room for your own summary above the tabs ✅
 
-Rodzic `[data-name="TabList"]` jest `position: relative`, a sam pasek zakładek jest w nim
-wyśrodkowany — więc lewa strona stoi pusta i nie trzeba nic mierzyć:
+The parent of `[data-name="TabList"]` is `position: relative`, and the tab bar itself is centered
+inside it — so the left side stands empty and nothing has to be measured:
 
 ```css
 position: absolute; left: 2rem; top: 0.15rem; z-index: 20;
 ```
 
-Tego samego kotwiczenia używają: przyciski „Przypisz wszystkie" (zakładka zasobów),
-podsumowanie dochodów (imperialne), podsumowanie szlaków (handel) i znak „?" (skarbowe).
-**Nie kolidują**, bo w danej chwili otwarta jest tylko jedna zakładka — ale każdy z tych
-modułów musi sprzątać po sobie w `onCleanup`, bo **rząd należy do ekranu, nie do zakładki**
-i przeżywa wyjście z niej.
+The same anchoring is used by: the "Assign all" buttons (the resources tab),
+the yield summary (empire), the routes summary (trade) and the "?" mark (treasure).
+They **do not collide**, because only one tab is open at a time — but each of those
+modules has to clean up after itself in `onCleanup`, because **the row belongs to the screen, not to the tab**
+and outlives leaving it.
 
-⚠️ Jeśli dokładanie elementu leci z `MutationObserver`, musi być **idempotentne** — patrz
-quirk #57. Wzorzec: flaga „już pokazane" **plus** sprawdzenie, czy element wciąż jest
-w drzewie (ekran potrafi przebudować rząd sam z siebie):
+⚠️ If the element is added from a `MutationObserver`, it has to be **idempotent** — see
+quirk #57. The pattern: an "already shown" flag **plus** a check that the element is still
+in the tree (the screen can rebuild the row on its own):
 
 ```js
 if (shown && document.querySelector(`.${CLASS}`)) return;
@@ -1418,94 +1418,94 @@ if (shown && document.querySelector(`.${CLASS}`)) return;
 
 ---
 
-## Kliknięcie karty w miastach skarbowych NIE zamyka ekranu ✅
+## Clicking a card in treasure cities does NOT close the screen ✅
 
-Wszystkie trzy klikalne miejsca na karcie konwoju wołają wyłącznie `Camera.lookAtPlot`:
+All three clickable places on a convoy's card call only `Camera.lookAtPlot`:
 
-| kliknięcie | handler modelu | efekt |
+| click | the model's handler | effect |
 |---|---|---|
-| nazwa/baner osady | `handleClickCityName` | `Camera.lookAtPlot(city.location)` |
-| ikona zasobu | `handleClickUnimprovedTreasure` | `Camera.lookAtPlot(location)` |
-| flaga konwoju | `handleClickTreasureFleet` | `Camera.lookAtPlot(unit.location)` |
+| the settlement's name/banner | `handleClickCityName` | `Camera.lookAtPlot(city.location)` |
+| the resource's icon | `handleClickUnimprovedTreasure` | `Camera.lookAtPlot(location)` |
+| the convoy's flag | `handleClickTreasureFleet` | `Camera.lookAtPlot(unit.location)` |
 
-Czyli mapa jedzie **pod** wciąż otwartym ekranem i gracz tego nie widzi, dopóki sam go nie
-zamknie. To nie jest błąd do naprawienia z moda (zamykanie ekranu za gracza zmieniłoby
-zachowanie gry) — to rzecz do wyjaśnienia w tooltipie.
+So the map moves **underneath** the still-open screen and the player does not see it until they
+close it themselves. This is not a bug for a mod to fix (closing the screen for the player would change
+the game's behavior) — it is something to explain in a tooltip.
 
 
 ---
 
-## Zasoby fabryczne — modyfikatory i sposób liczenia ❗✅
+## Factory resources — the modifiers and how they are counted ❗✅
 
-W nowożytności jest ich osiem: **kawa, cytrusy, bawełna, kakao, herbata, kaolin, chinina,
-cyna** (`ResourceClassType = RESOURCECLASS_FACTORY`). Każdy daje procent, i **tylko wtedy,
-gdy siedzi w osadzie z fabryką** — nieprzypisany nie daje nic.
+There are eight of them in the Modern age: **coffee, citrus, cotton, cocoa, tea, kaolin, quinine,
+tin** (`ResourceClassType = RESOURCECLASS_FACTORY`). Each gives a percentage, and **only when
+it sits in a settlement with a factory** — unassigned it gives nothing.
 
-| zasób | efekt | argumenty |
+| resource | effect | arguments |
 |---|---|---|
-| kawa | `CITY_ADJUST_CONSTRUCTIBLE_PRODUCTION_PER_SLOTTED_RESOURCE` ×2 | `Amount=5`, `ConstructibleClass` = BUILDING / WONDER |
-| cytrusy | `CITY_ADJUST_UNIT_PRODUCTION_PER_SLOTTED_RESOURCE` | `Percent=5`, `Domain=DOMAIN_SEA` |
-| bawełna | to samo | `Percent=5`, `Domain=DOMAIN_LAND` |
-| kakao | `ADJUST_PLAYER_YIELD_PER_SLOTTED_RESOURCE` | `Amount=3`, `YIELD_HAPPINESS` |
-| herbata | to samo | `Amount=3`, `YIELD_SCIENCE` |
-| kaolin | to samo | `Amount=3`, `YIELD_CULTURE` |
-| chinina | `UNIT_ADJUST_HEAL_PER_RESOURCE` | `Amount=1`, `COLLECTION_ALL_UNITS` |
-| cyna | `CITY_ADJUST_GROWTH_PER_RESOURCE` | `Percent=3`, **`GlobalSlots=true`** |
+| coffee | `CITY_ADJUST_CONSTRUCTIBLE_PRODUCTION_PER_SLOTTED_RESOURCE` ×2 | `Amount=5`, `ConstructibleClass` = BUILDING / WONDER |
+| citrus | `CITY_ADJUST_UNIT_PRODUCTION_PER_SLOTTED_RESOURCE` | `Percent=5`, `Domain=DOMAIN_SEA` |
+| cotton | the same | `Percent=5`, `Domain=DOMAIN_LAND` |
+| cocoa | `ADJUST_PLAYER_YIELD_PER_SLOTTED_RESOURCE` | `Amount=3`, `YIELD_HAPPINESS` |
+| tea | the same | `Amount=3`, `YIELD_SCIENCE` |
+| kaolin | the same | `Amount=3`, `YIELD_CULTURE` |
+| quinine | `UNIT_ADJUST_HEAL_PER_RESOURCE` | `Amount=1`, `COLLECTION_ALL_UNITS` |
+| tin | `CITY_ADJUST_GROWTH_PER_RESOURCE` | `Percent=3`, **`GlobalSlots=true`** |
 
-### ⚠️ Trzy pułapki, przez które kod od zasobów imperialnych czyta tu same zera
+### ⚠️ Three traps that make code written for empire resources read nothing but zeros here
 
-1. **Liczba bywa w `Percent`, nie w `Amount`.** Cytrusy, bawełna i cyna. `Number(map.get('Amount'))`
-   daje `NaN` i wcześniejszy `return` wycina cały modyfikator.
-2. **`ConstructibleClass`, nie `ConstructibleType`.** Odczyt nazwy budynku przez
-   `GameInfo.Constructibles.lookup()` nic nie zwróci — to klasa (`BUILDING`/`WONDER`),
-   nie konkretny budynek.
-3. **NIE mnożymy przez liczbę osad.** `PER_SLOTTED_RESOURCE` i `GlobalSlots=true` znaczą, że
-   liczy się **całkowita liczba wpiętych sztuk w imperium, raz**, a procent stosuje się tam,
-   gdzie mówi kolekcja. Cztery kawy = **+20% w każdej osadzie**, nie +20% na osadę.
-   To jest **odwrotnie** niż agregują się zasoby imperialne — pomyłka zawyża liczby o
-   wielkość imperium.
+1. **The number is sometimes in `Percent`, not `Amount`.** Citrus, cotton and tin. `Number(map.get('Amount'))`
+   gives `NaN` and an earlier `return` cuts out the whole modifier.
+2. **`ConstructibleClass`, not `ConstructibleType`.** Reading a building's name through
+   `GameInfo.Constructibles.lookup()` will return nothing — it is a class (`BUILDING`/`WONDER`),
+   not a specific building.
+3. **Do NOT multiply by the number of settlements.** `PER_SLOTTED_RESOURCE` and `GlobalSlots=true` mean that
+   what counts is **the total number of slotted units in the empire, once**, and the percentage applies where
+   the collection says. Four coffees = **+20% in every settlement**, not +20% per settlement.
+   This is **the opposite** of how empire resources aggregate — the mistake inflates the numbers by
+   the size of the empire.
 
-### ⚠️ ROZSTRZYGNIĘTE: bonusy fabryczne są GLOBALNE, nie tylko w miastach na kolei ✅
+### ⚠️ SETTLED: the factory bonuses are GLOBAL, not only in cities on the rail network ✅
 
-Wątpliwość była uzasadniona — kolej pojawia się w opisach fabryk na tyle często, że łatwo
-uznać, iż ogranicza też zasięg premii. **Nie ogranicza.** Trzy niezależne dowody:
+The doubt was justified — rail comes up in factory descriptions often enough that it is easy
+to conclude it limits the bonus's reach too. **It does not.** Three independent proofs:
 
-1. **Tutorial gry, `LOC_TUTORIAL_FACTORY_RESOURCES_BODY`:** *„To slot a Factory Resource
+1. **The game's tutorial, `LOC_TUTORIAL_FACTORY_RESOURCES_BODY`:** *"To slot a Factory Resource
    into a Settlement, it must have a Rail Connection and a Factory. (…) **Once the Resource
-   has been slotted it becomes an Empire Resource.**"* — kolej jest warunkiem **wpięcia**,
-   a wpięty zasób działa jak imperialny, czyli wszędzie.
-2. **Wymaganie kolei siedzi na BUDYNKU, nie na zasobie.** Opis `BUILDING_FACTORY`: *„Must be
-   built in a Settlement connected to the Capital by Railroad."* Bramka jest na tym, gdzie
-   wolno postawić fabrykę — nie na tym, gdzie działa premia.
-3. **Żaden z dziewięciu modyfikatorów fabrycznych nie ma ANI JEDNEGO `<Requirement>`.**
-   Sprawdzone `grep`iem po obu plikach `resources-gameeffects*.xml` w `age-modern`.
-   Kolekcje to `ALL_CITIES` / `ALL_PLAYERS` / `ALL_UNITS` — czyli wszystko.
+   has been slotted it becomes an Empire Resource.**"* — rail is a condition for **slotting**,
+   and a slotted resource behaves like an empire one, i.e. everywhere.
+2. **The rail requirement sits on the BUILDING, not on the resource.** `BUILDING_FACTORY`'s description: *"Must be
+   built in a Settlement connected to the Capital by Railroad."* The gate is on where
+   a factory may be built — not on where the bonus applies.
+3. **None of the nine factory modifiers has A SINGLE `<Requirement>`.**
+   Checked with `grep` over both `resources-gameeffects*.xml` files in `age-modern`.
+   The collections are `ALL_CITIES` / `ALL_PLAYERS` / `ALL_UNITS` — i.e. everything.
 
-Czyli: liczymy wpięte sztuki w całym imperium i stosujemy procent wszędzie. Bez filtrowania
-osad po sieci kolejowej.
+So: we count the slotted units across the whole empire and apply the percentage everywhere. No filtering of
+settlements by the rail network.
 
-### Odczyt stanu
+### Reading the state
 
 ```js
-// wpięte: JEDEN rodzaj na osadę, dowolnie wiele sztuk tego rodzaju
-city.Resources.getFactoryResource();       // typ (albo brak)
-city.Resources.getNumFactoryResources();   // ile sztuk w tej osadzie
+// slotted: ONE kind per settlement, any number of units of that kind
+city.Resources.getFactoryResource();       // the type (or none)
+city.Resources.getNumFactoryResources();   // how many units in that settlement
 
-// posiadane: JEDEN wpis = JEDNA SZTUKA (tak samo liczy model gry w populateEmpireResources)
+// owned: ONE entry = ONE UNIT (the game's model counts the same way in populateEmpireResources)
 Players.get(local).Resources.getResources()
     .filter((r) => GameInfo.Resources.lookup(r.uniqueResource.resource)
                        ?.ResourceClassType === 'RESOURCECLASS_FACTORY');
 
-Game.Resources.getOriginCity(resource.value);   // skąd pochodzi ta sztuka
+Game.Resources.getOriginCity(resource.value);   // where that unit came from
 ```
 
-Nieprzypisane = posiadane − wpięte. Liczyć różnicą, nie osobnym odczytem — inaczej te dwie
-sekcje potrafią pokazać sumę niezgodną z tym, co gracz faktycznie ma.
+Unassigned = owned − slotted. Compute it as a difference, not with a separate read — otherwise those two
+sections can show a total that does not match what the player actually has.
 
-### PKB z wpiętych zasobów — to NIE jest modyfikator ✅
+### GDP from slotted resources — this is NOT a modifier ✅
 
-Nie ma go w `resources-gameeffects.xml` i nie znajdzie go żaden kod chodzący po
-modyfikatorach. Siedzi w tabeli **`VictoryScorings`**:
+It is not in `resources-gameeffects.xml` and no code walking the modifiers will find it. It sits
+in the **`VictoryScorings`** table:
 
 ```xml
 <Row VictoryType="VICTORY_ECONOMIC_MODERN"
@@ -1518,214 +1518,142 @@ modyfikatorach. Siedzi w tabeli **`VictoryScorings`**:
 GameInfo.VictoryScorings.find((r) => r.ScoringId === 'VICTORY_TRACKER_SLOTTED_FACTORY').Points;
 ```
 
-⚠️ **Czytać z tabeli, nie wpisywać `3` na sztywno** — to dokładnie ta liczba, którą rusza
-patch balansowy, a zapisana w kodzie wyglądałaby dalej dobrze będąc już błędną.
+⚠️ **Read it from the table, do not hardcode `3`** — that is exactly the number a balance
+patch touches, and written into the code it would still look fine while already being wrong.
 
-⚠️ **Są też inne wiersze doliczające PKB za te same zasoby**, np.
-`VICTORY_TRACKER_FACTORY_RESOURCES_INDUSTRIAL_PARK` (`Points="1"`) — amerykańska unikalna
-dzielnica Park Przemysłowy. Wykrycie jej wymaga chodzenia po polach osady, więc mod jej nie
-liczy, ale **mówi o tym w tooltipie** zamiast po cichu pokazywać zaniżoną liczbę.
+⚠️ **There are also other rows adding GDP for the same resources**, e.g.
+`VICTORY_TRACKER_FACTORY_RESOURCES_INDUSTRIAL_PARK` (`Points="1"`) — the American unique
+quarter, the Industrial Park. Detecting it requires walking a settlement's tiles, so the mod does not
+count it, but it **says so in the tooltip** instead of quietly showing an understated number.
 
-Uwaga na sprzeczne teksty gry: `AdvisorText` mówi „2 points of GDP", `VictoriesText` „+3
-GDP". Tabela mówi 3 — i to ona jest źródłem prawdy.
+Beware of contradictory in-game texts: `AdvisorText` says "2 points of GDP", `VictoriesText` "+3
+GDP". The table says 3 — and the table is the source of truth.
 
-### ⚠️❗ `RequiresActivation="true"` — tracker nie płaci nic, dopóki nie odkryjesz technologii ✅
-
-**Zgłoszenie użytkownika, 2026-09-06.** Wszystkie ekonomiczne wiersze `VictoryScorings`, które
-liczy ekran Handlu, mają `RequiresActivation="true"` — punkty **zaczynają się naliczać dopiero
-po odkryciu** odpowiedniego węzła, nie od razu. Czytanie samego `Points` daje graczowi na turze
-pierwszej obietnicę PKB, którego nie może zdobyć.
-
-| ScoringId | Odblokowuje |
-|---|---|
-| `VICTORY_TRACKER_SLOTTED_BONUS` / `..._SLOTTED_CITY` | `NODE_TECH_AQ_WHEEL` (Koło) |
-| `VICTORY_TRACKER_GOLD_BUILDINGS_ANTIQUITY` | `NODE_TECH_AQ_CURRENCY` (Waluta) |
-| `VICTORY_TRACKER_IMPORTED_RESOURCES` | `NODE_CIVIC_AQ_MAIN_SKILLED_TRADES` (Rzemiosło — **idea**, nie technologia) |
-| `VICTORY_TRACKER_SLOTTED_FACTORY` | `NODE_TECH_MO_MASS_PRODUCTION` (Produkcja masowa) |
-
-**Jak to wyliczyć z danych, a nie wpisać na sztywno:**
-
-```js
-// 1. modyfikator -> nazwa trackera; modyfikator -> co dołącza (jeden przebieg po ModifierArguments)
-GameInfo.ModifierArguments.forEach((a) => {
-    if (a.Name === 'TrackerName') trackerOf.set(a.ModifierId, a.Value);
-    else if (a.Name === 'ModifierId') attachesOf.set(a.ModifierId, String(a.Value).split(','));
-});
-// 2. węzeł drzewa -> tracker
-GameInfo.ProgressionTreeNodeUnlocks.forEach((u) => {
-    if (u.TargetKind !== 'KIND_MODIFIER') return;
-    for (const id of [u.TargetType, ...(attachesOf.get(u.TargetType) ?? [])]) { /* trackerOf.get(id) */ }
-});
-// 3. czy odblokowany
-const node = GameInfo.ProgressionTreeNodes.lookup(nodeType);
-const civic = GameInfo.ProgressionTrees.lookup(node.ProgressionTree)?.SystemType === 'SYSTEM_CULTURE';
-(civic ? player.Culture : player.Techs).isNodeUnlocked(nodeType);
-```
-
-⚠️ **Argument `TrackerName` jest wystarczającym znacznikiem.** Sprawdzone skryptem po całym
-`Base` i `DLC`: występuje **wyłącznie** przy `EFFECT_PLAYER_ACTIVATE_VICTORY_POINT_TRACKER`.
-Ustalanie efektu każdego kandydata to skan 12-tysięcznej tabeli `Modifiers` po to, co nazwa
-argumentu już mówi.
-
-⚠️ **Trzeba zejść o jeden poziom dołączenia.** Węzeł Koła wskazuje `MOD_AQ_CITY_RESOURCE_GDP`,
-który sam nic nie aktywuje — to `EFFECT_ATTACH_MODIFIERS` wskazujący dwa, które aktywują.
-Odczytanie samego modyfikatora węzła nie znajduje żadnego z nich. Głębiej dane nie zagnieżdżają.
-
-⚠️ **BRAK węzła w tej epoce oznacza ODBLOKOWANE, nie zablokowane.** `GameInfo` trzyma tylko
-graną epokę, a od epoki eksploracji cecha każdej cywilizacji (`TRAIT_EXPLORATION_CIV`,
-`TRAIT_MODERN_CIV` w `civilizations-*.xml`) aktywuje cztery starożytne trackery wprost. Domyślne
-„nie znaleziono = zablokowane" wygasiłoby cały licznik każdemu graczowi po starożytności.
-
-⚠️ Czerwony tekst w tooltipie: `[STYLE:text-negative]…[/STYLE]` (`#dc1e46` w
-`core/ui/themes/default/default.css`). Działa i w ramkowanym tooltipie (`L10n.Stylize`), i w
-zwykłym `data-tooltip-content` — `tooltip-controller.js` przepuszcza go przez `Locale.stylize`.
-
-### Ikony spoza `UI.getIcon(yield)`
+### Icons outside `UI.getIcon(yield)`
 
 ```
-tempo wzrostu   blp:fi_growth_rate_64
-leczenie        blp:fi_action_heal_64
-PKB             blp:fi_victorypoint_economic_64
+growth rate   blp:fi_growth_rate_64
+healing       blp:fi_action_heal_64
+GDP           blp:fi_victorypoint_economic_64
 ```
-(z `base-standard/data/icons/text-icons.xml`, kontekst `FONTICON`)
+(from `base-standard/data/icons/text-icons.xml`, the `FONTICON` context)
 
 
 ---
 
-## Opis przy liczbie: NIE skracać go — przenieść do własnej linii ❗✅
+## The description next to a number: do NOT shorten it — move it to a line of its own ❗✅
 
-Objaw: w karcie z dwiema premiami („+10% do produkcji" + „+1 do siły") opis pierwszej
-nachodził na drugą.
+The symptom: on a card with two bonuses ("+10% production" + "+1 strength") the first one's
+description ran over the second.
 
-### Co NIE zadziałało
+### What did NOT work
 
-1. **`text-overflow: ellipsis`** — ten renderer nie uznaje „ściśnięty przez flexa" za
-   **określoną** szerokość, więc element trzyma pełną naturalną szerokość i rysuje po
-   sąsiedzie. Trzeba by nadać szerokość w pikselach z JS.
-2. **Pomiar wolnego miejsca po layoucie** — napisany i wyrzucony, z dwóch powodów:
-   - ⚠️ **`requestAnimationFrame` po `onMount` bywa ZA WCZEŚNIE.** Karta nie ma jeszcze
-     swoich wymiarów, `getBoundingClientRect().width` wychodzi 0, wolne miejsce wychodzi
-     zero i kod chowa **wszystkie** opisy. Dokładnie to stało się na żywo.
-   - ⚠️ Nawet gdyby pomiar był dobry: **schowanie albo przycięcie opisu to utrata
-     informacji, nie rozwiązanie.** „+6 [miecz]" bez słów nie mówi, do jakich jednostek —
-     a to jedyne, po co ta linia istnieje. Tooltip nie ratuje, bo trzeba wiedzieć, że
-     jest się czego najechać.
+1. **`text-overflow: ellipsis`** — this renderer does not consider "squeezed by flex" to be
+   a **definite** width, so the element keeps its full natural width and draws over
+   its neighbor. You would have to set a pixel width from JS.
+2. **Measuring the free space after layout** — written and thrown away, for two reasons:
+   - ⚠️ **`requestAnimationFrame` after `onMount` is sometimes TOO EARLY.** The card does not have
+     its dimensions yet, `getBoundingClientRect().width` comes out 0, the free space comes out
+     zero and the code hides **all** the descriptions. That is exactly what happened live.
+   - ⚠️ Even with a good measurement: **hiding or truncating a description is a loss of
+     information, not a solution.** "+6 [sword]" without words does not say which units it applies to —
+     and that is the only reason that line exists. A tooltip does not save it, because you have to know
+     there is something to hover over.
 
-### Co zadziałało
+### What did work
 
-**Opis wychodzi z linii liczb do własnej linii pod spodem** („legenda"), kluczowanej ikoną
-tej premii:
+**The description leaves the row of numbers for a line of its own below** (a "legend"), keyed by that
+bonus's icon:
 
 ```
-Jeden:      +10% [produkcja]   +1 [miecz]
-Wszystkie:  +60% [produkcja]   +6 [miecz]
-[produkcja] Stacja kolejowa, Port
-[miecz] lekkie okręty, ciężkie okręty
+One:        +10% [production]   +1 [sword]
+All:        +60% [production]   +6 [sword]
+[production] Rail Station, Port
+[sword] light ships, heavy ships
 ```
 
-Trzy rzeczy naraz przestają boleć: opis ma **całą szerokość karty**, jest napisany **raz**
-zamiast w obu wierszach, i wolno mu **zawijać** zamiast się ucinać. Zero pomiarów, zero
-chowania.
+Three things stop hurting at once: the description has **the card's full width**, it is written **once**
+instead of in both rows, and it is allowed to **wrap** instead of being cut off. No measuring, no
+hiding.
 
-⚠️ **Ikona jest kluczem tylko dopóki ikony się RÓŻNIĄ.** Na zakładce fabrycznej kawa,
-cytrusy i bawełna mają wszystkie ikonę produkcji. Więc: jeśli w karcie dwie premie mają tę
-samą ikonę, do linii legendy dochodzi też liczba.
+⚠️ **The icon is a key only as long as the icons DIFFER.** On the factory tab coffee,
+citrus and cotton all have the production icon. So: if two bonuses on a card have the
+same icon, the legend line gets the number as well.
 
-Skoro w linii liczb nie ma już nic zbędnego, dostaje `flex-wrap: wrap` zamiast
-`nowrap` + `overflow: hidden` — druga linijka kosztuje mniej niż nieczytelna liczba.
+Since the row of numbers no longer holds anything superfluous, it gets `flex-wrap: wrap` instead of
+`nowrap` + `overflow: hidden` — a second line costs less than an unreadable number.
 
-### ⚠️ Legenda TYLKO gdy premii jest więcej niż jedna
+### ⚠️ The legend ONLY when there is more than one bonus
 
-Przy **jednej** premii w karcie problemu nie ma — jedna liczba i jej opis mieszczą się
-w linii, a to jest lepsze, bo **karty w rzędzie zostają tej samej wysokości**. Legenda
-kosztuje dodatkową linijkę, więc płacimy za nią tylko tam, gdzie coś kupuje.
+With **one** bonus on a card there is no problem — a single number and its description fit
+on one line, and that is better, because **the cards in a row stay the same height**. A legend
+costs an extra line, so we pay for it only where it buys something.
 
-- zakładka imperialna: prawie każda karta ma dwie premie → legenda
-- zakładka fabryczna: prawie każda ma jedną → opis w linii
+- the empire tab: almost every card has two bonuses → a legend
+- the factory tab: almost every one has one → the description inline
 
 ---
 
-## Karty w rzędzie mają różną wysokość ❗✅
+## Cards in a row have different heights ❗✅
 
-Rząd `flex-wrap: wrap` **rozciąga** swoje dzieci (domyślne `align-items: stretch`), więc
-`.card` faktycznie ma wysokość najwyższej w rzędzie. Ale `.card` to tylko dystansownik —
-**widoczna ramka to element w środku**, a ten sam z siebie dostaje wysokość swojego tekstu:
+A `flex-wrap: wrap` row **stretches** its children (the default `align-items: stretch`), so
+`.card` really does have the height of the tallest in the row. But `.card` is only a spacer —
+**the visible frame is the element inside**, and that one takes the height of its own text:
 
 ```css
-.card__inner { flex: 1 1 auto; }   /* bez tego ramka jest niższa niż karta */
+.card__inner { flex: 1 1 auto; }   /* without this the frame is shorter than the card */
 ```
 
-Ta sama pułapka co przy panelach szlaków handlowych i kartach konwojów: element z
-„oczywistą" klasą nie jest tym, co widać.
+The same trap as with the trade route panels and convoy cards: the element with the
+"obvious" class is not the one you see.
 
 ---
 
-## Procent dochodu na liczby bezwzględne — procenty się DODAJĄ ❗✅
+## A percentage of a yield turned into absolute numbers — the double-counting trap ❗✅
 
-„+30% nauki" nic nie mówi bez wiedzy, ile się ma nauki. Dochód imperium na turę (ten z
-górnego panelu):
+"+30% science" says nothing without knowing how much science you have. The empire's per-turn yield (the one from
+the top panel):
 
 ```js
 Players.get(GameContext.localPlayerID)?.Stats?.getNetYield(YieldTypes[yieldType]);
 ```
 
-✅ **GRA DODAJE PROCENTY, NIE MNOŻY ICH.** Zgłoszenie gracza ze Steam, 2026-09-05,
-potwierdzone liczbami: baza 1000 nauki, +25% z projektu dyplomatycznego, +15% z pięciu wpiętych
-herbat → gra płaci **1000 + 250 + 150 = 1400**. Herbata jest warta 150 — 15% **bazy**, a nie 15%
-z 1250, które było na panelu przed nią.
+⚠️ **`net × percent / 100` OVERSTATES the result.** The net yield **already includes** the bonus from slotted
+resources, and 30% is computed from the state **before** itself, not after. It has to be backed out:
 
-⚠️ **Dlatego liczba z górnego panelu NIE MOŻE być bazą.** Wycofanie z niej samego procentu
-fabrycznego (`net × procent / (100 + zastosowane)`) też nie pomaga — w tej liczbie siedzą także
-wszystkie inne procenty imperium, a tych z panelu nie widać. Ten właśnie wzór był w
-`better-commerce-screen-ui` do 1.13 i zawyżał o tyle, ile gracz miał innych premii procentowych.
-
-Bazą jest **suma dochodów netto OSAD**:
-
-```js
-let pula = 0;
-for (const city of Players.get(GameContext.localPlayerID)?.Cities?.getCities() ?? []) {
-    pula += city.Yields?.getNetYield(YieldTypes[yieldType]) ?? 0;
-}
-const warto = Math.round((pula * procent) / 100);
+```
+before = net / (1 + applied/100)
+worth  = before × percent/100  =  net × percent / (100 + applied)
 ```
 
-⚠️ Efekty fabryczne to `COLLECTION_ALL_PLAYERS`
-(`EFFECT_ADJUST_PLAYER_YIELD_PER_SLOTTED_RESOURCE`, `PercentMultiplier=true`), więc dochodzą
-**po** zsumowaniu osad — dlatego liczby z osad są stanem „przed", a `player.Stats.getNetYield`
-stanem „po". Ten sam wzór obsługuje oba pytania, bez żadnego mianownika:
+where `applied` is the **total** factory percentage for that yield from all the already
+slotted units (not just from this one resource). The same denominator handles both questions:
 
-- „ile z obecnej nauki daje herbata" → `procent` = to, co daje herbata
-- „ile dołoży wpięcie leżących sztuk" → `procent` = to, co dołożą
+- "how much of the current science does tea provide" → `percent` = what tea gives
+- "how much would slotting the units lying around add" → `percent` = what they would add, with the denominator unchanged
 
-Liczba nadal idzie na ekran jako **„≈"**: część dochodów trafia do imperium z pominięciem osad
-i puli nie powiększa.
+This is exact if the game **multiplies** percentages, and approximate if it **adds** them to
+percentages from other sources — which cannot be checked from the UI. That is why the number goes on screen
+as **"≈"** and the tooltip says plainly that it is an estimate.
 
-### Rozbicie dochodu osady na bazę i procenty ✅
-
-`city.Yields.getYields()[i]` (indeks jak w `GameInfo.Yields`) zwraca atrybut z `.base.value`
-i `.modifier.value`, gdzie `wartość = base + base × modifier/100` — tak liczy to
-`model-city-details.js`. `CityYields.getCityYieldDetails(cityID)` z
-`base-standard/ui/utilities/utilities-city-yields.js` buduje z tego gotowe drzewko do tooltipa.
-⚠️ To jest rozbicie **na poziomie osady**; procentów z poziomu gracza w nim nie ma.
-
-**Da się policzyć tylko dla dochodów, które mają jedną liczbę w panelu** — nauka (herbata),
-kultura (kaolin), zadowolenie (kakao). Reszta zasobów fabrycznych mnoży produkcję w stronę
-konkretnej rzeczy albo tempo wzrostu; nie ma czego wziąć procent, a zgadywanie byłoby gorsze
-niż zostawienie samego procentu.
+**It can only be computed for yields that have a single number in the panel** — science (tea),
+culture (kaolin), happiness (cocoa). The remaining factory resources multiply production towards
+a specific thing, or the growth rate; there is nothing to take a percentage of, and guessing would be worse
+than leaving the bare percentage.
 
 ---
 
-## Przeładowanie ekranu — działa, ale prawie zawsze jest złą odpowiedzią ❗✅
+## Reloading the screen — it works, but it is almost always the wrong answer ❗✅
 
-**Data: 2026-08-18.** Sprawdzone w grze — i **odrzucone** jako rozwiązanie.
+**Date: 2026-08-18.** Tested in game — and **rejected** as a solution.
 
-`commerce-screen-model.js` buduje `tradeRouteTabData` **dokładnie raz**, przy tworzeniu modelu,
-i **nigdy** go nie przebudowuje przez całe jedno otwarcie ekranu — ani na zdarzeniu, ani
-z timera. Model siedzi w `createMutable`, ale funkcje `populateData` / `populateTradeRoutes` są
-domknięciami wewnątrz `createCommerceScreenModel` i **nic ich nie eksponuje**. Więc gdy stan gry
-zmieni się pod ekranem, nie ma czego poprosić o odświeżenie.
+`commerce-screen-model.js` builds `tradeRouteTabData` **exactly once**, when the model is created,
+and **never** rebuilds it for the entire duration of one opening of the screen — neither on an event nor
+from a timer. The model sits in a `createMutable`, but the `populateData` / `populateTradeRoutes` functions are
+closures inside `createCommerceScreenModel` and **nothing exposes them**. So when the game's state
+changes underneath the screen, there is nothing to ask for a refresh.
 
-Zamknięcie i otwarcie od nowa **działa**:
+Closing and reopening **does work**:
 
 ```js
 ContextManager.pop('screen-resource-allocation');
@@ -1734,46 +1662,45 @@ requestAnimationFrame(() => {
 });
 ```
 
-⚠️ ale **w grze wygląda to fatalnie**: cały ekran gaśnie i wraca, ginie pozycja przewijania
-i zaznaczenie, a otwiera się na pierwszej zakładce (trzeba osobno wracać na właściwą). Jako
-reakcja na kliknięcie jednego przycisku na jednej karcie jest to nieproporcjonalne — użytkownik
-odrzucił to od razu.
+⚠️ but **in game it looks terrible**: the whole screen goes out and comes back, the scroll position
+and the selection are lost, and it opens on the first tab (you have to switch back to the right one
+separately). As a reaction to clicking one button on one card it is disproportionate — the user
+rejected it immediately.
 
-### ✅ Co robić zamiast tego
+### ✅ What to do instead
 
-**Przerysować własne dekoracje, bez ruszania Solid.** Wszystko, co mod sam narysował na karcie
-(przyciski, ostrzeżenia, nagłówki grup, podsumowanie), jest zwykłym DOM-em wstrzykniętym obok
-elementów gry — można to odbudować w każdej chwili, a Solid w ogóle o tym nie wie. W praktyce:
-wyczyścić własne cache'e i wywołać własny przebieg dekorujący (u nas `forgetTradeRoutes()` +
-`scheduleDecorate()`), spięte zdarzeniem `CustomEvent` na `window`.
+**Redraw your own decorations, without touching Solid.** Everything the mod drew on a card itself
+(buttons, warnings, group headers, the summary) is ordinary DOM injected next to
+the game's elements — it can be rebuilt at any moment, and Solid knows nothing about it. In practice:
+clear your own caches and run your own decorating pass (for us `forgetTradeRoutes()` +
+`scheduleDecorate()`), wired up with a `CustomEvent` on `window`.
 
-⚠️ **Samo wyczyszczenie cache'a nie wystarczy** — to naprawia dopiero *następny* przebieg,
-a na ekranie, którego wszystkie karty należą do gry, `MutationObserver` może nie odpalić przez
-długi czas. Trzeba jawnie zaplanować przerysowanie.
+⚠️ **Clearing the cache alone is not enough** — that only fixes the *next* pass,
+and on a screen whose every card belongs to the game a `MutationObserver` may not fire for
+a long time. The redraw has to be scheduled explicitly.
 
-### Czego tym NIE da się zrobić
+### What this cannot do
 
-Karta **nie przeskoczy między sekcjami** „available" ↔ „unavailable" — to dwa różne `<For>` po
-dwóch różnych tablicach, czyli jedyna rzecz, której `reconcileArrays` nie przeżyje ruszona
-z zewnątrz. Na to jedyną odpowiedzią jest przeładowanie ekranu, więc **zostawia się to graczowi**
-(sam zamknie i otworzy), zamiast robić mu to pod palcami.
+A card **will not jump between the "available" ↔ "unavailable" sections** — those are two different `<For>`s over
+two different arrays, i.e. the one thing `reconcileArrays` will not survive being moved
+from outside. The only answer to that is reloading the screen, so **it is left to the player**
+(they will close and reopen it themselves) rather than done under their fingers.
 
-⚠️ Zanim uznasz, że karta musi przeskoczyć — sprawdź, w której sekcji naprawdę jest. U nas
-ostrzeżenie „no trade route slot left" wisi na kartach w sekcji **available** (limit per lider
-jest już zajęty przez kupca w drodze), więc żadnego przeskoku nie było trzeba; wystarczyło
-przerysowanie.
+⚠️ Before you conclude that a card has to jump — check which section it is really in. For us
+the "no trade route slot left" warning hangs on cards in the **available** section (the per-leader limit
+is already taken by a merchant en route), so no jump was needed; a redraw was enough.
 
-### Gdyby jednak trzeba było przeładować
+### If you did have to reload
 
-- `push` musi poczekać **jedną klatkę** po `pop`. `pop` odpina element synchronicznie, co odpala
-  Solidowe cleanupy — ale mod liczący żywe komponenty w `requestAnimationFrame` (żeby odróżnić
-  demontaż od dołka w przerysowaniu) dokończy sprzątanie dopiero w tej klatce. `push` w tym
-  samym ticku zamontuje nowe karty przed tym sprawdzeniem, licznik nie spadnie do zera
-  i teardown zostanie pominięty.
-- `singleton: true` mimo wszystko zbuduje **nowy** element — `pop` zdjął poprzedni ze stosu,
-  więc `getTargetIndex` zwraca -1. O to chodzi: nowy element = nowy model = świeże dane.
-- Świeży ekran otwiera się na **pierwszej zakładce**. Pasek zakładek jest za `Suspense`, więc
-  o właściwą trzeba poprosić dopiero, gdy się pojawi — i **zdarzeniem silnika**, bo
-  `[data-name="TabListItem"]` to `Activatable` (natywny klik nie działa; patrz
-  [25-ui-next-solidjs.md](25-ui-next-solidjs.md), „Klikanie komponentu gry Z KODU").
-  Handel to zawsze indeks 1.
+- the `push` has to wait **one frame** after the `pop`. `pop` detaches the element synchronously, which fires
+  Solid's cleanups — but a mod counting live components in a `requestAnimationFrame` (to tell
+  a teardown from a dip in re-rendering) will only finish its cleanup in that frame. A `push` in the
+  same tick will mount the new cards before that check, the counter will not drop to zero
+  and the teardown will be skipped.
+- `singleton: true` will nevertheless build a **new** element — `pop` took the previous one off the stack,
+  so `getTargetIndex` returns -1. That is the point: a new element = a new model = fresh data.
+- A fresh screen opens on the **first tab**. The tab bar is behind a `Suspense`, so
+  the right one has to be asked for only once it appears — and **with an engine event**, because
+  `[data-name="TabListItem"]` is an `Activatable` (a native click does not work; see
+  [25-ui-next-solidjs.md](25-ui-next-solidjs.md), "Clicking a game component FROM CODE").
+  Trade is always index 1.

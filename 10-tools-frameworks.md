@@ -1,38 +1,38 @@
-# 10 — Narzędzia i biblioteki
+# 10 — Tools and libraries
 
-## Co jest w grze (vendor) ✅
+## What ships with the game (vendor) ✅
 
-`Base\modules\core\vendor\` zawiera biblioteki, których używa samo UI gry:
+`Base\modules\core\vendor\` contains the libraries used by the game's own UI:
 
-- **Solid.js** — `core/vendor/solid-js/` — reaktywny framework nowego UI (`ui-next`)
-  - `solid-js/web/dist/web.js` (render), `solid-js/dist/solid.js` (rdzeń)
-- **cohtml** — `core/ui/cohtml.js` — most do silnika Coherent Labs (renderer UI)
+- **Solid.js** — `core/vendor/solid-js/` — the reactive framework of the new UI (`ui-next`)
+  - `solid-js/web/dist/web.js` (render), `solid-js/dist/solid.js` (core)
+- **cohtml** — `core/ui/cohtml.js` — the bridge to the Coherent Labs engine (the UI renderer)
 
-⚠️ Dla modów oznacza to: jeśli dopisujesz do `ui-next`, możesz korzystać z Solid.js
-importując go z `/core/vendor/solid-js/...` — nie musisz dołączać własnej kopii.
+⚠️ For mods this means: if you are adding to `ui-next`, you can use Solid.js by
+importing it from `/core/vendor/solid-js/...` — you do not have to bundle your own copy.
 
-## Czego NIE ma ✅
+## What is NOT there ✅
 
-- ❌ brak plików `.d.ts` **w plikach gry** — zero gotowych definicji typów
-- ❌ brak **oficjalnego** SDK/ModBuddy od Firaxis (w przeciwieństwie do Civ V)
-- ❌ brak publicznego narzędzia do budowania paczek zasobów `.dep`
-  → **modele 3D są praktycznie poza zasięgiem społeczności** (patrz [07](07-cookbook-new-leader.md))
+- ❌ no `.d.ts` files **in the game's files** — zero ready-made type definitions
+- ❌ no **official** SDK/ModBuddy from Firaxis (unlike Civ V)
+- ❌ no public tool for building `.dep` asset packages
+  → **3D models are practically out of the community's reach** (see [07](07-cookbook-new-leader.md))
 
-## ⚠️ KOREKTA: nieoficjalne SDK jednak istnieje
+## ⚠️ CORRECTION: an unofficial SDK does exist after all
 
-Pierwotnie napisałem tu, że „nie ma SDK". To było błędne — wynikało z analizy
-wyłącznie plików lokalnych, bez sprawdzenia zasobów społeczności.
+I originally wrote here that "there is no SDK". That was wrong — it came from analyzing
+local files only, without checking community resources.
 
-**`civ7-modding-tools`** (npm, `github.com/izica/civ7-modding-tools`) to aktywnie
-rozwijany framework TypeScript, który generuje pliki moda z typowanego kodu.
-Pełny opis: **[20-typescript-tooling.md](20-typescript-tooling.md)**.
+**`civ7-modding-tools`** (npm, `github.com/izica/civ7-modding-tools`) is an actively
+developed TypeScript framework that generates a mod's files from typed code.
+Full description: **[20-typescript-tooling.md](20-typescript-tooling.md)**.
 
-Nie zmienia to faktu, że gra nie dostarcza `.d.ts` — narzędzie ma własne typy i stałe.
+That does not change the fact that the game ships no `.d.ts` — the tool has its own types and constants.
 
-## Co masz mimo to — sourcemapy ✅ (najważniejsze narzędzie)
+## What you do have — sourcemaps ✅ (the most important tool)
 
-**~1419 plików `.js.map`, z czego praktycznie wszystkie zawierają pełny oryginalny
-kod TypeScript** w polu `sourcesContent`.
+**~1419 `.js.map` files, practically all of which contain the full original
+TypeScript code** in the `sourcesContent` field.
 
 ```json
 {"version":3,"file":"framework.js",
@@ -40,53 +40,53 @@ kod TypeScript** w polu `sourcesContent`.
  "sourcesContent":["/**\n * @file framework.ts\n * @copyright 2021-2024, Firaxis Games\n ..."]}
 ```
 
-To zastępuje dokumentację i definicje typów. Jak z tego korzystać — patrz
+This substitutes for documentation and type definitions. How to use it — see
 [16-ui-source-reference.md](16-ui-source-reference.md).
 
-Dodatkowo **JavaScript gry nie jest zminifikowany** — czytelne nazwy zmiennych,
-komentarze, `console.error` z opisami. Można czytać wprost.
+On top of that, **the game's JavaScript is not minified** — readable variable names,
+comments, `console.error` with descriptions. You can read it directly.
 
-## Narzędzia, które wystarczą do pracy
+## The tools that are enough to work with
 
-| Potrzeba | Narzędzie |
+| Need | Tool |
 |---|---|
-| Edycja XML/SQL/JS | dowolny edytor (VS Code) |
-| Przeszukiwanie plików gry | `ripgrep` / grep — najważniejsza umiejętność |
-| Podgląd bazy SQLite | DB Browser for SQLite — otwórz `Mods.sqlite` (patrz [19](19-workflow-and-debugging.md)) |
-| Duży mod z cywilizacją | `civ7-modding-tools` ([20](20-typescript-tooling.md)) — opcjonalnie |
-| Źródła TS interfejsu gry | `..\tools\extract_ts.py` ([16](16-ui-source-reference.md)) |
-| Grafika 2D (ikony) | dowolny edytor PNG z alfą |
-| Modele 3D | ⛔ brak realnej ścieżki — używaj `VisualRemaps` |
+| Editing XML/SQL/JS | any editor (VS Code) |
+| Searching the game's files | `ripgrep` / grep — the most important skill |
+| Inspecting the SQLite database | DB Browser for SQLite — open `Mods.sqlite` (see [19](19-workflow-and-debugging.md)) |
+| A large mod with a civilization | `civ7-modding-tools` ([20](20-typescript-tooling.md)) — optional |
+| TS sources of the game's interface | `..\tools\extract_ts.py` ([16](16-ui-source-reference.md)) |
+| 2D graphics (icons) | any PNG editor with alpha |
+| 3D models | ⛔ no realistic path — use `VisualRemaps` |
 
-Zainstalowane u Ciebie środowisko ✅: Node.js v20.19.5, Python 3.14.0 —
-oba wystarczają (`civ7-modding-tools` wymaga Node 14+).
+The environment installed on your machine ✅: Node.js v20.19.5, Python 3.14.0 —
+both are sufficient (`civ7-modding-tools` requires Node 14+).
 
-## Wzorce, których używa społeczność (zaobserwowane) ✅
+## Patterns the community uses (observed) ✅
 
-Z analizy 49 modów — brak jakiegokolwiek build-systemu. Mody to **surowe pliki**
-wrzucone do folderu:
+From an analysis of 49 mods — no build system of any kind. Mods are **raw files**
+dropped into a folder:
 
-- brak `package.json`, brak bundlerów, brak transpilacji
-- kod pisany bezpośrednio w JS (ES modules), nie w TS
-- prefiksowanie plików i klas inicjałami autora (`bz-`, `leugi-`, `drongos-`)
-  — prosta konwencja unikania kolizji nazw
-- CSS jako osobne pliki ładowane przez `ImportFiles` + `Controls.loadStyle`
+- no `package.json`, no bundlers, no transpilation
+- code written directly in JS (ES modules), not in TS
+- files and classes prefixed with the author's initials (`bz-`, `leugi-`, `drongos-`)
+  — a simple convention for avoiding name collisions
+- CSS as separate files loaded via `ImportFiles` + `Controls.loadStyle`
 
-## Biblioteka wzorców do podpatrzenia
+## A library of patterns worth studying
 
-Najlepsze mody referencyjne z zainstalowanych 49 (wg złożoności i jakości kodu):
+The best reference mods out of the 49 installed (by complexity and code quality):
 
-| Mod | Workshop ID | Czego uczy |
+| Mod | Workshop ID | What it teaches |
 |---|---|---|
-| `bz-map-trix` | 3507072814 | zaawansowany UI, warstwy map, dekoratory, patch prototypów |
-| `szczupakabra-poland` | 3768377608 | pełna cywilizacja w SQL, VisualRemaps |
-| `f1rstdan-cool-ui` | 3510572267 | ✅ **ponownie zainstalowany 2026-08-26, wersja 1.9.6, przeanalizowany.** Uczy: `TooltipManager.registerType`, `CityYields.getCityYieldDetails`, własny przycisk w wierszu produkcji, `UpdateIcons`, lokalizacja jednym `.sql`, architektura czterowarstwowa (DAL/DPL/ULL/URL). ⚠️ Ma też przestrogę: jego kompaktowy układ wiersza jest **niesprawny** od migracji do `ui-next`. Pełna analiza w `mod-projects/better-city-ui/documentation/04-f1rstdan-cool-ui-analysis.md` |
-| `bz-city-hall` | 3507102289 | ✅ **wzorzec moda na ekran miasta**: dekoratory, patche prototypów, dodanie zakładki przez atrybut, własna warstwa soczewki, `<ActionCriteria>` gaszące ryzykowną grupę akcji. Pełna analiza w [28](28-city-screen.md) i w `mod-projects/better-city-ui/documentation/03-city-hall-analysis.md` |
-| `leugi-diploribbon-tweaks` | 3537808797 | `ReplaceUIScript`, dużo grafiki |
-| `stachs-elegant-policies-and-traditions` | 3730149478 | przepisanie ekranu polityk |
-| `drongos-cheat-panel` | 3734207916 | narzędzie deweloperskie/debug |
-| `maple-leaves-more-lens` | 3526524592 | soczewki mapy |
+| `bz-map-trix` | 3507072814 | advanced UI, map layers, decorators, prototype patching |
+| `szczupakabra-poland` | 3768377608 | a full civilization in SQL, VisualRemaps |
+| `f1rstdan-cool-ui` | 3510572267 | ✅ **reinstalled 2026-08-26, version 1.9.6, analyzed.** Teaches: `TooltipManager.registerType`, `CityYields.getCityYieldDetails`, a custom button in the production row, `UpdateIcons`, localization in a single `.sql`, a four-layer architecture (DAL/DPL/ULL/URL). ⚠️ It also comes with a warning: its compact row layout has been **broken** since the migration to `ui-next`. Full analysis in `mod-projects/better-city-ui/documentation/04-f1rstdan-cool-ui-analysis.md` |
+| `bz-city-hall` | 3507102289 | ✅ **the model for a city-screen mod**: decorators, prototype patches, adding a tab via an attribute, a custom lens layer, `<ActionCriteria>` that switches off a risky action group. Full analysis in [28](28-city-screen.md) and in `mod-projects/better-city-ui/documentation/03-city-hall-analysis.md` |
+| `leugi-diploribbon-tweaks` | 3537808797 | `ReplaceUIScript`, lots of artwork |
+| `stachs-elegant-policies-and-traditions` | 3730149478 | rewriting the policies screen |
+| `drongos-cheat-panel` | 3734207916 | a developer/debug tool |
+| `maple-leaves-more-lens` | 3526524592 | map lenses |
 
-Ścieżka bazowa: `C:\Program Files (x86)\Steam\steamapps\workshop\content\1295660\<ID>`
+Base path: `C:\Program Files (x86)\Steam\steamapps\workshop\content\1295660\<ID>`
 
-Pełne mapowanie ID → nazwa w [11-distribution-and-managers.md](11-distribution-and-managers.md).
+The full ID → name mapping is in [11-distribution-and-managers.md](11-distribution-and-managers.md).
