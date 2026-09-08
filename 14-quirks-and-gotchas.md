@@ -1088,6 +1088,30 @@ lines.join('\n')            // plain newline characters in the content
 ⚠️ The content alone will not force a break — the CSS has to **allow** it. The rule applies globally to
 text tooltips, so ship it with your screen's stylesheet rather than permanently.
 
+#### ⚠️⚠️ And the reverse problem: `[N]` comes back as a `<p>`, so it cannot be un-broken with a regex for `<br>` ✅ (2026-09-08)
+
+Measured from `UI.log`, not inferred. `Locale.stylize` on a string containing `[N]` returns each
+segment wrapped in **its own paragraph**:
+
+```html
+<p cohinline>+2<fxs-font-icon data-icon-id="YIELD_PRODUCTION" data-icon-context="icon"></fxs-font-icon></p>
+```
+
+So a mod that wants two figures **side by side** — one label pill rather than a pill twice as tall
+— cannot get there with `white-space: nowrap` (two blocks stack regardless) nor by stripping
+`<br>` and newlines (there are none). Join the paragraphs instead:
+
+```js
+markup.replace(/<\/p>\s*<p\b[^>]*>/gi, ' ')
+```
+
+⚠️ `cohinline` is Gameface's own attribute and does **not** make the element behave inline here —
+the two paragraphs stacked with it present. Do not read it as a promise.
+
+⚠️ This is not a contradiction of the tooltip note above: that path hands `stylize` a string the
+controller then drops into a bare `<div>`. Check what you actually get with a `warn` before
+writing a regex against it — a `<br>`-only regex silently changed nothing for a whole round here.
+
 Tooltips with `data-tooltip-component` take a different path (a custom element receives the content in an
 attribute) and do not need this rule.
 
