@@ -371,3 +371,665 @@ the player until the mod's author copies the file again.
 - ⚠️ **The opposite example:** `modelTownFocus` in City Hall has each town focus's bonuses
   **hardcoded** (+25 fortification, +2 production per mine…), not read from the modifier tables.
   After a game rebalance that panel quietly lies.
+
+## ✅ A city's yield breakdown — the game computes the whole tree for us
+
+**Established 2026-08-26.** There is no need to derive anything from the modifier tables: `city.Yields` has a full
+source-tree API.
+
+```js
+city.Yields.getNetYield(YieldTypes.YIELD_FOOD)          // the net number
+city.Yields.getYields()                                  // all of them, in GameInfo.Yields order
+city.Yields.getYieldsForNode(yieldIndex, path, true)     // → { base: { value, steps }, modifier, tooltip }
+city.Yields.getYieldSummaryForNode(yieldIndex, path)     // → { value, base, modifier }
+```
+
+`path` is an array from the `CityYieldNodes` enum. All 19 nodes the game itself uses:
+
+```
+INCOME
+  BUILDING_YIELDS            IMPROVEMENT_YIELDS          YIELD_FROM_RESOURCES
+  YIELD_FROM_TRADE           YIELD_FROM_DEMAND_FOR_TRADE YIELD_FROM_PROJECTS
+  YIELD_FROM_GREAT_WORKS     YIELD_FROM_CONNECTED_TOWNS  YIELD_FROM_SURPLUS_HAPPINESS
+  PRODUCTION_CONVERSION_PROJECT  CITY_EFFECTS_YIELDS     ACTIVE_CIV_TRADITIONS
+  INCOME_MODIFIERS
+MINUS_DEDUCTIONS
+  DEDUCTIONS
+    BUILDING_MAINTENANCE     HAPPINESS_UPKEEP            MAINTENANCE_FROM_WORKERS
+```
+
+The reference implementation to copy from: `base-standard/ui/city-details/model-city-details.js`,
+the methods `addIncomeHierarchy`, `addDeductionsHierarchy`, `addYieldsToHierarchy`, `addYieldSteps`.
+They already handle two things that are easy to miss:
+
+- **the "Other" row** — `incomeNode.base.value - childTotal`, i.e. the income the named nodes
+  do not explain (`LOC_GLOBAL_YIELDS_OTHER`);
+- **percentage modifiers** — `adjustment = base.value * modifier.value / 100`, labeled
+  `LOC_YIELD_BONUS_NAME` / `LOC_YIELD_PENALTY_NAME`, broken into items from
+  `INCOME_MODIFIERS` → `base.steps` where `GameValueDisplayTypes.PERCENTAGE`.
+
+### ✅ A READY API — without walking the nodes by hand (2026-08-26, from `f1rstdan-cool-ui`)
+
+The whole tree in one call:
+
+```js
+import CityYields from '/base-standard/ui/utilities/utilities-city-yields.js';
+const yields = CityYields.getCityYieldDetails(city.id);
+// → [{ label, value /* a string to display */, valueNum, valueType, type,
+//      showIcon, isNegative, isModifier, childData: [ … the same … ] }]
+```
+
+`CityYieldsEngine` (221 lines, `base-standard/ui/utilities/utilities-city-yields.js`) handles
+the recursion over `base.steps` / `modifier.steps` itself, plus the `LOC_ATTR_SOURCES` grouping, the
+`LOC_ATTR_ADD_PERCENTAGE_OF_SOURCES` / `LOC_ATTR_MULTIPLIED_BY_SOURCES` /
+`LOC_ATTR_MODIFIERS` labels, formatting of percentages and multipliers, and the collapsing of redundant nodes.
+The fallback: `CityDetails.yields` from `model-city-details.js` (the shape `{name, value, children}`).
+
+### ❗ CORRECTION 2026-08-26: `<yield-bar>` is DEAD CODE
+
+An earlier version of this file pointed at `<yield-bar>`
+(`base-standard/ui/yield-bar/yield-bar.js` + `model-yield-bar.js`, the `g_YieldBar` model) as the city's
+yield bar. **Nothing in the game creates it** — the file loads, the element is defined
+and that is that. It is the same pattern as [14](14-quirks-and-gotchas.md) #33: Firaxis leaves
+the old implementation on disk and keeps loading it.
+
+✅ The live element is created by the production chooser itself:
+
+```js
+cityYieldBar = document.createElement("yield-bar-base");     // panel-production-chooser.js:137
+updateCityYieldBar() {
+    …
+    this.cityYieldBar.setAttribute("data-yield-bar", JSON.stringify(data));  // [{type, value, style}]
+}
+```
+
+- you reach it as `panel.cityYieldBar` from a decorator on `panel-production-chooser`;
+- **the seam is the `data-yield-bar` attribute (JSON)** — adding, removing or changing an entry does not
+  require any DOM work. You can also **add entries that are not yields at all** — that is how
+  `f1rstdan-cool-ui` puts population and "connection network" there, with its own icons from `UpdateIcons`;
+- the structure after rendering (`yield-bar-base.js`): `outerContainer > container`
+  (i.e. `lastElementChild`), the value's text in `.text-sm`, an entry's style
+  `NONE | GAIN | LOSS` = `0 | 1 | 2`;
+- ⚠️ **it renders ASYNCHRONOUSLY** — code that walks the children right after setting the attribute
+  will find nothing. The workaround proven in Cool UI: compare
+  `root.children.length >= expected`, and if not — a `MutationObserver` on `{childList: true}`
+  **with a 500 ms `setTimeout` safety net** that disconnects the observer and does what it can.
+  Without the safety net the observer leaks.
+
+### ✅ Tooltips: `TooltipManager.registerType`
+
+```js
+import TooltipManager from '/core/ui/tooltips/tooltip-manager.js';
+TooltipManager.registerType('my-tooltip', new MyTooltipType());
+```
+
+A tooltip type is a plain object with five members:
+
+| Member | Contract |
+|---|---|
+| `getHTML()` | returns the `<fxs-tooltip>` root, built **once** in the constructor |
+| `reset()` | clears only the content, never removes nodes |
+| `isUpdateNeeded(target)` | `true` when the target changed; this is also where the actual target is resolved |
+| `update()` | fills the content from `this.target` |
+| `isBlank()` | `return !this.target` — decides whether the tooltip shows at all |
+
+An element opts in with `data-tooltip-style="my-tooltip"`. Hang the view model **directly on the
+DOM node** (`el.yieldData = …`) instead of looking it up again in `update()`.
+
+⚠️ **`isUpdateNeeded` runs on every pointer move.** It should be a reference comparison
+and a cache read. Cool UI keeps a comment there begging the next reader not to
+break it — because broken, it causes visible stutter.
+
+⚠️ Pass everything that is to be displayed through `Locale.stylize(…)` — that is what renders
+`[icon:YIELD_FOOD]`. The inverse is `Locale.plainText(str)`, which **strips the icons** out of a string
+so that it can be parsed as a number.
+
+## ✅ Purchasing: the price without switching tabs, and buying something under construction
+
+```js
+city.Gold.getBuildingPurchaseCost(YieldTypes.YIELD_GOLD, constructibleType)
+city.Gold.getUnitPurchaseCost(YieldTypes.YIELD_GOLD, unitType)
+Game.CityCommands.canStartQuery(city.id, CityCommandTypes.PURCHASE, CityQueryType.Unit)
+Game.CityCommands.canStart(city.id, CityCommandTypes.PURCHASE, { ConstructibleType: hash }, false)
+// → result.Success, result.Cost, result.InsufficientFunds, result.InProgress, result.Plots
+```
+
+✅ **Buying a building that is already under construction works in the game itself** — `Construct` from
+`production-chooser-helpers.js` does it like this:
+
+```js
+if (result.InProgress && result.Plots) {
+    const loc = GameplayMap.getLocationFromIndex(result.Plots[0]);
+    args.X = loc.x; args.Y = loc.y;      // buy it where it stands
+}
+Game.CityCommands.sendRequest(city.id, CityCommandTypes.PURCHASE, args);
+```
+
+⚠️ **Projects cannot be purchased.** The block is in two places:
+`typeInfo.Kind != "KIND_PROJECT"` in `Construct` and `!project.CanPurchase && isPurchase`
+in `getProjectItems`.
+
+✅ **Three further purchase rules** (2026-08-26, read in `f1rstdan-cool-ui` 1.9.6):
+
+| Rule | |
+|---|---|
+| **Towns (`city.isTown`) do not purchase at all** | the game gives them a separate purchase path |
+| **Projects never** | as above |
+| ⚠️ **Wonders cannot be purchased — UNLESS** the player has fully unlocked the Mughal civic `NODE_CIVIC_MO_MUGHAL_GARDENS_OF_PARADISE` | a real game rule with a single exception |
+
+```js
+Game.ProgressionTrees.getNodeState(playerId, nodeType) >= ProgressionTreeNodeState.NODE_STATE_FULLY_UNLOCKED
+```
+
+❗ **A signature change in game version 1.1.1:**
+`city.Production.getConstructibleProductionCost(type, FeatureTypes.NO_FEATURE, false)` — **three**
+arguments. `bz-city-hall` still calls it with one. A comment in Cool UI notes that breakage.
+
+⚠️ A control **inside** an activatable row (the purchase button in a production row) has to call
+`event.stopPropagation()` **and** `preventDefault()`, otherwise the row will also add the item to
+the queue. Cool UI shipped that bug and fixed it in 1.9.5.
+
+## ✅ Constructible tags — ready-made keys for sorting and filtering
+
+`ConstructibleHasTagType(type, TAG)` from `/base-standard/ui/utilities/utilities-tags.js`;
+`getConstructibleTagsFromType(type)` gives all of them. Counts taken from the base game's data:
+
+| Tag | Count | Means |
+|---|---|---|
+| `AGELESS` | 109 | ageless (warehouses etc.) |
+| `UNIQUE_IMPROVEMENT` | 33 | a unique improvement |
+| `UNIQUE` | 32 | a unique building |
+| `CITY_STATE_UNIQUE_IMPROVEMENT` | 19 | a unique improvement from a city-state |
+| `WAREHOUSE`, `FORTIFICATION`, `FULL_TILE`, `URBANCENTER`, `PERSISTENT`, `BRIDGE`, `WATER`… | — | see `constructibleTagNames` and `constructibleTagsToExclude` in `utilities-tags.js` |
+
+✅ **Syncretism needs no separate handling.** The tags sit on the constructible, not on how it was
+unlocked — a unique granted by syncretism carries `UNIQUE` exactly like a civilization's own
+unique.
+
+The adjacency bonus, ready for sorting:
+
+```js
+BuildingPlacementManager.canGetAdjacencyBonuses(constructible.ConstructibleType)
+BuildingPlacementManager.getHighestAdjacencyBonus(constructible.$hash)   // the value
+BuildingPlacementManager.getNumberOfWarehouseBonuses(constructible.$hash)
+```
+
+## Data objects ✅
+
+| Call | Gives |
+|---|---|
+| `UI.Player.getHeadSelectedCity()` | the selected settlement's `ComponentID` |
+| `city.Growth` | `growthType`, `currentFood`, `getNextGrowthFoodThreshold()`, `turnsUntilGrowth`, `projectType` |
+| `city.population` / `.urbanPopulation` / `.ruralPopulation` | population |
+| `city.Workers` | `getNumWorkers(false)`, `GetAllPlacementInfo()`, `getCityWorkerCap()` |
+| `city.Districts.getIds()` → `Districts.get(id)` | `isQuarter`, `isUrbanCore`, `type`, `location` |
+| `city.Constructibles.getIds()` → `Constructibles.getByComponentID(id)` | what stands there |
+| `city.BuildQueue` | `getQueue()`, `getQueuedPositionOfType`, `getPercentComplete(hash)` (0-100), `getTurnsLeft(TYPE_STRING)`, `currentProductionTypeHash`, `currentTurnsLeft`, `isEmpty` |
+| `city.Production.getConstructibleProductionCost(hash)` | the cost |
+| `city.getConnectedCities()` / `city.getPurchasedPlots()` | connections / the settlement's tiles |
+| `city.Religion` | `majorityReligion`, `urbanReligion`, `ruralReligion` |
+| `city.Happiness.hasUnrest` | unrest; ❓ nothing in the game's UI breaks happiness down further |
+| `Game.CityCommands.canStart(id, CityCommandTypes.CHANGE_GROWTH_MODE, {Type: GrowthTypes.PROJECT}, false)` | `.Projects` = the allowed town focuses |
+
+Events: `CityGrowthModeChanged`, `CityPopulationChanged`, `CitySelectionChanged`,
+`ConstructibleAddedToMap`, `ConstructibleRemovedFromMap`, `ConstructibleChanged`,
+`PlotWorkersUpdated`, plus the window events `update-city-details` and `city-details-closed`.
+
+⚠️ Engine events fire **for every player in the match** — a handler without an owner filter
+runs thousands of times during an AI turn.
+
+## Mods already sitting here
+
+| Mod | Workshop ID | What it does on this screen |
+|---|---|---|
+| `bz-city-hall` | 3507102289 | everything above; the full analysis is in `mod-projects/better-city-ui/documentation/03-city-hall-analysis.md` |
+| `f1rstdan-cool-ui` | 3510572267 | ✅ analyzed (1.9.6): yield tooltips through `TooltipManager`, a quick-purchase button in the row, extra entries in the yield bar. ⚠️ Its **compact production row layout does not work** since the migration to `ui-next` — the author says so in his changelog. The full analysis is in `mod-projects/better-city-ui/documentation/04-f1rstdan-cool-ui-analysis.md` |
+| `EnhancedTownFocusInfo` | 3548476215 | ❓ town focus — overlaps with City Hall's Overview tab |
+| `najane-common-specialists-yields` | (the user's mod) | ⚠️ patches `PlotWorkersManager`, `fxs-worker-yields-layer` and `panel-place-population` — the same objects as City Hall, with a different formula for the baseline |
+
+⚠️ **City Hall and the specialists mod compute the "baseline" differently**: City Hall takes `Math.min` over
+the components, the user's mod takes the value closest to zero preserving its sign, and treats a missing yield
+as an explicit `0`. Where a yield occurs with both signs, they give different numbers.
+❓ Whether they visibly conflict in game is **untested**, even though both are installed.
+
+## Population and connected settlements next to the yields
+
+They are not yields — there is no `CityYieldNodes` tree behind them. You build them by hand from the settlement's API:
+
+| Data | Call |
+|---|---|
+| total / rural / urban / pending population | `city.population`, `.ruralPopulation`, `.urbanPopulation`, `.pendingPopulation` |
+| specialists + the per-tile cap | `city.Workers.getNumWorkers(false)`, `city.Workers.getCityWorkerCap()` |
+| turns to a new citizen | `city.Growth.turnsUntilGrowth` |
+| the food threshold and stockpile | `city.Growth.getNextGrowthFoodThreshold().value`, `city.Growth.currentFood` |
+| connected settlements | `city.getConnectedCities()` → `Cities.get(id)` → `.isTown`, `.isCapital`, `.population` |
+| whether it is in the trade network | `city.Trade.isInTradeNetwork()` |
+
+⚠️ **Rural population = `ruralPopulation - pendingPopulation`.** Pending citizens sit
+in `ruralPopulation`; without subtracting them the rows do not add up to `city.population`.
+
+⚠️ **Food from a specialized town is SPLIT** between all the cities it is
+connected to. This settlement receives `townFood / number_of_cities_connected_to_the_TOWN` — the divisor
+is on the town's side, not the side of the city reading the tooltip.
+
+⚠️ A specialized town connected to a city **does not grow** (the food goes out), but
+`turnsUntilGrowth` keeps counting down. The game shows that counter without comment — it is the only number on
+that panel that genuinely misleads.
+
+### Icons without depending on somebody else's mod
+
+The game has its own: **`CITY_CITIZENS`** (population) and **`CITY_SETTLEMENT`** (a settlement), both in
+`base-standard/data/icons/city-icons.xml`, default context. Useful in rows:
+`CITY_RURAL`, `CITY_URBAN`, `CITY_SPECIAL_BASE`, `CITY_CENTERPIN`, `YIELD_CITIES`, `YIELD_TOWNS`.
+
+⚠️ Cool UI keeps its PNGs under `fs://game/f1rstdan-cool-ui/textures/…`. That path resolves
+**only when Cool UI is installed** — using it turns it into a silent dependency.
+
+### Ready-made localization tags (present in all of the game's languages)
+
+`LOC_UI_CITY_INTERACT_CURENT_POPULATION_HEADER`, `LOC_UI_CITY_STATUS_RURAL_POPULATION`,
+`LOC_UI_CITY_STATUS_URBAN_POPULATION`, `LOC_UI_SPECIALISTS_SUBTITLE`,
+`LOC_UI_ACQUIRE_TILE_ADD_POPULATION_MAX_PER_TILE`, `LOC_UI_CITY_DETAILS_NEW_CITIZEN_IN_TURNS`,
+`LOC_UI_CITY_DETAILS_FOOD_NEEDED_TO_GROW`, `LOC_UI_CITY_STATUS_CURRENT_FOOD_STOCKPILE`,
+`LOC_UI_CITY_DETAILS_FOOD_PER_TURN`, `LOC_UI_CITY_DETAILS_GROWTH_TAB` ("Citizen growth"),
+`LOC_PEDIA_CONCEPTS_PAGE_CONNECTED_1_TITLE`, `LOC_UI_SETTLEMENT_TAB_BAR_CITIES`,
+`LOC_UI_SETTLEMENT_TAB_BAR_TOWNS`, `LOC_GLOBAL_YIELDS_SUMMARY_TOTAL_INCOME`.
+
+⚠️ `LOC_UI_CITY_DETAILS_GROWTH_TITLE` **does not exist** — there are `…_GROWTH_TAB` and `…_GROWTH_BREAKDOWN`.
+
+## Highlighting tiles when placing a building (`INTERFACEMODE_PLACE_BUILDING`)
+
+This is drawn by `PBIM.decorate(overlay)` — the handler obtained with
+`InterfaceMode.getInterfaceModeHandler('INTERFACEMODE_PLACE_BUILDING')`. Overriding that one
+method is enough; you do not have to touch `selectPlacementData`.
+
+Available at drawing time (all on `BuildingPlacementManager`):
+
+| Property | Contents |
+|---|---|
+| `urbanPlots` | existing urban districts (the "best" color) |
+| `developedPlots` | tiles in a district, but not an urban one ("okay") |
+| `expandablePlots` | rural / undeveloped ("good") |
+| `uniqueQuarterPlots` | districts that complete a unique quarter (VFX) |
+| `potentialUniqueQuarterPlots` | `{plotID, uniqueQuarterDef}` |
+| `currentConstructible` | the definition of the building being placed |
+| `isRepairing`, `cityID` | context |
+
+⚠️ **The colors are AABBGGRR, not RGBA.** The base values: `0xc84db123` (best), `0xc800f2fe` (okay),
+`0xc81de5b5` (good). In the game's code they are written in decimal (`3360534819` etc.).
+
+```js
+this.plotOverlay = overlay.addPlotOverlay();
+this.plotOverlay.addPlots(indexList, { fillColor: 0xc8003ce6 });
+this.uniqueQuarterModelGroup.addVFXAtPlot('VFX_3dUI_Hex_Highlight_01', plot,
+    { x: 0, y: 0, z: 0 }, { angle: 0, constants: { Color3: [1, 0.992, 0.62], Alpha1: 1 } });
+```
+
+⚠️ When overriding `decorate` you have to **repeat all of the base content** — `CityZoomer.zoomToCity` and
+`WorldUI.pushRegionColorFilter(city.getPurchasedPlots(), {}, this.OUTER_REGION_OVERLAY_FILTER)`.
+Calling the original first achieves nothing if you want to repaint the same tiles: the base color
+will stay on top.
+
+### ❗ `findExistingUniqueBuilding` sees only FINISHED buildings
+
+The base method asks only `city.Constructibles.hasConstructible(hash, false)`. The result: when
+the first half of a unique quarter is **queued or under construction**, the game stops highlighting that
+district for the second half — i.e. exactly when it is needed most.
+
+The fix is a patch on the **prototype** (`Object.getPrototypeOf(BuildingPlacementManager)`), because
+`selectPlacementData` calls that method along the way. A constructible can be in three places — see the section
+above in this file.
+
+### The "this tile will ruin a unique quarter" rule
+
+For the building being placed, unless it is a repair or `ExistingDistrictOnly`:
+
+1. Collect the districts that already hold half of an unlocked unique quarter
+   (`Players.Constructibles.get(owner).getUnlockedUniqueQuarters()` → `GameInfo.UniqueQuarters`).
+2. A candidate that **is** such a district → OK only if it is the same unique quarter.
+3. A candidate for a **unique building** in a new place → bad, if the other half is already somewhere
+   else or the district is "spoiled".
+4. A district is spoiled when it holds a building that is **ageless** or from the **current era**:
+
+```js
+Database.makeHash(def.Age ?? '') === Game.age
+```
+
+⚠️ Only `ConstructibleClass == 'BUILDING'` without `ExistingDistrictOnly` counts — walls do not occupy
+a slot. A building from the **previous** era does not block, because it can be built over.
+
+### Building icons on the tiles in placement mode
+
+They are drawn by the `fxs-building-placement-layer` lens layer
+(`LensManager.layers.get('fxs-building-placement-layer')`), in the `realizeBuildSlots(district)` method.
+
+⚠️ The game calls it **only for candidate tiles** — from `getPlacementOptions()`, i.e.
+`urbanPlots + developedPlots + expandablePlots`, and only where `Districts.getAtLocation()`
+returns something. The rest of the settlement stays empty.
+
+⚠️ The parent method's name has **a typo in the game's code**: `realizeBuidlingPlacementSprites`
+("Buidling"). You have to reproduce it exactly.
+
+Extending it to the whole settlement without duplication:
+
+```js
+let drawn = null;
+layer.realizeBuildSlots = function (district) {          // records what the game drew itself
+    drawn?.add(GameplayMap.getIndexFromLocation(district.location));
+    return original.apply(this, arguments);
+};
+layer.realizeBuidlingPlacementSprites = function (...a) {
+    drawn = new Set();
+    try { originalSprites.apply(this, a); drawTheRest(this); } finally { drawn = null; }
+};
+```
+
+⚠️ **Call through, do not replace.** City Hall replaces `realizeBuildSlots` with a richer version
+(specialists, yield badges, a letter on icons that cannot be loaded as a sprite)
+and loads earlier — calling the original means its drawing also reaches the
+extra tiles.
+
+⚠️ The renderer draws **one placeholder tile per free slot** (`MaxConstructibles`), so without
+a "is anything standing here" filter every rural tile gets a row of empty frames. `ExistingDistrictOnly`
+constructibles (walls) do not count as development — they do not occupy a slot.
+
+The settlement's tiles: `city.Districts.getIds()` → `Districts.get(id)` → `.location`, `.type`.
+
+## ✅ Warehouse bonuses (`Warehouse_YieldChanges`) — how the game really computes them
+
+Established 2026-09-05 while porting the "Warehouses" section from the **Trizian's City Insights**
+mod (day7a1) into `better-city-ui`. The model is his; what follows is what it implies for any mod
+that wants to show "how much this warehouse would give".
+
+Two tables, joined on the id:
+
+```
+Constructible_WarehouseYields: ConstructibleType, YieldChangeId
+Warehouse_YieldChanges:        ID, Age, YieldType, YieldChange, Overbuilt,
+                               ConstructibleInCity, TerrainInCity, FeatureInCity,
+                               FeatureClassInCity, BiomeInCity, DistrictInCity,
+                               ResourceInCity, RouteInCity, LakeInCity,
+                               MinorRiverInCity, NavigableRiverInCity,
+                               NaturalWonderInCity, TerrainTagInCity
+```
+
+`ResourceInCity`, `RouteInCity`, `LakeInCity`, `*RiverInCity`, `NaturalWonderInCity` are **boolean
+flags**, the rest hold a type. `TerrainTagInCity` is in the schema and **no row** of the game or of
+any DLC uses it.
+
+### ⚠️⚠️ A link to a warehouse rule does NOT make a building a warehouse
+
+`Warehouse_YieldChanges` is a **general** engine mechanism, "pay this yield for every matching tile
+in the settlement", and ordinary buildings use it freely. In the Exploration age alone,
+`BUILDING_BANK`, `BUILDING_BAZAAR`, `BUILDING_CITY_HALL`, `BUILDING_MERU`,
+`BUILDING_PAVILION` and `BUILDING_TEMPLE` link to it — **none** of them has the `WAREHOUSE` tag.
+`BUILDING_PALACE` links to it as well.
+
+A "warehouse buildings" list requires **three** conditions at once:
+
+```js
+info.ConstructibleClass === 'BUILDING'
+  && hasLinkToWarehouseRule(info.ConstructibleType)
+  && ConstructibleHasTagType(info.ConstructibleType, 'WAREHOUSE')
+```
+
+The tag alone is not enough either — a tagged building with no rule is a name on the screen with no
+content.
+
+⚠️ **Every warehouse building is `AGELESS`**, so such a list inherently spans all the eras:
+a settlement in the Modern age still has its Antiquity granary and still uses it. That is not
+an era filter leaking.
+
+### ⚠️ One tile pays ONE rule per yield
+
+A tile can match several rules of the same building — a farm on floodplains catches both the
+`TerrainInCity="TERRAIN_FLAT"` rule and the `FeatureInCity` one for floodplains. The engine pays
+**once**. The priority is the same one encoded in `District_FreeConstructibles`:
+
+```
+resource / constructible  >  feature  >  feature class  >  water (river/lake)  >  terrain  >  the rest
+```
+
+Summing all the hits instead of one overstates the result by up to a factor of two.
+
+### ⚠️ A terrain rule is a rule ABOUT AN IMPROVEMENT, not about the terrain
+
+`TerrainInCity="TERRAIN_COAST"` pays for the **fishing boat**, not for the coast. The consequences:
+
+- `TERRAIN_COAST` and `TERRAIN_OCEAN` have the same "bare" improvement
+  (`IMPROVEMENT_FISHING_BOAT`), so a rule written on the coast has to count the boat on the ocean too;
+- forest on flat land is a woodcutter, not a farm — matching on terrain alone would pay for a tile
+  whose feature sends it somewhere else.
+
+The terrain → bare improvement mapping is read from the game, not hardcoded: the rows of
+`District_FreeConstructibles` that have a `TerrainType` and **nothing else** (no `FeatureType`,
+`ResourceType`, `RiverType`, `BiomeType`) are exactly that default layer.
+
+### ⚠️⚠️ `District_FreeConstructibles` is NOT a "terrain → improvement" map
+
+Established 2026-09-06, after treating it as one broke the numbers, not just the icons.
+The table holds three kinds of row at once:
+
+- **buildings** that a given terrain allows — `TERRAIN_COAST` carries the lighthouse, the port and walls;
+- **a civilization's unique improvements** alongside the generic one — `TERRAIN_OCEAN` has the fishing
+  boat **and** the Hawaiian one, `TERRAIN_MOUNTAIN` the generic mountain **and** the Incan one;
+- rows qualified by a resource, a feature, a river or a biome.
+
+A naive `map.set(TerrainType, ConstructibleType)` per row takes whichever happens to be last: the
+ocean resolved to the Hawaiian boat, and mountains to the Incan improvement. The effect — the
+harbor stopped counting ocean tiles, and the ironworks mountains, for every player.
+
+Reading it correctly is two filters plus a tie-break:
+
+```js
+const def = GameInfo.Constructibles.lookup(row.ConstructibleType);
+if (def?.ConstructibleClass !== 'IMPROVEMENT') continue;  // filters out buildings
+if (def.RequiresUnlock) continue;                          // filters out unique variants
+if (row.ResourceType) continue;                            // this describes a resource, not bare ground
+// among the rest, the highest row.Priority wins
+```
+
+⚠️ **`RequiresUnlock` sits on the constructible's DEFINITION, not on this table's row.** Checking it
+on the row filters out nothing — the rows of unique variants look exactly like the generic ones.
+
+⚠️ A civilization's unique improvements also carry the `UNIQUE_IMPROVEMENT` tag (the Incan Terrace
+Farm) — but not all of them: the Hawaiian boat and the Incan mountain have only `RequiresUnlock`.
+Both signals are needed.
+
+### ⚠️ Feature class → improvement: natural wonders have to be excluded
+
+`FeatureClassInCity` resolves through the `FeatureClassType` column on each feature. The trap:
+**natural wonders have ordinary feature classes** — the Great Barrier Reef and the Redwood Forest are
+`FEATURE_CLASS_VEGETATED` — yet they become `IMPROVEMENT_EXPEDITION_BASE`. Without excluding them,
+every rule on a vegetated class claims it pays for expedition bases.
+
+### ⚠️⚠️ `Constructible_WarehouseYields.RequiresActivation` — civilization bonuses inside somebody else's building
+
+Established 2026-09-06, from the log of a running game, after four wrong hypotheses built on reading
+the XML. The table joining a building to warehouse rules has a **`RequiresActivation`** column, and
+next to the building's real rules it holds **civilization bonuses attached conditionally**:
+
+```
+{ConstructibleType:"BUILDING_SAW_PIT", YieldChangeId:"NepalSawPitMountainProduction",
+ RequiresActivation:true}
+```
+
+Nepal gives the saw pit "+1 production from mountains". **Every** one of the ten warehouse buildings
+has one such link and all of them aim at mountains. Taken at face value they give every warehouse
+a mountain rule — inflating the numbers and drawing in the `IMPROVEMENT_MOUNTAIN` improvement.
+
+⚠️ Whether such a bonus is active is **player state, not table data** — there is no `GameInfo` read
+that answers it. Rejecting those links understates the result for one civilization; counting them
+promises the bonus to everyone. Understating is the lesser evil.
+
+### ⚠️ `IMPROVEMENT_MOUNTAIN` is called "Expedition Base"
+
+`LOC_IMPROVEMENT_MOUNTAIN_NAME` → "Expedition Base" (pl. "Baza wypadowa"), and its icon is
+`blp:impicon_expeditionbase` — the same one as `IMPROVEMENT_EXPEDITION_BASE`. Two different types,
+one name and one piece of art. Sorting by name in Polish it lands under B, i.e. first.
+
+⚠️ In general: **`ConstructibleType` is not visual identity.** `IMPROVEMENT_MINE_RESOURCE`
+and `IMPROVEMENT_MINE` also share a name and artwork. Deduplicate by `Name`, not by type.
+
+### ✅ `GameInfo.Feature_NaturalWonders` IS available in the UI context
+
+⚠️ **A correction to an earlier entry from the same session, which claimed the opposite.** Measured
+in a running game: the table returns 22 rows from a UI panel. The earlier "does not exist in the UI"
+was a hypothesis raised while chasing a different bug and written down as fact — which is not
+something to do.
+
+An independent test on the feature row itself (a natural wonder is the only feature the game writes
+prose about — it has a `Description` and a `Tooltip`, ordinary features do not) finds **the same 22
+out of 48**. Both signals agree.
+
+### ✅ The game's log settles things faster than reading the data
+
+Four hypotheses in a row built on the XML files were wrong, because the files do not say what the
+engine actually returns: a column missing from the source is invisible, while `JSON.stringify(row)`
+on a live row shows **every** column with its value. When "the data says X, the game shows Y", a
+one-off dump through `console.error` into `UI.log` settles it in a single reload cycle.
+
+### ✅ A building's description is the only test you have
+
+`LOC_BUILDING_*_DESCRIPTION` is **hand-written prose**, not text generated from the rules — e.g.
+"+1 Production on Clay Pits, Mines, and Quarries". The rules are the *implementation* of that
+sentence (a mine is `TERRAIN_HILL`, a clay pit is `FEATURE_CLASS_WET`), so comparing the result of
+your own computation against that text is the only way to check that the model is right. For all ten
+warehouse buildings it can be made to agree exactly.
+
+### ⚠️ "The tile is improved" comes from the RURAL DISTRICT, not from the `complete` flag
+
+A constructible raises an event while `complete === false` for a moment, and an improvement created
+by the settlement's growth is instantaneous and **may never send `ConstructibleBuildCompleted`**.
+Both cases classify a tile improved this turn as unimproved. `DISTRICT_RURAL` appears the moment
+a tile is improved and disappears with it — that is the authoritative signal.
+
+⚠️ A tile can carry **more than one** improvement at a time: a unique improvement (the Stepwell)
+is built ON an existing one. A "location → one improvement" map loses the earlier one, and
+a `ConstructibleInCity` rule pointing at it stops seeing the tile as improved. Keep a `Set`.
+
+## ⚠️ `GameplayMap.getOwner` versus `getOwningCityFromXY` on an unowned tile
+
+For a tile **inside the map's bounds but unowned**, `getOwningCityFromXY` returns a `ComponentID`
+that is **truthy in the JS sense and invalid in the game's sense** — i.e. it passes every `if`.
+Filtering a settlement's reach this way silently throws out every unclaimed tile and collapses
+"what the settlement could one day work" back into "what it has now".
+
+`GameplayMap.getOwner(x, y)` returns a negative sentinel (`NO_PLAYER`) for an unowned tile and that
+is the right tool. A settlement's eventual reach is `GameplayMap.getPlotIndicesInRadius(x, y, 3)`
+minus other players' tiles (~37 tiles).
+
+## ✅ Event payloads: a free owner filter
+
+Engine events fire for **all players** — one AI turn is thousands of them. These two carry the owner
+in the payload, so the filter costs not a single call into the game:
+
+| Event | Field | Means |
+|---|---|---|
+| `DistrictAddedToMap` | `data.cityID.owner` | a tile improved / a district placed |
+| `PlotOwnershipChanged` | `data.owner`, `data.priorOwner` | the borders moved |
+
+⚠️ `model-city-details.js` listens **only** to `CitySelectionChanged`, `CityGrowthModeChanged`
+and `CityPopulationChanged`. A settlement's growth reports the population **before** the tile is
+improved, so anything that counts tiles has to pick up those two as well or it will show the state
+from a moment ago.
+
+## ✅ Tile outlines: `CultureBorder_Closed` is the only style that obeys colors
+
+```js
+const group = WorldUI.createOverlayGroup('name', OVERLAY_PRIORITY.PLOT_HIGHLIGHT);
+const border = group.addBorderOverlay({
+    style: 'CultureBorder_Closed',
+    primaryColor: 0xFFFFFFFF,     // 0xAARRGGBB
+    secondaryColor: 0xFF000000,   // the halo — readable on any terrain
+});
+border.setThicknessScale(4);
+border.setPlotGroups(plotIndex, i);   // ⚠️ a separate group for EVERY tile
+group.setVisible(true);
+```
+
+⚠️ The thicker styles (`MovementRange`, unit skirts) **ignore** the colors you pass and draw a fixed
+white line — which makes a two-color distinction impossible.
+
+⚠️ Tiles in **the same group** are drawn as one shared outline. For every tile to get its own
+border, each one gets its own group number.
+
+⚠️ An outline, not a fill: the city screen colors its own tiles, and a semi-transparent fill on top
+of that blends into a color that means nothing.
+
+## The build queue clips everything on the LEFT ✅ (2026-09-07)
+
+The queue cards (`build-queue__item-container-queued`) sit in an `fxs-scrollable` whose window has
+`overflow-y-scroll`. Per CSS, invisible overflow on one axis forces it on the other — so **an element
+sticking out past a card's left edge disappears without a trace**: no error, no entry in `UI.log`.
+
+⚠️ The game does not notice this itself, because its own trash can (`build-queue__close-button`)
+hangs at `absolute -right-2 -top-2` and the scrollable has `pr-2` — exactly the 0.5 rem by which the
+trash can sticks out. On the left there is no such slack.
+
+The conclusion for your own controls in the corners of a queue card: **both corners on the right**
+(`-right-2 -top-2` and `-right-2 -bottom-2`), never `-left-*`.
+
+## A settlement buys ONE UNIT per turn (buildings have no limit) ✅ (2026-09-07)
+
+After a single gold purchase in a given settlement, every subsequent row from `GetProductionItems`
+comes back as `disabled: true`, **without** `insufficientFunds` and without an `error` mentioning
+gold. From the data's point of view this looks identical to a real block ("no government", "not
+enough population") — but it is a block that the next turn lifts.
+
+⚠️ `Game.CityCommands.canStart(..., PURCHASE, ...)` in that state also returns **`Cost: 0`**. So the
+refusal wipes the price: a UI that reads the price from that query shows a blank instead of a number
+after a purchase. A refusal is not a repricing — keep the last known price.
+
+⚠️ **The limit applies to UNITS.** More than one building can be bought in a single turn if there is
+enough gold — code that gates "one purchase per settlement per turn" without that distinction takes
+away purchases the game allows.
+
+⚠️⚠️ **`canStart` DOES NOT ENFORCE THAT LIMIT WITHIN A SINGLE FRAME.** Send a `sendRequest`, ask
+`canStart` about a second thing in the same tick — you will get `Success: true`, because the first
+request is merely **queued**. The engine will apply one and drop the rest without a word and without
+a log entry. Code that buys several things in the same settlement in one pass has to count the limit
+**itself** and mark the purchase at the moment of SENDING, not after confirmation (the confirmation
+arrives a tick later).
+
+⚠️ It is the same trap as with the gold balance: `Treasury.goldBalance` does not know about spending
+queued in this tick either.
+
+⚠️ The engine has no query for "has this settlement already purchased this turn". The only signal is
+the **`CityMadePurchase`** event (payload `{ cityID }`, raised for every player — filter by
+`cityID.owner`), cleared on `LocalPlayerTurnBegin`.
+
+⚠️⚠️ **Units and buildings behave DIFFERENTLY here.** `getUnits` keeps a row only when the engine
+says "yes" or "only gold is missing":
+
+```js
+if (!viewHidden && !result.Success && !(result.InsufficientFunds && result.FailureReasons?.length == 1)) continue;
+```
+
+So after a purchase in a given settlement, **units vanish from the purchase list entirely** — they do
+not come back as "blocked", they are simply not there. The constructibles branch is written
+differently and the rows stay. Code that reads state from the purchase list has to have an answer
+for a row the list does not mention at all.
+
+⚠️⚠️ **The event is not enough after loading a save.** The UI context starts from zero, your set is
+empty, and the engine still refuses — so the symptom returns after every load. A second, independent
+way to recognize it: the block covers **the whole list at once**, so nothing is either purchasable or
+"not enough gold". A player with no money has a list full of `insufficientFunds`; a solvent player
+has at least one purchasable item. It is worth adding a threshold (e.g. at least 3 priced items) so
+that a short list does not fall into it by accident.
+
+## The persistence of a mod's state versus loading older saves ✅ (2026-09-07)
+
+`Configuration.getGame().gameSeed` **does not change after loading a save** — an older one included.
+So state kept in `modSettings` under the seed's key survives a move back in time and the mod acts on
+intentions from a future that no longer exists.
+
+⚠️ A mod with `AffectsSavedGames = 0` cannot write into the save, so there is no reliable branch
+identifier. The only available evidence is **the turn number** (`Game.turn`): stamp the state with it
+and reject state from a turn LATER than the one being played. A quick save plus a load works,
+a jump backwards clears the state. Two saves from the same turn are indistinguishable — that is
+a limitation, not a bug.
+
+⚠️ The distinction of what may be persisted at all: **preferences** (what is hidden, whether to
+repair) mean the same thing in every branch and are meant to survive everything. **Game state** (the
+purchase queue: what, where, decided when) needs the turn stamp.
