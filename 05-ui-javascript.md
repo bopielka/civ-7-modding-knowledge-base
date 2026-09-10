@@ -253,6 +253,28 @@ Where the owner sits in the payload (from observing the game's sources):
 ⚠️ A payload **without** an owner should never be dropped — a missing trigger looks
 exactly like a function that does nothing, and that is a worse bug than the cost.
 
+#### ⚠️⚠️ Repairing a constructible raises `ConstructibleChanged` and NOTHING else ✅ (2026-09-09)
+
+Measured in `UI.log`, not deduced. Buying a repair raises **exactly two** events per repaired
+constructible:
+
+```
+ConstructibleChanged  {constructibleType, district, constructible, location, whatChanged, amount}
+CityMadePurchase      {constructibleType, cityID, location, purchaseType, …}
+```
+
+⚠️ **`DistrictDamageChanged` — the name that looks perfect — never fires.** It is raised by combat
+over a district, not by repairing a single constructible.
+
+⚠️ **Nor do `ConstructibleAddedToMap`, `ConstructibleRemovedFromMap` or
+`ConstructibleBuildCompleted`**, because a repair adds and removes nothing — it clears a flag on a
+constructible that is already standing. An overlay watching only those three goes on drawing
+"damaged" after the repair until the screen is reloaded.
+
+⚠️ `ConstructibleChanged` carries **`location`** (the plot, not the city) — the owner has to be
+asked through `GameplayMap.getOwningCityFromXY`. `CityMadePurchase` carries **`cityID`**, so it is
+the cheaper one to filter to a single settlement.
+
 **2. Every `engine.on` is a separate crossing from the engine into JS.** Several modules of one mod
 usually want the same names. In this mod there were **53 subscriptions across 27 distinct names** —
 `LocalPlayerTurnBegin` six times, `ResourceUnassigned` and `ResourceCapChanged` four times each. One

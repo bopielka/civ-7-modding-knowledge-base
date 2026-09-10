@@ -1967,3 +1967,31 @@ child.style.cssText = CHILD_CSS;
 
 The same principle applies to every element on which the game keeps an inline style — including everything
 with `data-bind-style-*` (bindings write inline too).
+
+## 71. An SVG in a `data:` URI does not render as `background-image` ❗✅ (2026-09-10)
+
+**Measured, not assumed.** The element was correct in every respect — `connected=true`, a `35x35`
+rectangle, the right parent, the right rule — and no picture appeared. The same CSS rule with
+`url("blp:…")` rendered without trouble, so neither the box nor the rest of the style was at fault.
+
+```css
+/* draws nothing */
+background-image: url("data:image/svg+xml,%3Csvg …%3E");
+/* draws */
+background-image: url("blp:settings_adv_option_100x100");
+```
+
+⚠️ **The failure is silent** — no line in `UI.log`, no CSS error. It looks exactly like an element
+that was never created, and that is the worst part: without measuring the rectangle you cannot tell
+the two apart. Measure `getBoundingClientRect` after two frames (a fresh node reports `0×0`) before
+starting to fix the appearance.
+
+⚠️ **The fix: draw the shape out of the DOM.** A ring is `border-radius: 50%` plus a `border`; a
+tooth is a `div` with `transform: rotate(…)` and `transform-origin` in the tooth's own coordinates.
+It depends on no asset name and on no image decoder.
+
+⚠️ **Remember that `box-sizing: border-box` is not honoured either** (see above), so the ring's size
+comes to `width + 2 × border-width`.
+
+⚠️ If it has to be an image, the only reliable sources are `blp:<name>` from the game's files and
+`fs://game/…` from the mod's own — see [12-assets-icons-localization.md](12-assets-icons-localization.md).
