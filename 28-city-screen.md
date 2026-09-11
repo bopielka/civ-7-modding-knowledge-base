@@ -515,11 +515,45 @@ in `getProjectItems`.
 |---|---|
 | **Towns (`city.isTown`) do not purchase at all** | the game gives them a separate purchase path |
 | **Projects never** | as above |
-| ⚠️ **Wonders cannot be purchased — UNLESS** the player has fully unlocked the Mughal civic `NODE_CIVIC_MO_MUGHAL_GARDENS_OF_PARADISE` | a real game rule with a single exception |
+| ⚠️ **Wonders cannot be purchased — UNLESS** the player's civilization carries the ability that lifts the rule | a real game rule with a single exception |
+
+❌ **The civic test is WRONG, and it is Cool UI's mistake copied forward** (corrected 2026-09-09,
+verified against the game's XML). Cool UI gates wonder purchase on
+`NODE_CIVIC_MO_MUGHAL_GARDENS_OF_PARADISE` being fully unlocked; that node
+(`age-modern/data/progression-trees-culture-unique.xml`) unlocks `TRADITION_MAYURASANA_II` and a
+tradition slot and **has nothing to do with purchasing**. Anything copying that check shows no
+purchase control on any wonder, ever — which is what it did in `better-city-ui` until 1.8.
+
+✅ **The real rule is a trait modifier:**
+
+```xml
+<!-- age-modern/data/civilizations-shared-gameeffects.xml -->
+<Modifier id="TRAIT_MOD_PARADISE_OF_NATIONS_WONDER_PURCHASE_ABILITY"
+          collection="COLLECTION_OWNER"
+          effect="EFFECT_ADJUST_PLAYER_OR_CITY_BUILDING_PURCHASE_EFFICIENCY">
+    <Argument name="ConstructibleClass">WONDER</Argument>
+    <Argument name="Percent">-150</Argument>   <!-- 150% more expensive than a normal purchase -->
+</Modifier>
+```
+
+attached to `TRAIT_MUGHAL_ABILITY`, which `CIVILIZATION_MUGHAL` carries.
+
+⚠️⚠️ **AND IT APPLIES IN ALL THREE AGES, not only the Modern one.** `age-modern` attaches it in
+`data/civilizations-antiquity.xml`, `data/civilizations-exploration.xml` **and**
+`data/civilizations-modern.xml`, each loaded by its own `AgeInUse` criterion — so a Mughal player
+in Antiquity buys wonders too.
+
+✅ **Read it from the tables rather than naming the civ**, so a mod granting the same ability is
+answered correctly:
 
 ```js
-Game.ProgressionTrees.getNodeState(playerId, nodeType) >= ProgressionTreeNodeState.NODE_STATE_FULLY_UNLOCKED
+// modifier ids with that effect and WONDER in ConstructibleClass
+//   -> GameInfo.TraitModifiers  (ModifierId -> TraitType)
+//   -> GameInfo.CivilizationTraits (TraitType -> CivilizationType)
+//   -> GameInfo.Civilizations.lookup(Players.get(id).civilizationType)?.CivilizationType
 ```
+
+⚠️ `ConstructibleClass` is a **comma-separated list** in the schema; split before comparing.
 
 ❗ **A signature change in game version 1.1.1:**
 `city.Production.getConstructibleProductionCost(type, FeatureTypes.NO_FEATURE, false)` — **three**
